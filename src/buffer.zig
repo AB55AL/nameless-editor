@@ -46,6 +46,9 @@ pub fn init(allocator: std.mem.Allocator, file_name: []const u8) !*Buffer {
 }
 
 pub fn deinit(buffer: *Buffer) void {
+    for (buffer.content.items) |gbuffer| {
+        gbuffer.deinit();
+    }
     buffer.content.deinit();
 }
 

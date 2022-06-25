@@ -30,7 +30,10 @@ pub fn init(allocator: std.mem.Allocator, buffer: []u8) !GapBuffer {
     };
 }
 
-// TODO: deinit function
+pub fn deinit(gbuffer: GapBuffer) void {
+    gbuffer.allocator.free(gbuffer.content);
+    gbuffer.allocator.destroy(&gbuffer);
+}
 
 pub fn insert(gbuffer: *GapBuffer, string: []const u8) !void {
     var i: usize = 0;
