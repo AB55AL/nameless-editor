@@ -87,13 +87,27 @@ pub fn moveGapPosRelative(gbuffer: *GapBuffer, offset: i32) void {
     }
 }
 
-pub fn getContent(gbuffer: *GapBuffer) void {
+pub fn printContent(gbuffer: *GapBuffer) void {
     var i: usize = 0;
     while (i < gbuffer.content.len) : (i += 1) {
         if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
         if (i >= gbuffer.content.len) break;
         print("{c}", .{gbuffer.content[i]});
     }
+}
+
+pub fn getContent(gbuffer: *GapBuffer) ![]u8 {
+    var str = try gbuffer.allocator.alloc(u8, gbuffer.content.len - gbuffer.gap_size);
+    var i: usize = 0;
+    var j: usize = 0;
+    while (i < gbuffer.content.len) : (i += 1) {
+        if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
+        if (i >= gbuffer.content.len) break;
+        str[j] = gbuffer.content[i];
+        j += 1;
+    }
+
+    return str;
 }
 
 pub fn charAt(gbuffer: GapBuffer, index: usize) ?u8 {
@@ -127,6 +141,10 @@ fn resizeGap(gbuffer: *GapBuffer) !void {
     gbuffer.gap_size = new_gap_size;
 }
 
-fn getGapEndPos(gbuffer: *GapBuffer) u32 {
+pub fn getGapEndPos(gbuffer: *GapBuffer) u32 {
     return gbuffer.gap_pos + gbuffer.gap_size - 1;
+}
+
+pub fn isEmpty(gbuffer: *GapBuffer) bool {
+    return gbuffer.content.len == gbuffer.gap_size;
 }

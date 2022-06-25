@@ -125,30 +125,31 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
 pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !void {
-    if (row <= 0 or row >= buffer.content.items.len) {
+    if (row <= 0 or row > buffer.content.items.len) {
         print("delete(): range out of bounds\n", .{});
         return;
     }
     var r = @intCast(usize, row - 1);
     var start_col = @intCast(i32, start_column - 1);
     var num_to_delete = @intCast(u32, end_column - start_col - 1);
-    // print("num_to_delete {}\tstart_col {}\n", .{ num_to_delete, start_col });
 
-    // print("before cursor.col {}  ", .{buffer.cursor.col});
     var gbuffer = &buffer.content.items[r];
     gbuffer.moveGapPosAbsolute(start_col);
     gbuffer.delete(num_to_delete);
 
-    if (gbuffer.content.len == gbuffer.gap_size) {
+    if (gbuffer.isEmpty()) {
         _ = buffer.content.orderedRemove(r);
-        print("EMPTY\n", .{});
         print("new size {}\n", .{buffer.content.items.len});
-    } else {
-        var char = gbuffer.charAt(gbuffer.content.len - gbuffer.gap_size - 1) orelse 'a';
-        if (char != '\n') {
-            print("Gotta merge\n", .{});
-            print("char is {c}\n", .{gbuffer.content[gbuffer.content.len - gbuffer.gap_size - 1]});
-        }
+
+        // deleted the \n char
+    } else if (gbuffer.getGapEndPos() == gbuffer.content.len - 1 and
+        buffer.content.items.len >= 2 and
+        r < buffer.content.items.len - 1)
+    { // merge this line with the next
+        var gb = buffer.content.orderedRemove(r + 1);
+        defer gb.deinit();
+        var str = try gb.getContent();
+        try buffer.insert(row, @intCast(i32, gbuffer.content.len), str);
     }
 }
 
