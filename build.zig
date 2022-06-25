@@ -10,7 +10,7 @@ pub fn build(b: *Builder) void {
 
     const exe = b.addExecutable("main", "src/main.zig");
     exe.linkLibC();
-    exe.addCSourceFile("src/glad/glad.c", &[_][]const u8{
+    exe.addCSourceFile("src/ui/glad/glad.c", &[_][]const u8{
         "-lc",
         "-lglfw3",
         "-lGL",

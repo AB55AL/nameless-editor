@@ -5,9 +5,6 @@ const ArrayList = std.ArrayList;
 
 const Cursor = @import("cursor.zig");
 const GapBuffer = @import("GapBuffer.zig");
-const shaders = @import("shaders.zig");
-
-extern var cursor_shader: shaders.Shader;
 
 const Buffer = @This();
 
@@ -18,7 +15,7 @@ allocator: std.mem.Allocator,
 pub fn init(allocator: std.mem.Allocator, file_name: []const u8) !*Buffer {
     var buffer = try allocator.create(Buffer);
     buffer.content = ArrayList(GapBuffer).init(allocator);
-    buffer.cursor = Cursor.init(cursor_shader);
+    buffer.cursor = Cursor.init();
     buffer.allocator = allocator;
 
     const file = try fs.cwd().openFile(file_name, .{});

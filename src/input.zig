@@ -8,17 +8,12 @@ const Action = glfw.Action;
 const Mods = glfw.Mods;
 
 const Cursor = @import("cursor.zig");
-const text = @import("text.zig");
 const GapBuffer = @import("GapBuffer.zig");
 const Buffer = @import("buffer.zig");
 
 extern var font_size: i32;
 extern var face: freetype.Face;
-extern var txt: text.Text;
 extern var buffer: *Buffer;
-extern var buf: []u8;
-extern var cursor: Cursor;
-extern var allocator: std.mem.Allocator;
 
 pub fn characterInputCallback(window: glfw.Window, code_point: u21) void {
     _ = window;
@@ -65,13 +60,13 @@ pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Ac
             Key.backspace => {
                 if (buffer.cursor.col > 1) {
                     buffer.moveCursorRelative(0, -1);
-                    buffer.delete(cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
+                    buffer.delete(buffer.cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
                         print("{}\n", .{err});
                     };
                 }
             },
             Key.delete => {
-                buffer.delete(cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
+                buffer.delete(buffer.cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
                     print("{}\n", .{err});
                 };
             },
@@ -93,7 +88,7 @@ pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Ac
                 buffer.moveCursorRelative(1, 0);
             },
             Key.d => {
-                buffer.deleteRows(cursor.row, 1) catch |err| {
+                buffer.deleteRows(buffer.cursor.row, 1) catch |err| {
                     print("{}\n", .{err});
                 };
             },

@@ -1,12 +1,12 @@
 const std = @import("std");
 const print = std.debug.print;
+
+const freetype = @import("freetype");
 const Shader = @import("shaders.zig").Shader;
-const Face = @import("freetype").Face;
-const c = @import("c.zig");
+const Face = freetype.Face;
 
-const vectors = @import("vectors.zig");
-
-extern const font_size: i32;
+const vectors = @import("../vectors.zig");
+const c = @import("../c.zig");
 
 pub const Text = @This();
 
@@ -17,17 +17,25 @@ pub const Character = struct {
     Advance: u64, // Offset to advance to next glyph
 };
 
+font_size: i32,
 VAO: u32,
 VBO: u32,
 characters: [128]Character,
+ft_lib: freetype.Library,
+face: Face,
+shader: Shader,
 
 /// Initializes data required for rendering text
-pub fn init(face: Face, shader: Shader) !Text {
+pub fn init(ft_lib: freetype.Library, face: Face, shader: Shader, font_size: i32) !Text {
     var text: Text = undefined;
 
     shader.use();
     text.createVaoAndVbo();
     try text.generateAndCacheFontTextures(face);
+    text.ft_lib = ft_lib;
+    text.face = face;
+    text.shader = shader;
+    text.font_size = font_size;
 
     return text;
 }
@@ -94,7 +102,7 @@ pub fn generateAndCacheFontTextures(text: *Text, face: Face) !void {
     }
 }
 
-pub fn render(text: Text, shader: Shader, string: []const u8, x_coord: i32, y_coord: i32, color: vectors.vec3) void {
+pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color: vectors.vec3) void {
     var x = x_coord;
     var y = y_coord;
 
@@ -102,8 +110,8 @@ pub fn render(text: Text, shader: Shader, string: []const u8, x_coord: i32, y_co
     c.glEnable(c.GL_BLEND);
     c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
 
-    shader.use();
-    c.glUniform3f(c.glGetUniformLocation(shader.ID, "textColor"), color.x, color.y, color.z);
+    text.shader.use();
+    c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
     c.glActiveTexture(c.GL_TEXTURE0);
     c.glBindVertexArray(text.VAO);
 
@@ -144,7 +152,7 @@ pub fn render(text: Text, shader: Shader, string: []const u8, x_coord: i32, y_co
 
         if (char == '\n') {
             x = x_coord;
-            y += font_size;
+            y += text.font_size;
             continue;
         }
         x += @intCast(i32, (character.Advance >> 6)); // bitshift by 6 to get value in pixels (2^6 = 64)
