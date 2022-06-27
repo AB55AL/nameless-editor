@@ -48,6 +48,7 @@ pub fn insert(gbuffer: *GapBuffer, string: []const u8) !void {
     if (gbuffer.gap_size == 0) try gbuffer.resizeGap();
 }
 
+/// deletes a given number of elements after the gap_pos
 pub fn delete(gbuffer: *GapBuffer, num: u32) void {
     var n = std.math.min(num, (gbuffer.content.len - 1) - gbuffer.getGapEndPos());
     gbuffer.gap_size += n;
@@ -89,7 +90,7 @@ pub fn moveGapPosRelative(gbuffer: *GapBuffer, offset: i32) void {
 
 pub fn printContent(gbuffer: *GapBuffer) void {
     var i: usize = 0;
-    while (i < gbuffer.content.len) : (i += 1) {
+    while (true) : (i += 1) {
         if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
         if (i >= gbuffer.content.len) break;
         print("{c}", .{gbuffer.content[i]});
@@ -100,7 +101,7 @@ pub fn getContent(gbuffer: *GapBuffer) ![]u8 {
     var str = try gbuffer.allocator.alloc(u8, gbuffer.content.len - gbuffer.gap_size);
     var i: usize = 0;
     var j: usize = 0;
-    while (i < gbuffer.content.len) : (i += 1) {
+    while (true) : (i += 1) {
         if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
         if (i >= gbuffer.content.len) break;
         str[j] = gbuffer.content[i];
@@ -113,7 +114,7 @@ pub fn getContent(gbuffer: *GapBuffer) ![]u8 {
 pub fn charAt(gbuffer: GapBuffer, index: usize) ?u8 {
     var i: usize = 0;
     var j: usize = 0;
-    while (i <= gbuffer.content.len) : (i += 1) {
+    while (true) : (i += 1) {
         if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
         if (i >= gbuffer.content.len) break;
 
