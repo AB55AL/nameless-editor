@@ -9,6 +9,8 @@ pub fn GapBuffer(comptime T: type) type {
 
         gap_pos: u32,
         gap_size: u32,
+        /// The entire contents of the GapBuffer including the gap
+        /// To get the length of the contents without the gap use getLength()
         content: []T,
 
         allocator: std.mem.Allocator,
@@ -70,11 +72,12 @@ pub fn GapBuffer(comptime T: type) type {
             gbuffer.gap_size += n;
         }
 
-        pub fn moveGapPosAbsolute(gbuffer: *Self, column: i32) void {
-            if (column < 0 or column == gbuffer.gap_pos) return;
+        /// Moves the gap to before the index
+        pub fn moveGapPosAbsolute(gbuffer: *Self, index: i32) void {
+            if (index < 0 or index == gbuffer.gap_pos) return;
 
-            var col: i32 = column - @intCast(i32, gbuffer.gap_pos);
-            gbuffer.moveGapPosRelative(col);
+            var i: i32 = index - @intCast(i32, gbuffer.gap_pos);
+            gbuffer.moveGapPosRelative(i);
         }
 
         pub fn moveGapPosRelative(gbuffer: *Self, offset: i32) void {
@@ -116,34 +119,21 @@ pub fn GapBuffer(comptime T: type) type {
 
         /// Allocates a new slice containing the contents and returns it
         pub fn getContent(gbuffer: *Self) ![]T {
-            var str = try gbuffer.allocator.alloc(T, gbuffer.content.len - gbuffer.gap_size);
-            var i: usize = 0;
-            var j: usize = 0;
-            while (true) : (i += 1) {
-                if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
-                if (i >= gbuffer.content.len) break;
-                str[j] = gbuffer.content[i];
-                j += 1;
-            }
+            var content = try gbuffer.allocator.alloc(T, gbuffer.content.len - gbuffer.gap_size);
+            gbuffer.moveGapPosAbsolute(0);
 
-            return str;
+            var i: usize = 0;
+            while (i < gbuffer.getLength()) : (i += 1) {
+                content[i] = gbuffer.content[i + gbuffer.getGapEndPos() + 1];
+            }
+            return content;
         }
 
         /// returns the ith element or null
-        /// jumps over the gap
-        pub fn elementAt(gbuffer: Self, index: usize) ?T {
-            @setRuntimeSafety(false);
-            var i: usize = 0;
-            var j: usize = 0;
-            while (true) : (i += 1) {
-                if (i == gbuffer.gap_pos) i += gbuffer.gap_size;
-                if (i >= gbuffer.content.len) break;
-
-                if (j == index) return gbuffer.content[j + gbuffer.gap_size];
-                j += 1;
-            }
-
-            return null;
+        /// moves the gap out of the way
+        pub fn elementAt(gbuffer: *Self, index: usize) *T {
+            gbuffer.moveGapPosAbsolute(0);
+            return &gbuffer.content[index + gbuffer.getGapEndPos() + 1];
         }
 
         pub fn getGapEndPos(gbuffer: *Self) u32 {
@@ -152,6 +142,11 @@ pub fn GapBuffer(comptime T: type) type {
 
         pub fn isEmpty(gbuffer: *Self) bool {
             return gbuffer.content.len == gbuffer.gap_size;
+        }
+
+        /// Returns the length of the content without the gap size
+        pub fn getLength(gbuffer: Self) usize {
+            return gbuffer.content.len - gbuffer.gap_size;
         }
 
         fn resizeGap(gbuffer: *Self) !void {

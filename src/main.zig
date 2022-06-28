@@ -7,7 +7,6 @@ const ArrayList = std.ArrayList;
 const glfw = @import("glfw");
 
 const c = @import("c.zig");
-const GapBuffer = @import("GapBuffer.zig");
 const input = @import("input.zig");
 const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
@@ -19,11 +18,9 @@ var window_width: u32 = 800;
 var window_height: u32 = 600;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-var arena = std.heap.ArenaAllocator.init(gpa.allocator());
-// export var allocator = gpa.allocator();
-var allocator = arena.allocator();
 
 export var buffer: *Buffer = undefined;
+export var start: i32 = 0;
 
 var renderer: Renderer = undefined;
 
@@ -41,9 +38,26 @@ pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) voi
     _ = window;
 }
 
+pub fn cursorPositionCallback(window: glfw.Window, x_pos: f64, y_pos: f64) void {
+    _ = window;
+    _ = x_pos;
+    _ = y_pos;
+}
+
+pub fn scrollCallback(window: glfw.Window, x_offset: f64, y_offset: f64) void {
+    _ = window;
+    _ = x_offset;
+    start -= @floatToInt(i32, y_offset) * renderer.text.font_size;
+    start = if (start <= 0)
+        0
+    else if (start >= buffer.lines.getLength() * @intCast(usize, renderer.text.font_size))
+        @intCast(i32, (buffer.lines.getLength() - 1) * @intCast(usize, renderer.text.font_size))
+    else
+        start;
+}
+
 pub fn main() !void {
     defer _ = gpa.deinit();
-    defer arena.deinit();
     try glfw.init(.{});
     defer glfw.terminate();
 
@@ -63,29 +77,33 @@ pub fn main() !void {
     window.setFramebufferSizeCallback(framebufferSizeCallback);
     window.setCharCallback(input.characterInputCallback);
     window.setKeyCallback(input.keyInputCallback);
+    window.setCursorPosCallback(cursorPositionCallback);
+    window.setScrollCallback(scrollCallback);
 
     // fonts
-    buffer = try Buffer.init(allocator, "build.zig");
+    buffer = try Buffer.init(gpa.allocator(), "build.zig");
     // buffer = try Buffer.init(allocator, "/home/ab55al/personal/prog/test/gap_buffer/file_10_000.txt");
     // buffer = try Buffer.init(allocator, "/home/ab55al/personal/prog/test/gap_buffer/file_100_000.txt");
     defer buffer.deinit();
+    defer {
+        buffer.lines.moveGapPosAbsolute(0);
+        var i: usize = 0;
+        while (i < buffer.lines.getLength()) : (i += 1) {
+            buffer.lines.content[i + buffer.lines.getGapEndPos() + 1].printContent("{c}");
+        }
+    }
 
-    // depth is 11
-    // var i: u32 = 0;
-    // while (i < 10) : (i += 1) {
-    // var j: i32 = 1;
+    // var ele = buffer.lines.elementAt(1);
+    // var i: usize = 0;
+    // while (i < ele.getLength()) : (i += 1) {
+    //     print("{c}", .{ele.elementAt(i)});
     // }
-    // try buffer.delete(1, 1, 2);
-    // buffer.content.items[0] = (try Rope.delete(&buffer.content.items[0], allocator, 1, 6)).*;
-    // buffer.content.items[0].traverse(true);
 
-    var gbuffer = &buffer.content.items[0];
-    gbuffer.moveGapPosAbsolute(0);
     while (!window.shouldClose()) {
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-        try renderer.render(buffer);
+        try renderer.render(buffer, start);
 
         try window.swapBuffers();
         try glfw.pollEvents();

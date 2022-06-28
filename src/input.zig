@@ -8,11 +8,9 @@ const Action = glfw.Action;
 const Mods = glfw.Mods;
 
 const Cursor = @import("cursor.zig");
-const GapBuffer = @import("GapBuffer.zig");
 const Buffer = @import("buffer.zig");
 
 extern var font_size: i32;
-extern var face: freetype.Face;
 extern var buffer: *Buffer;
 
 pub fn characterInputCallback(window: glfw.Window, code_point: u21) void {
@@ -86,11 +84,6 @@ pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Ac
             },
             Key.down => {
                 buffer.moveCursorRelative(1, 0);
-            },
-            Key.d => {
-                buffer.deleteRows(buffer.cursor.row, 1) catch |err| {
-                    print("{}\n", .{err});
-                };
             },
             else => {
                 // print("Don't know the key ({})\n", .{key});

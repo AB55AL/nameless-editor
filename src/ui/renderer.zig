@@ -6,14 +6,13 @@ const glfw = @import("glfw");
 const freetype = @import("freetype");
 
 const c = @import("../c.zig");
-// const Shader = @import("shaders.zig").Shader;
 const Shader = @import("shaders.zig");
 const vectors = @import("../vectors.zig");
 const matrices = @import("../matrices.zig");
 const CursorRenderInfo = @import("cursor.zig");
-// const Text = @import("text.zig").Text;
 const Text = @import("text.zig");
 const Buffer = @import("../buffer.zig");
+const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 
 pub const Renderer = @This();
 
@@ -42,8 +41,8 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
     // defer ft_lib.deinit();
     // defer face.deinit();
 
-    const font_size: i32 = 48;
-    try face.setCharSize(60 * font_size, 0, 0, 0);
+    const font_size: i32 = 20;
+    try face.setCharSize(64 * font_size, 0, 0, 0);
 
     var text = try Text.init(ft_lib, face, text_shader, font_size);
 
@@ -57,25 +56,25 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
 
 // TODO: deinit()
 
-pub fn render(renderer: Renderer, buffer: *Buffer) !void {
-    var array = ArrayList(u8).init(buffer.allocator);
-    defer array.deinit();
-    for (buffer.content.items) |gb| {
-        var i: usize = 0;
-        while (i < gb.content.len) : (i += 1) {
-            if (i == gb.gap_pos) i += gb.gap_size;
-            if (i >= gb.content.len) break;
-            try array.append(gb.content[i]);
-        }
-    }
-
+pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     var cursor_w = @intCast(i32, renderer.text.characters[0].Advance >> 6);
     var cursor_h = renderer.text.font_size;
-    var cursor_y = (buffer.cursor.row - 1) * cursor_h + 10;
+    var cursor_y = (buffer.cursor.row - 1) * cursor_h + 10 - start;
     var cursor_x = buffer.cursor.col * cursor_w - cursor_w;
 
     renderer.cursor.render(cursor_x, cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
-    renderer.text.render(array.items, 0, renderer.text.font_size, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+
+    var i: usize = 0;
+    var j: i32 = 0;
+    while (true) : (i += 1) {
+        if (i == buffer.lines.gap_pos) i += buffer.lines.gap_size;
+        if (i >= buffer.lines.content.len) break;
+        var gbuffer = &buffer.lines.content[i];
+        gbuffer.moveGapPosAbsolute(0);
+        renderer.text.render(gbuffer.content[gbuffer.getGapEndPos() + 1 ..], 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        j += renderer.text.font_size;
+    }
+    // renderer.text.render(con, 0, renderer.text.font_size - start, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
 }
 
 // pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) void {
