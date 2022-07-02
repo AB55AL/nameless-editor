@@ -128,7 +128,7 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
     var current_state = &buffer.current_state;
     var next_state = &buffer.next_state;
 
-    try buffer.updateHistoryIfNeeded(row, row + num_of_lines);
+    try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
     if (current_state.content.isEmpty()) {
         try current_state.content.replaceAllWith(line.sliceOfContent());
         current_state.first_row = row;
@@ -144,7 +144,7 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
     next_state.first_row = row;
     next_state.last_row = row + num_of_lines;
 
-    try buffer.updateHistoryIfNeeded(row, row + num_of_lines);
+    try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
@@ -176,7 +176,7 @@ pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !vo
         current_state.first_row = row;
         current_state.last_row = end_row;
     } else {
-        try buffer.updateHistoryIfNeeded(row, end_row);
+        try history.updateHistoryIfNeeded(buffer, row, end_row);
     }
 
     try buffer.deleteWithoutHistoryChange(row, start_column, end_column);
@@ -191,7 +191,7 @@ pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !vo
     next_state.last_row = row;
 
     if (end_row > row)
-        try buffer.updateHistory();
+        try history.updateHistory(buffer);
 }
 
 pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
@@ -262,53 +262,6 @@ pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32
 // TODO: this
 // pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
 // }
-
-fn updateHistoryIfNeeded(buffer: *Buffer, first_row: i32, last_row: i32) !void {
-    var current_state = &buffer.current_state;
-    var next_state = &buffer.next_state;
-
-    if (current_state.content.isEmpty()) return;
-
-    if (current_state.first_row != first_row or current_state.last_row != last_row) {
-        try buffer.history.updateHistory(HistoryChange{
-            .previous_state = .{
-                .content = try current_state.content.copyOfContent(),
-                .first_row = current_state.first_row,
-                .last_row = current_state.last_row,
-            },
-            .next_state = .{
-                .content = try next_state.content.copyOfContent(),
-                .first_row = next_state.first_row,
-                .last_row = next_state.last_row,
-            },
-        });
-
-        try current_state.content.replaceAllWith("");
-        try next_state.content.replaceAllWith("");
-    }
-}
-
-pub fn updateHistory(buffer: *Buffer) !void {
-    var current_state = &buffer.current_state;
-
-    if (current_state.content.isEmpty()) return;
-    try buffer.history.updateHistory(HistoryChange{
-        .previous_state = .{
-            .content = try current_state.content.copyOfContent(),
-            .first_row = current_state.first_row,
-            .last_row = current_state.last_row,
-        },
-        .next_state = .{
-            .content = try buffer.next_state.content.copyOfContent(),
-            .first_row = buffer.next_state.first_row,
-            .last_row = buffer.next_state.last_row,
-        },
-    });
-
-    try current_state.content.replaceAllWith("");
-    current_state.first_row = buffer.cursor.row;
-    current_state.last_row = buffer.cursor.row;
-}
 
 /// Merges two rows
 pub fn mergeRows(buffer: *Buffer, first_row: usize, second_row: usize) !void {

@@ -124,3 +124,38 @@ pub fn redo(buffer: *Buffer) !void {
 
     try buffer.history.stack.append(the_change);
 }
+
+pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: i32, last_row: i32) !void {
+    var current_state = &buffer.current_state;
+    if (current_state.content.isEmpty()) return;
+
+    if (current_state.first_row != first_row or current_state.last_row != last_row)
+        try updateHistory(buffer);
+}
+
+pub fn updateHistory(buffer: *Buffer) !void {
+    var current_state = &buffer.current_state;
+    var next_state = &buffer.next_state;
+
+    if (current_state.content.isEmpty()) return;
+    try buffer.history.updateHistory(HistoryChange{
+        .previous_state = .{
+            .content = try current_state.content.copyOfContent(),
+            .first_row = current_state.first_row,
+            .last_row = current_state.last_row,
+        },
+        .next_state = .{
+            .content = try next_state.content.copyOfContent(),
+            .first_row = next_state.first_row,
+            .last_row = next_state.last_row,
+        },
+    });
+
+    try current_state.content.replaceAllWith("");
+    current_state.first_row = buffer.cursor.row;
+    current_state.last_row = buffer.cursor.row;
+
+    try next_state.content.replaceAllWith("");
+    next_state.first_row = buffer.cursor.row;
+    next_state.last_row = buffer.cursor.row;
+}

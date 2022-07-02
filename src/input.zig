@@ -67,7 +67,7 @@ pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Ac
                 if (mods.alt) {
                     window.setShouldClose(true);
                 } else {
-                    buffer.updateHistory() catch |err| {
+                    history.updateHistory(buffer) catch |err| {
                         print("{}", .{err});
                     };
                 }
