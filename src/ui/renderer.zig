@@ -66,15 +66,11 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
 
     var i: usize = 0;
     var j: i32 = 0;
-    while (true) : (i += 1) {
-        if (i == buffer.lines.gap_pos) i += buffer.lines.gap_size;
-        if (i >= buffer.lines.content.len) break;
-        var gbuffer = &buffer.lines.content[i];
-        gbuffer.moveGapPosAbsolute(0);
-        renderer.text.render(gbuffer.content[gbuffer.getGapEndPos() + 1 ..], 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+    var lines = buffer.lines.sliceOfContent();
+    while (i < lines.len) : (i += 1) {
+        renderer.text.render(lines[i].sliceOfContent(), 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
         j += renderer.text.font_size;
     }
-    // renderer.text.render(con, 0, renderer.text.font_size - start, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
 }
 
 // pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) void {
