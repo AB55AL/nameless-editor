@@ -10,12 +10,12 @@ pub fn GapBuffer(comptime T: type) type {
         gap_pos: u32,
         gap_size: u32,
         /// The entire contents of the GapBuffer including the gap
-        /// To get the length of the contents without the gap use getLength()
+        /// To get the length of the contents without the gap use length()
         content: []T,
 
         allocator: std.mem.Allocator,
 
-        pub fn init(allocator: std.mem.Allocator, input: ?[]T) !Self {
+        pub fn init(allocator: std.mem.Allocator, input: ?[]const T) !Self {
             const gap_size: u32 = 16;
             const gap_pos = 0;
             const size = if (input != null) input.?.len else 0;
@@ -66,10 +66,21 @@ pub fn GapBuffer(comptime T: type) type {
             if (gbuffer.gap_size == 0) try gbuffer.resizeGap();
         }
 
+        pub fn replaceAllWith(gbuffer: *Self, new_content: []const T) !void {
+            gbuffer.moveGapPosAbsolute(0);
+            const end_of_line = std.math.maxInt(i32);
+            gbuffer.delete(end_of_line);
+            try gbuffer.insertMany(new_content);
+        }
+
         /// deletes a given number of elements after the gap_pos
-        pub fn delete(gbuffer: *Self, num: u32) void {
+        pub fn delete(gbuffer: *Self, num: i32) void {
+            if (num < 0) {
+                print("Can't pass negative numbers to GapBuffer.delete()", .{});
+                return;
+            }
             var n = std.math.min(num, (gbuffer.content.len - 1) - gbuffer.getGapEndPos());
-            gbuffer.gap_size += n;
+            gbuffer.gap_size += @intCast(u32, n);
         }
 
         /// Moves the gap to before the index
@@ -118,22 +129,33 @@ pub fn GapBuffer(comptime T: type) type {
         }
 
         /// Allocates a new slice containing the contents and returns it
-        pub fn getContent(gbuffer: *Self) ![]T {
+        pub fn copyOfContent(gbuffer: *Self) ![]T {
             var content = try gbuffer.allocator.alloc(T, gbuffer.content.len - gbuffer.gap_size);
             gbuffer.moveGapPosAbsolute(0);
 
             var i: usize = 0;
-            while (i < gbuffer.getLength()) : (i += 1) {
+            while (i < gbuffer.length()) : (i += 1) {
+                gbuffer.moveGapPosAbsolute(0);
                 content[i] = gbuffer.content[i + gbuffer.getGapEndPos() + 1];
             }
             return content;
         }
 
-        /// returns the ith element or null
+        /// Returns a slice containing the content.
+        /// DOES NOT CREATE A COPY.
+        /// If the gap moves It **WILL** modify the content of the slice since the slice is just a pointer into an array
+        pub fn sliceOfContent(gbuffer: *Self) []T {
+            gbuffer.moveGapPosAbsolute(0);
+            return gbuffer.content[gbuffer.getGapEndPos() + 1 ..];
+        }
+
+        /// returns a pointer to the ith element
         /// moves the gap out of the way
         pub fn elementAt(gbuffer: *Self, index: usize) *T {
             gbuffer.moveGapPosAbsolute(0);
-            return &gbuffer.content[index + gbuffer.getGapEndPos() + 1];
+            // print("index = {} and gap_pos {} and content.len {}\n", .{ index, index + gbuffer.getGapEndPos() + 1, gbuffer.content.len });
+            var i = std.math.min(index + gbuffer.getGapEndPos() + 1, gbuffer.content.len - 1);
+            return &gbuffer.content[i];
         }
 
         pub fn getGapEndPos(gbuffer: *Self) u32 {
@@ -145,7 +167,7 @@ pub fn GapBuffer(comptime T: type) type {
         }
 
         /// Returns the length of the content without the gap size
-        pub fn getLength(gbuffer: Self) usize {
+        pub fn length(gbuffer: Self) usize {
             return gbuffer.content.len - gbuffer.gap_size;
         }
 

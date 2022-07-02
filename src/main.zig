@@ -50,8 +50,8 @@ pub fn scrollCallback(window: glfw.Window, x_offset: f64, y_offset: f64) void {
     start -= @floatToInt(i32, y_offset) * renderer.text.font_size;
     start = if (start <= 0)
         0
-    else if (start >= buffer.lines.getLength() * @intCast(usize, renderer.text.font_size))
-        @intCast(i32, (buffer.lines.getLength() - 1) * @intCast(usize, renderer.text.font_size))
+    else if (start >= buffer.lines.length() * @intCast(usize, renderer.text.font_size))
+        @intCast(i32, (buffer.lines.length() - 1) * @intCast(usize, renderer.text.font_size))
     else
         start;
 }
@@ -80,24 +80,8 @@ pub fn main() !void {
     window.setCursorPosCallback(cursorPositionCallback);
     window.setScrollCallback(scrollCallback);
 
-    // fonts
     buffer = try Buffer.init(gpa.allocator(), "build.zig");
-    // buffer = try Buffer.init(allocator, "/home/ab55al/personal/prog/test/gap_buffer/file_10_000.txt");
-    // buffer = try Buffer.init(allocator, "/home/ab55al/personal/prog/test/gap_buffer/file_100_000.txt");
     defer buffer.deinit();
-    defer {
-        buffer.lines.moveGapPosAbsolute(0);
-        var i: usize = 0;
-        while (i < buffer.lines.getLength()) : (i += 1) {
-            buffer.lines.content[i + buffer.lines.getGapEndPos() + 1].printContent("{c}");
-        }
-    }
-
-    // var ele = buffer.lines.elementAt(1);
-    // var i: usize = 0;
-    // while (i < ele.getLength()) : (i += 1) {
-    //     print("{c}", .{ele.elementAt(i)});
-    // }
 
     while (!window.shouldClose()) {
         c.glClearColor(0.2, 0.3, 0.3, 1.0);
