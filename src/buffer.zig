@@ -16,6 +16,7 @@ const utils = @import("utils.zig");
 
 const Buffer = @This();
 
+file_path: []u8,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: GapBuffer(GapBuffer(u8)),
@@ -25,18 +26,13 @@ history: History,
 current_state: HistoryBufferStateResizeable,
 next_state: HistoryBufferStateResizeable,
 
-pub fn init(allocator: std.mem.Allocator, file_name: []const u8) !*Buffer {
+pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !*Buffer {
     var buffer = try allocator.create(Buffer);
     buffer.lines = try GapBuffer(GapBuffer(u8)).init(allocator, null);
     buffer.cursor = .{ .row = 1, .col = 1 };
     buffer.allocator = allocator;
-
-    const file = try fs.cwd().openFile(file_name, .{});
-    defer file.close();
-    const metadata = try file.metadata();
-    try file.seekTo(0);
-    var buf = try file.readToEndAlloc(allocator, metadata.size());
-    defer allocator.free(buf);
+    buffer.file_path = try allocator.alloc(u8, file_path.len);
+    std.mem.copy(u8, buffer.file_path, file_path);
 
     buffer.lines.moveGapPosAbsolute(0);
     var line = utils.splitByLineIterator(buf);
@@ -72,6 +68,7 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.current_state.content.deinit();
     buffer.next_state.content.deinit();
     buffer.history.deinit();
+    buffer.allocator.free(buffer.file_path);
     buffer.allocator.destroy(buffer);
 }
 

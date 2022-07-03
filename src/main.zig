@@ -1,6 +1,5 @@
 const std = @import("std");
 const print = std.debug.print;
-const fs = std.fs;
 const time = std.time;
 const ArrayList = std.ArrayList;
 
@@ -12,6 +11,7 @@ const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
 const Renderer = @import("ui/renderer.zig");
 const matrices = @import("matrices.zig");
+const file_io = @import("file_io.zig");
 
 // variables
 var window_width: u32 = 800;
@@ -80,7 +80,10 @@ pub fn main() !void {
     window.setCursorPosCallback(cursorPositionCallback);
     window.setScrollCallback(scrollCallback);
 
-    buffer = try Buffer.init(gpa.allocator(), "build.zig");
+    buffer = file_io.openFile(gpa.allocator(), "build.zig") catch |err| {
+        print("{}\n", .{err});
+        return;
+    };
     defer buffer.deinit();
 
     while (!window.shouldClose()) {
