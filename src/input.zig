@@ -84,6 +84,11 @@ pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Ac
             Key.down => {
                 buffer.moveCursorRelative(1, 0);
             },
+            Key.enter => {
+                buffer.insert(buffer.cursor.row, buffer.cursor.col, "\n") catch |err| {
+                    print("{}\n", .{err});
+                };
+            },
             else => {
                 // print("Don't know the key ({})\n", .{key});
             },
