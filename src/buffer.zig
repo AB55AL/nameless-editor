@@ -35,10 +35,9 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     std.mem.copy(u8, buffer.file_path, file_path);
 
     buffer.lines.moveGapPosAbsolute(0);
-    var line = utils.splitByLineIterator(buf);
-    while (line != null) {
+    var iter = utils.splitAfter(u8, buf, '\n');
+    while (iter.next()) |line| {
         try buffer.lines.insertOne(try GapBuffer(u8).init(allocator, line));
-        line = utils.splitByLineIterator(buf);
     }
     buffer.lines.moveGapPosAbsolute(0);
 
@@ -306,19 +305,15 @@ pub fn insertWithoutHistoryChange(buffer: *Buffer, row: i32, column: i32, string
     var new_string = try gbuffer.copyOfContent();
     defer buffer.allocator.free(new_string);
 
-    var line = utils.splitByLineIterator(new_string);
+    var iter = utils.splitAfter(u8, new_string, '\n');
 
     // Replace contents of the changed lines
-    try gbuffer.replaceAllWith(line.?);
-
-    line = utils.splitByLineIterator(new_string);
-    if (line == null) return;
+    try gbuffer.replaceAllWith(iter.next().?);
 
     // Add new lines if there's any
     buffer.lines.moveGapPosAbsolute(@intCast(i32, r + 1));
-    while (line != null) {
-        try buffer.lines.insertOne(try GapBuffer(u8).init(buffer.allocator, line.?));
-        line = utils.splitByLineIterator(new_string);
+    while (iter.next()) |line| {
+        try buffer.lines.insertOne(try GapBuffer(u8).init(buffer.allocator, line));
     }
 }
 
