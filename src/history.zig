@@ -4,6 +4,7 @@ const ArrayList = std.ArrayList;
 
 const Buffer = @import("buffer.zig");
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
+const without_history_change = @import("without_history_change_edits.zig");
 
 pub const HistoryBufferState = struct {
     content: []const u8,
@@ -47,7 +48,7 @@ pub const History = struct {
         history.stack.deinit();
     }
 
-    pub fn updateHistory(history: *History, latest_change: HistoryChange) !void {
+    fn update(history: *History, latest_change: HistoryChange) !void {
         history.emptyRedoStack();
         try history.pushChange(latest_change);
     }
@@ -77,17 +78,20 @@ pub fn undo(buffer: *Buffer) !void {
     var previous_state = the_change.previous_state;
 
     if (next_state.content.len == 0) {
-        try buffer.insertNewLineWithoutHistoryChange(
+        try without_history_change.insertNewLine(
+            buffer,
             previous_state.first_row,
             previous_state.content,
         );
     } else if (previous_state.content.len == 0) {
-        try buffer.deleteRowsWithoutHistoryChange(
+        try without_history_change.deleteRows(
+            buffer,
             previous_state.first_row,
             previous_state.last_row,
         );
     } else {
-        try buffer.replaceRowsWithoutHistoryChange(
+        try without_history_change.replaceRows(
+            buffer,
             previous_state.content,
             next_state.first_row,
             next_state.last_row,
@@ -105,21 +109,28 @@ pub fn redo(buffer: *Buffer) !void {
     var previous_state = the_change.previous_state;
 
     if (next_state.content.len == 0) {
-        try buffer.deleteRowsWithoutHistoryChange(
+        try without_history_change.deleteRows(
+            buffer,
             previous_state.first_row,
             previous_state.last_row,
         );
     } else if (previous_state.content.len == 0) {
-        try buffer.insertNewLineWithoutHistoryChange(
+        try without_history_change.insertNewLine(
+            buffer,
             previous_state.first_row,
             next_state.content,
         );
     } else {
-        try buffer.replaceRowsWithoutHistoryChange(
+        try without_history_change.replaceRows(
+            buffer,
             next_state.content,
             previous_state.first_row,
             previous_state.last_row,
         );
+        // var con = try buffer.copyOfRows(1, @intCast(i32, buffer.lines.length()));
+        // defer buffer.allocator.free(con);
+        // print("{s}", .{con});
+        // print("\n-----------------------------------------------------------\n", .{});
     }
 
     try buffer.history.stack.append(the_change);
@@ -138,7 +149,7 @@ pub fn updateHistory(buffer: *Buffer) !void {
     var next_state = &buffer.next_state;
 
     if (current_state.content.isEmpty()) return;
-    try buffer.history.updateHistory(HistoryChange{
+    try buffer.history.update(HistoryChange{
         .previous_state = .{
             .content = try current_state.content.copyOfContent(),
             .first_row = current_state.first_row,
