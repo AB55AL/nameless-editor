@@ -12,6 +12,7 @@ const Buffer = @import("buffer.zig");
 const Renderer = @import("ui/renderer.zig");
 const matrices = @import("matrices.zig");
 const file_io = @import("file_io.zig");
+const utf8 = @import("utf8.zig");
 
 // variables
 var window_width: u32 = 800;

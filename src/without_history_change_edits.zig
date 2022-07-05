@@ -9,7 +9,7 @@ const utf8 = @import("utf8.zig");
 const end_of_line = std.math.maxInt(i32);
 
 /// Inserts the given string at the given row and column. (1-based)
-pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void {
+pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
     if (row <= 0 or row > buffer.lines.length()) {
         print("insert(): range out of bounds\n", .{});
         print("row {}\n", .{row});
@@ -17,12 +17,10 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
         return;
     }
 
-    var r = @intCast(usize, row - 1);
+    var r = row - 1;
     var line = buffer.lines.elementAt(r);
-    var c = @intCast(i32, utf8.arrayIndexOfCodePoint(line.sliceOfContent(), @intCast(usize, column)));
-    // if (column > line.length()) {
-    //     c = @intCast(i32, line.content.len);
-    // }
+    var c = utf8.firstByteOfCodeUnit(line.sliceOfContent(), column);
+
     line.moveGapPosAbsolute(c);
     try line.insertMany(string);
 
@@ -37,47 +35,44 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
     try line.replaceAllWith(iter.next().?);
 
     // Add new lines if there's any
-    buffer.lines.moveGapPosAbsolute(@intCast(i32, r + 1));
+    buffer.lines.moveGapPosRelative(1);
     while (iter.next()) |new_line| {
         try buffer.lines.insertOne(try GapBuffer(u8).init(buffer.allocator, new_line));
     }
+    buffer.lines.moveGapPosAbsolute(r);
+
+    buffer.size += string.len;
 }
 
-pub fn insertNewLine(buffer: *Buffer, row: i32, string: []const u8) !void {
+pub fn insertNewLine(buffer: *Buffer, row: u32, string: []const u8) !void {
     buffer.lines.moveGapPosAbsolute(row - 1);
     try buffer.lines.insertOne(try GapBuffer(u8).init(buffer.allocator, null));
     try insert(buffer, row, 1, string);
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
-pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !void {
-    if (row <= 0 or row > buffer.lines.length()) {
+pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !void {
+    if (row <= 0 or row > buffer.lines.length() or start_column <= 0) {
         print("delete(): range out of bounds\n", .{});
         return;
     }
     var lines = &buffer.lines;
-    var r = @intCast(usize, row - 1);
-
+    var r = row - 1;
     var line = lines.elementAt(r);
 
-    var start_index = utf8.arrayIndexOfCodePoint(line.sliceOfContent(), @intCast(usize, start_column));
-    var end_index = utf8.arrayIndexOfCodePoint(line.sliceOfContent(), @intCast(usize, std.math.min(
-        end_column,
-        line.length(),
-    )));
+    var start_index = utf8.firstByteOfCodeUnit(line.sliceOfContent(), start_column);
+    var substring_to_delete = utf8.substringOfUTF8Sequence(line.sliceOfContent(), start_column, end_column - 1);
 
-    if (end_column > line.content.len) end_index += 1;
+    var bytes_to_delete = substring_to_delete.len;
 
-    var bytes_to_delete = @intCast(i32, end_index - start_index);
-
-    line.moveGapPosAbsolute(@intCast(i32, start_index));
+    line.moveGapPosAbsolute(start_index);
     line.delete(bytes_to_delete);
+    buffer.size -= bytes_to_delete;
 
     if (line.isEmpty()) {
         lines.elementAt(r).deinit();
-        lines.moveGapPosAbsolute(@intCast(i32, r));
+        lines.moveGapPosAbsolute(r);
         lines.delete(1);
-        print("EMPTY\n", .{});
 
         // deleted the \n char
     } else if (line.getGapEndPos() == line.content.len - 1 and
@@ -85,19 +80,19 @@ pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !vo
         r < lines.length() - 1)
     {
         try buffer.mergeRows(r, r + 1);
-        lines.moveGapPosAbsolute(@intCast(i32, r + 1));
+        lines.moveGapPosAbsolute(r + 1);
         lines.delete(1);
     }
 }
 
-pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
+pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
     if (start_row == end_row) {
         try delete(buffer, start_row, start_col, end_col);
         return;
     }
     try delete(buffer, end_row, 1, end_col);
 
-    var mid_row: i32 = end_row - 1;
+    var mid_row = end_row - 1;
     while (mid_row > start_row) : (mid_row -= 1) {
         try delete(buffer, mid_row, 1, end_of_line);
     }
@@ -105,16 +100,16 @@ pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32
     try delete(buffer, start_row, start_col, end_of_line);
 }
 
-pub fn deleteRows(buffer: *Buffer, start_row: i32, end_row: i32) !void {
+pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     try deleteRange(buffer, start_row, 1, end_row, end_of_line);
 }
 
-pub fn replaceRows(buffer: *Buffer, string: []const u8, start_row: i32, end_row: i32) !void {
+pub fn replaceRows(buffer: *Buffer, string: []const u8, start_row: u32, end_row: u32) !void {
     try deleteRows(buffer, start_row, end_row);
     try insertNewLine(buffer, start_row, string);
 }
 
-pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
+pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
     try deleteRange(buffer, start_row, start_col, end_row, end_col);
     try insert(buffer, start_row, start_col, string);
 }

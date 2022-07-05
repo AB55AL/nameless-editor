@@ -8,6 +8,8 @@ const Face = freetype.Face;
 const vectors = @import("../vectors.zig");
 const c = @import("../c.zig");
 
+const utf8 = @import("../utf8.zig");
+
 pub const Text = @This();
 
 pub const Character = struct {
@@ -20,7 +22,7 @@ pub const Character = struct {
 font_size: i32,
 VAO: u32,
 VBO: u32,
-characters: [128]Character,
+characters: [0x700]Character,
 ft_lib: freetype.Library,
 face: Face,
 shader: Shader,
@@ -59,7 +61,7 @@ pub fn generateAndCacheFontTextures(text: *Text, face: Face) !void {
         };
     }
 
-    var char: u8 = 0;
+    var char: u32 = 0;
     while (char < text.characters.len) : (char += 1) {
         try face.loadChar(char, .{ .render = true });
 
@@ -115,7 +117,22 @@ pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color:
     c.glActiveTexture(c.GL_TEXTURE0);
     c.glBindVertexArray(text.VAO);
 
-    for (string) |char| {
+    var i: usize = 0;
+    // var char: u32 = undefined;
+    var char: u32 = undefined;
+    // for (string) |char| {
+    while (i < string.len) : (i += 1) {
+        var bytes = utf8.sizeOfCodeUnit(string[i]);
+        if (bytes == 0) continue;
+
+        char = utf8.decode(string[i .. i + bytes]) catch |err| {
+            print("{}\n", .{err});
+            return;
+        };
+        // i += utf8.bytesOfchar(string[i]) - 1;
+
+        // print("char {b}\n", .{char});
+
         // if (char == '\n') {
         //     x = x_coord;
         //     y += font_size;

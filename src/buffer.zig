@@ -14,12 +14,14 @@ const HistoryBufferStateResizeable = history.HistoryBufferStateResizeable;
 const HistoryChange = history.HistoryChange;
 
 const utils = @import("utils.zig");
+const utf8 = @import("utf8.zig");
 
 const end_of_line = std.math.maxInt(i32);
 
 const Buffer = @This();
 
 file_path: []u8,
+size: usize,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: GapBuffer(GapBuffer(u8)),
@@ -44,6 +46,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     }
     buffer.lines.moveGapPosAbsolute(0);
 
+    buffer.size = buf.len;
     buffer.history = History.init(allocator);
     buffer.current_state = HistoryBufferStateResizeable{
         .content = try GapBuffer(u8).init(allocator, null),
@@ -74,10 +77,10 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.allocator.destroy(buffer);
 }
 
-pub fn charAt(buffer: Buffer, row: i32, col: i32) ?u8 {
+pub fn charAt(buffer: Buffer, row: u32, col: u32) ?u8 {
     if (buffer.lines.length() == 0) return null;
-    var r = @intCast(usize, row - 1);
-    var c = @intCast(usize, col - 1);
+    var r = row - 1;
+    var c = col - 1;
 
     var gbuffer = buffer.lines.elementAt(r);
     if (c >= gbuffer.content.length()) return null;
@@ -87,12 +90,16 @@ pub fn charAt(buffer: Buffer, row: i32, col: i32) ?u8 {
 pub fn moveCursorRelative(buffer: *Buffer, row_offset: i32, col_offset: i32) void {
     if (buffer.lines.length() == 0) return;
 
-    var new_row = buffer.cursor.row + row_offset;
-    var new_col = buffer.cursor.col + col_offset;
-    buffer.moveCursorAbsolute(new_row, new_col);
+    var new_row = @intCast(i32, buffer.cursor.row) + row_offset;
+    var new_col = @intCast(i32, buffer.cursor.col) + col_offset;
+
+    new_row = if (new_row <= 0) 1 else new_row;
+    new_col = if (new_row <= 0) 1 else new_col;
+
+    buffer.moveCursorAbsolute(@intCast(u32, new_row), @intCast(u32, new_col));
 }
 
-pub fn moveCursorAbsolute(buffer: *Buffer, row: i32, col: i32) void {
+pub fn moveCursorAbsolute(buffer: *Buffer, row: u32, col: u32) void {
     if (buffer.lines.length() == 0) return;
     var new_row = row;
     var new_col = col;
@@ -103,11 +110,11 @@ pub fn moveCursorAbsolute(buffer: *Buffer, row: i32, col: i32) void {
         new_row = std.math.min(new_row, buffer.lines.length());
     }
 
-    const gbuffer = buffer.lines.elementAt(@intCast(usize, new_row - 1));
+    const line = buffer.lines.elementAt(new_row - 1);
     if (new_col <= 0) {
         new_col = 1;
     } else {
-        new_col = std.math.min(new_col, gbuffer.length());
+        new_col = std.math.min(new_col, utf8.numOfChars(line.sliceOfContent()));
     }
 
     buffer.cursor.row = new_row;
@@ -115,14 +122,14 @@ pub fn moveCursorAbsolute(buffer: *Buffer, row: i32, col: i32) void {
 }
 
 /// Inserts the given string at the given row and column. (1-based)
-pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void {
+pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
     if (row <= 0 or row > buffer.lines.length()) {
         print("insert(): range out of bounds\n", .{});
         return;
     }
 
-    var line = buffer.lines.elementAt(@intCast(usize, row - 1));
-    var num_of_lines: i32 = @intCast(i32, utils.countChar(string, '\n'));
+    var line = buffer.lines.elementAt(row - 1);
+    var num_of_lines: u32 = utils.countChar(string, '\n');
 
     var current_state = &buffer.current_state;
     var next_state = &buffer.next_state;
@@ -147,13 +154,13 @@ pub fn insert(buffer: *Buffer, row: i32, column: i32, string: []const u8) !void 
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
-pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !void {
+pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !void {
     if (row <= 0 or row > buffer.lines.length()) {
         print("delete(): range out of bounds\n", .{});
         return;
     }
 
-    var line = buffer.lines.elementAt(@intCast(usize, row - 1));
+    var line = buffer.lines.elementAt(row - 1);
 
     var end_row = if (end_column > line.length())
         row + 1
@@ -193,7 +200,7 @@ pub fn delete(buffer: *Buffer, row: i32, start_column: i32, end_column: i32) !vo
         try history.updateHistory(buffer);
 }
 
-pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
+pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
     if (start_row > end_row) {
         print("deleteRange(): start_row needs to be less than end_row\n", .{});
         return;
@@ -205,7 +212,7 @@ pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32
 
     try history.updateHistory(buffer);
 
-    var last_line = buffer.lines.elementAt(@intCast(usize, end_row - 1));
+    var last_line = buffer.lines.elementAt(end_row - 1);
     var delete_all = start_col == 1 and end_col >= last_line.length();
     var delete_mid_to_end = end_col >= last_line.length();
     var delete_begin_to_mid = start_col == 1;
@@ -244,7 +251,7 @@ pub fn deleteRange(buffer: *Buffer, start_row: i32, start_col: i32, end_row: i32
         next_state_content = "";
         next_state_last_row = start_row;
     } else if (delete_mid_to_end) {
-        next_state_content = buffer.lines.elementAt(@intCast(usize, start_row - 1)).sliceOfContent();
+        next_state_content = buffer.lines.elementAt(start_row - 1).sliceOfContent();
         next_state_last_row = start_row;
     } else if (delete_begin_to_mid) {
         next_state_content = last_line.sliceOfContent();
@@ -277,10 +284,10 @@ pub fn mergeRows(buffer: *Buffer, first_row: usize, second_row: usize) !void {
     buffer.allocator.free(next_line.content);
 }
 
-pub fn copyOfRows(buffer: *Buffer, start_row: i32, end_row: i32) ![]u8 {
+pub fn copyOfRows(buffer: *Buffer, start_row: u32, end_row: u32) ![]u8 {
     var copy = ArrayList(u8).init(buffer.allocator);
 
-    var i: usize = @intCast(usize, start_row - 1);
+    var i: usize = start_row - 1;
     while (i < end_row) : (i += 1) {
         try copy.appendSlice(buffer.lines.elementAt(i).sliceOfContent());
     }

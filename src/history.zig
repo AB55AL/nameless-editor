@@ -8,14 +8,14 @@ const without_history_change = @import("without_history_change_edits.zig");
 
 pub const HistoryBufferState = struct {
     content: []const u8,
-    first_row: i32,
-    last_row: i32,
+    first_row: u32,
+    last_row: u32,
 };
 
 pub const HistoryBufferStateResizeable = struct {
     content: GapBuffer(u8),
-    first_row: i32,
-    last_row: i32,
+    first_row: u32,
+    last_row: u32,
 };
 
 pub const HistoryChange = struct {
@@ -136,7 +136,7 @@ pub fn redo(buffer: *Buffer) !void {
     try buffer.history.stack.append(the_change);
 }
 
-pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: i32, last_row: i32) !void {
+pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: u32, last_row: u32) !void {
     var current_state = &buffer.current_state;
     if (current_state.content.isEmpty()) return;
 

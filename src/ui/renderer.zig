@@ -13,6 +13,7 @@ const CursorRenderInfo = @import("cursor.zig");
 const Text = @import("text.zig");
 const Buffer = @import("../buffer.zig");
 const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
+const utils = @import("../utils.zig");
 
 pub const Renderer = @This();
 
@@ -37,6 +38,7 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
 
     const ft_lib = try freetype.Library.init();
     var face = try ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/TTF/mononoki-Regular Nerd Font Complete.ttf", 0);
+    // var face = try ft_lib.newFace("/usr/share/fonts/TTF/Amiri-Regular.ttf", 0);
     // face = try ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/OTF/Fira Code Light Nerd Font Complete Mono.otf", 0);
     // defer ft_lib.deinit();
     // defer face.deinit();
@@ -59,16 +61,18 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
 pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     var cursor_w = @intCast(i32, renderer.text.characters[0].Advance >> 6);
     var cursor_h = renderer.text.font_size;
-    var cursor_y = (buffer.cursor.row - 1) * cursor_h + 10 - start;
-    var cursor_x = buffer.cursor.col * cursor_w - cursor_w;
+    var cursor_y = (@intCast(i32, buffer.cursor.row) - 1) * cursor_h + 10 - start;
+    var cursor_x = @intCast(i32, buffer.cursor.col) * cursor_w - cursor_w;
 
     renderer.cursor.render(cursor_x, cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
 
-    var i: usize = 0;
     var j: i32 = 0;
-    var lines = buffer.lines.sliceOfContent();
-    while (i < lines.len) : (i += 1) {
-        renderer.text.render(lines[i].sliceOfContent(), 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+    // var lines = buffer.lines.sliceOfContent();
+    var lines = try buffer.copyOfRows(1, @intCast(u32, buffer.lines.length()));
+    defer buffer.allocator.free(lines);
+    var iter = utils.splitAfter(u8, lines, '\n');
+    while (iter.next()) |line| {
+        renderer.text.render(line, 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
         j += renderer.text.font_size;
     }
 }

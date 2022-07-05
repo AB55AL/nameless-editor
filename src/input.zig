@@ -10,25 +10,36 @@ const Mods = glfw.Mods;
 const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
 const history = @import("history.zig");
+const utf8 = @import("utf8.zig");
 
 extern var font_size: i32;
 extern var buffer: *Buffer;
 
 pub fn characterInputCallback(window: glfw.Window, code_point: u21) void {
     _ = window;
-    _ = code_point;
+
     switch (code_point) {
-        0...127 => {
-            var b = [_]u8{@intCast(u8, code_point)};
-            buffer.insert(buffer.cursor.row, buffer.cursor.col, b[0..]) catch |err| {
+        0...0xFF => {
+            var bytes = utf8.encodeGivenSize(1, code_point);
+            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
                 print("{}", .{err});
             };
-            buffer.moveCursorRelative(0, 1);
+        },
+        0x100...0xFFFF => {
+            var bytes = utf8.encodeGivenSize(2, code_point);
+            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
+                print("{}", .{err});
+            };
         },
         else => {
-            print("Don't know the character ({})\n", .{code_point});
+            var bytes = utf8.encodeGivenSize(3, code_point);
+            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
+                print("{}", .{err});
+            };
         },
     }
+
+    buffer.moveCursorRelative(0, 1);
 }
 
 pub fn keyInputCallback(window: glfw.Window, key: Key, scancode: i32, action: Action, mods: Mods) void {

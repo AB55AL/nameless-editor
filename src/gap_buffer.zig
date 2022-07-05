@@ -74,7 +74,7 @@ pub fn GapBuffer(comptime T: type) type {
         }
 
         /// deletes a given number of elements after the gap_pos
-        pub fn delete(gbuffer: *Self, num: i32) void {
+        pub fn delete(gbuffer: *Self, num: usize) void {
             if (num < 0) {
                 print("Can't pass negative numbers to GapBuffer.delete()", .{});
                 return;
@@ -84,10 +84,10 @@ pub fn GapBuffer(comptime T: type) type {
         }
 
         /// Moves the gap to before the index
-        pub fn moveGapPosAbsolute(gbuffer: *Self, index: i32) void {
+        pub fn moveGapPosAbsolute(gbuffer: *Self, index: usize) void {
             if (index < 0 or index == gbuffer.gap_pos) return;
 
-            var i: i32 = index - @intCast(i32, gbuffer.gap_pos);
+            var i: i32 = @intCast(i32, index) - @intCast(i32, gbuffer.gap_pos);
             gbuffer.moveGapPosRelative(i);
         }
 
