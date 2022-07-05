@@ -77,16 +77,6 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.allocator.destroy(buffer);
 }
 
-pub fn charAt(buffer: Buffer, row: u32, col: u32) ?u8 {
-    if (buffer.lines.length() == 0) return null;
-    var r = row - 1;
-    var c = col - 1;
-
-    var gbuffer = buffer.lines.elementAt(r);
-    if (c >= gbuffer.content.length()) return null;
-    return gbuffer.elementAt(c).*;
-}
-
 pub fn moveCursorRelative(buffer: *Buffer, row_offset: i32, col_offset: i32) void {
     if (buffer.lines.length() == 0) return;
 
@@ -162,7 +152,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     var line = buffer.lines.elementAt(row - 1);
 
-    var end_row = if (end_column > line.length())
+    var end_row = if (end_column > utf8.numOfChars(line.sliceOfContent()))
         row + 1
     else
         row;
@@ -187,7 +177,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     try with_history_change.delete(buffer, row, start_column, end_column);
 
-    var next_state_content = if (start_column == 1 and end_column > line.length())
+    var next_state_content = if (start_column == 1 and end_column > utf8.numOfChars(line.sliceOfContent()))
         ""
     else
         line.sliceOfContent();
@@ -213,8 +203,8 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     try history.updateHistory(buffer);
 
     var last_line = buffer.lines.elementAt(end_row - 1);
-    var delete_all = start_col == 1 and end_col >= last_line.length();
-    var delete_mid_to_end = end_col >= last_line.length();
+    var delete_all = start_col == 1 and end_col >= utf8.numOfChars(last_line.sliceOfContent());
+    var delete_mid_to_end = end_col >= utf8.numOfChars(last_line.sliceOfContent());
     var delete_begin_to_mid = start_col == 1;
 
     var current_state = &buffer.current_state;
