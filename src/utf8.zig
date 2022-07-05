@@ -175,7 +175,7 @@ pub fn rangeOfUTF8Char(utf8_string: []const u8, index: usize) RangeInArray {
 }
 
 /// Returns a slice of first and last bytes of the ith character (1-based) in a UTF-8 encoded array
-pub fn sliceOfUTF8Char(utf8_string: []const u8, index: usize) []u8 {
+pub fn sliceOfUTF8Char(utf8_string: []u8, index: usize) []u8 {
     var start = firstByteOfCodeUnit(utf8_string, index);
     var end = start + (sizeOfCodeUnit(utf8_string[start]));
 
