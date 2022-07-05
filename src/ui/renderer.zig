@@ -14,6 +14,7 @@ const Text = @import("text.zig");
 const Buffer = @import("../buffer.zig");
 const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
+const utf8 = @import("../utf8.zig");
 
 pub const Renderer = @This();
 
@@ -59,12 +60,19 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
 // TODO: deinit()
 
 pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
-    var cursor_w = @intCast(i32, renderer.text.characters[0].Advance >> 6);
+    var cursor_x: i64 = 0;
+
+    var i: u32 = 1;
+    var l = buffer.lines.elementAt(buffer.cursor.row - 1).sliceOfContent();
+    while (i < buffer.cursor.col) : (i += 1) {
+        var slice = utf8.sliceOfUTF8Char(l, i);
+        var code_point = try utf8.decode(slice);
+        cursor_x += @intCast(i64, renderer.text.characters[code_point].Advance >> 6);
+    }
     var cursor_h = renderer.text.font_size;
     var cursor_y = (@intCast(i32, buffer.cursor.row) - 1) * cursor_h + 10 - start;
-    var cursor_x = @intCast(i32, buffer.cursor.col) * cursor_w - cursor_w;
 
-    renderer.cursor.render(cursor_x, cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+    renderer.cursor.render(@intCast(i32, cursor_x), cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
 
     var j: i32 = 0;
     // var lines = buffer.lines.sliceOfContent();
