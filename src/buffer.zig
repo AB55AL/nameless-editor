@@ -1,7 +1,9 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const print = std.debug.print;
 const fs = std.fs;
 const ArrayList = std.ArrayList;
+const unicode = std.unicode;
 
 const Cursor = @import("cursor.zig").Cursor;
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
@@ -14,7 +16,6 @@ const HistoryBufferStateResizeable = history.HistoryBufferStateResizeable;
 const HistoryChange = history.HistoryChange;
 
 const utils = @import("utils.zig");
-const utf8 = @import("utf8.zig");
 
 const end_of_line = std.math.maxInt(i32);
 
@@ -104,7 +105,8 @@ pub fn moveCursorAbsolute(buffer: *Buffer, row: u32, col: u32) void {
     if (new_col <= 0) {
         new_col = 1;
     } else {
-        new_col = std.math.min(new_col, utf8.numOfChars(line.sliceOfContent()));
+        var max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
+        new_col = std.math.min(new_col, max_col);
     }
 
     buffer.cursor.row = new_row;
@@ -113,6 +115,7 @@ pub fn moveCursorAbsolute(buffer: *Buffer, row: u32, col: u32) void {
 
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
+    if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;
     if (row <= 0 or row > buffer.lines.length()) {
         print("insert(): range out of bounds\n", .{});
         return;
@@ -152,7 +155,8 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     var line = buffer.lines.elementAt(row - 1);
 
-    var end_row = if (end_column > utf8.numOfChars(line.sliceOfContent()))
+    var max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
+    var end_row = if (end_column > max_col)
         row + 1
     else
         row;
@@ -177,7 +181,8 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     try with_history_change.delete(buffer, row, start_column, end_column);
 
-    var next_state_content = if (start_column == 1 and end_column > utf8.numOfChars(line.sliceOfContent()))
+    max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
+    var next_state_content = if (start_column == 1 and end_column > max_col)
         ""
     else
         line.sliceOfContent();
@@ -188,6 +193,14 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     if (end_row > row)
         try history.updateHistory(buffer);
+
+    if (builtin.mode == std.builtin.Mode.Debug) {
+        var slice = try buffer.lines.elementAt(row - 1).copyOfContent();
+        defer buffer.allocator.free(slice);
+        if (!unicode.utf8ValidateSlice(slice)) {
+            unreachable;
+        }
+    }
 }
 
 pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
@@ -203,8 +216,9 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     try history.updateHistory(buffer);
 
     var last_line = buffer.lines.elementAt(end_row - 1);
-    var delete_all = start_col == 1 and end_col >= utf8.numOfChars(last_line.sliceOfContent());
-    var delete_mid_to_end = end_col >= utf8.numOfChars(last_line.sliceOfContent());
+    var max_col = unicode.utf8CountCodepoints(last_line.sliceOfContent()) catch 1;
+    var delete_all = start_col == 1 and end_col >= max_col;
+    var delete_mid_to_end = end_col >= max_col;
     var delete_begin_to_mid = start_col == 1;
 
     var current_state = &buffer.current_state;

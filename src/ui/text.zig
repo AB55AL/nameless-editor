@@ -1,5 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
+const unicode = std.unicode;
+const builtin = @import("builtin");
 
 const freetype = @import("freetype");
 const Shader = @import("shaders.zig").Shader;
@@ -7,8 +9,6 @@ const Face = freetype.Face;
 
 const vectors = @import("../vectors.zig");
 const c = @import("../c.zig");
-
-const utf8 = @import("../utf8.zig");
 
 pub const Text = @This();
 
@@ -104,7 +104,7 @@ pub fn generateAndCacheFontTextures(text: *Text, face: Face) !void {
     }
 }
 
-pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color: vectors.vec3) void {
+pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color: vectors.vec3) !void {
     var x = x_coord;
     var y = y_coord;
 
@@ -117,30 +117,12 @@ pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color:
     c.glActiveTexture(c.GL_TEXTURE0);
     c.glBindVertexArray(text.VAO);
 
-    var i: usize = 0;
-    // var char: u32 = undefined;
-    var char: u32 = undefined;
-    // for (string) |char| {
-    while (i < string.len) : (i += 1) {
-        var bytes = utf8.sizeOfCodeUnit(string[i]);
-        if (bytes == 0) continue;
-
-        char = utf8.decode(string[i .. i + bytes]) catch |err| {
-            print("{}\n", .{err});
-            return;
-        };
-        // i += utf8.bytesOfchar(string[i]) - 1;
-
-        // print("char {b}\n", .{char});
-
-        // if (char == '\n') {
-        //     x = x_coord;
-        //     y += font_size;
-        //     continue;
-        // }
-
-        // print("{c}\t{}\n", .{ char, char });
-        const character = text.characters[char];
+    var code_points = (try unicode.Utf8View.init(string)).iterator();
+    while (code_points.nextCodepoint()) |code_point| {
+        if (code_point == '\n' and builtin.mode != std.builtin.Mode.Debug) {
+            continue;
+        }
+        const character = text.characters[code_point];
 
         var xpos = @intToFloat(f32, @intCast(i32, x) + character.Bearing.x);
         var ypos = @intToFloat(f32, y + (@intCast(i32, character.Size.y) - character.Bearing.y));
@@ -167,11 +149,6 @@ pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color:
         c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
         c.glDrawArrays(c.GL_TRIANGLES, 0, 6);
 
-        if (char == '\n') {
-            x = x_coord;
-            y += text.font_size;
-            continue;
-        }
         x += @intCast(i32, (character.Advance >> 6)); // bitshift by 6 to get value in pixels (2^6 = 64)
     }
 

@@ -1,5 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
+const unicode = std.unicode;
 
 const freetype = @import("freetype");
 const glfw = @import("glfw");
@@ -10,7 +11,6 @@ const Mods = glfw.Mods;
 const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
 const history = @import("history.zig");
-const utf8 = @import("utf8.zig");
 
 extern var font_size: i32;
 extern var buffer: *Buffer;
@@ -18,26 +18,11 @@ extern var buffer: *Buffer;
 pub fn characterInputCallback(window: glfw.Window, code_point: u21) void {
     _ = window;
 
-    switch (code_point) {
-        0...0xFF => {
-            var bytes = utf8.encodeGivenSize(1, code_point);
-            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
-                print("{}", .{err});
-            };
-        },
-        0x100...0xFFFF => {
-            var bytes = utf8.encodeGivenSize(2, code_point);
-            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
-                print("{}", .{err});
-            };
-        },
-        else => {
-            var bytes = utf8.encodeGivenSize(3, code_point);
-            buffer.insert(buffer.cursor.row, buffer.cursor.col, bytes[0..]) catch |err| {
-                print("{}", .{err});
-            };
-        },
-    }
+    var utf8_bytes: [4]u8 = undefined;
+    var bytes = unicode.utf8Encode(code_point, &utf8_bytes) catch unreachable;
+    buffer.insert(buffer.cursor.row, buffer.cursor.col, utf8_bytes[0..bytes]) catch |err| {
+        print("{}", .{err});
+    };
 
     buffer.moveCursorRelative(0, 1);
 }

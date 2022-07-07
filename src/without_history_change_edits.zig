@@ -1,5 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
+const unicode = std.unicode;
 
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
 const Buffer = @import("buffer.zig");
@@ -61,7 +62,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     var line = lines.elementAt(r);
 
     var start_index = utf8.firstByteOfCodeUnit(line.sliceOfContent(), start_column);
-    var substring_to_delete = utf8.substringOfUTF8Sequence(line.sliceOfContent(), start_column, end_column - 1);
+    var substring_to_delete = try utf8.substringOfUTF8Sequence(line.sliceOfContent(), start_column, end_column - 1);
 
     var bytes_to_delete = substring_to_delete.len;
 

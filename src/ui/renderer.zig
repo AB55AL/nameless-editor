@@ -1,6 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
+const unicode = std.unicode;
 
 const glfw = @import("glfw");
 const freetype = @import("freetype");
@@ -38,8 +39,8 @@ pub fn init(window_width: u32, window_height: u32) !Renderer {
     var cursor = CursorRenderInfo.init(cursor_shader);
 
     const ft_lib = try freetype.Library.init();
-    var face = try ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/TTF/mononoki-Regular Nerd Font Complete.ttf", 0);
-    // var face = try ft_lib.newFace("/usr/share/fonts/TTF/Amiri-Regular.ttf", 0);
+    // var face = try ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/TTF/mononoki-Regular Nerd Font Complete.ttf", 0);
+    var face = try ft_lib.newFace("/usr/share/fonts/TTF/Amiri-Regular.ttf", 0);
     // face = try ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/OTF/Fira Code Light Nerd Font Complete Mono.otf", 0);
     // defer ft_lib.deinit();
     // defer face.deinit();
@@ -65,8 +66,8 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     var i: u32 = 1;
     var l = buffer.lines.elementAt(buffer.cursor.row - 1).sliceOfContent();
     while (i < buffer.cursor.col) : (i += 1) {
-        var slice = utf8.sliceOfUTF8Char(l, i);
-        var code_point = try utf8.decode(slice);
+        var slice = try utf8.sliceOfUTF8Char(l, i);
+        var code_point = try unicode.utf8Decode(slice);
         cursor_x += @intCast(i64, renderer.text.characters[code_point].Advance >> 6);
     }
     var cursor_h = renderer.text.font_size;
@@ -80,7 +81,7 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     defer buffer.allocator.free(lines);
     var iter = utils.splitAfter(u8, lines, '\n');
     while (iter.next()) |line| {
-        renderer.text.render(line, 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        try renderer.text.render(line, 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
         j += renderer.text.font_size;
     }
 }
