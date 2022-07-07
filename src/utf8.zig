@@ -130,17 +130,7 @@ pub fn decode(bytes: []const u8) UTF8Error!u32 {
 }
 
 pub fn bitsNeededToEncode(code_point: u32) u8 {
-    var bits_needed_to_encode: u8 = 0;
-    var cp = code_point;
-    while (cp != 0) : (bits_needed_to_encode += 1) {
-        // get the most significant bit
-        if (cp & 0x80_00_00_00 == 0x80_00_00_00)
-            break;
-
-        cp <<= 1;
-    }
-
-    return @bitSizeOf(u32) - bits_needed_to_encode;
+    return @bitSizeOf(u32) - @clz(u32, code_point);
 }
 
 /// Given a valid UTF-8 sequence returns a slice
