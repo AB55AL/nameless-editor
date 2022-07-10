@@ -95,17 +95,16 @@ pub fn moveCursorAbsolute(buffer: *Buffer, row: u32, col: u32) void {
     var new_row = row;
     var new_col = col;
 
-    if (new_row <= 0) {
-        new_row = 1;
-    } else {
+    if (new_row <= 0)
+        new_row = 1
+    else
         new_row = std.math.min(new_row, buffer.lines.length());
-    }
 
     const line = buffer.lines.elementAt(new_row - 1);
     if (new_col <= 0) {
         new_col = 1;
     } else {
-        var max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
+        var max_col = (unicode.utf8CountCodepoints(line.sliceOfContent()) catch unreachable) + 1;
         new_col = std.math.min(new_col, max_col);
     }
 
