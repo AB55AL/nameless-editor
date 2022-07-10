@@ -18,11 +18,11 @@ pub fn GapBuffer(comptime T: type) type {
         pub fn init(allocator: std.mem.Allocator, input: ?[]const T) !Self {
             const gap_size: u32 = 16;
             const gap_pos = 0;
-            const size = if (input != null) input.?.len else 0;
+            const size = if (input) |in| in.len else 0;
             var content = try allocator.alloc(T, size + gap_size);
 
-            if (input != null) {
-                for (input.?) |element, i| {
+            if (input) |in| {
+                for (in) |element, i| {
                     content[i + gap_size] = element;
                 }
             }
