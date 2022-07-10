@@ -153,6 +153,9 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     var line = buffer.lines.elementAt(row - 1);
     var max_col = try unicode.utf8CountCodepoints(line.sliceOfContent());
 
+    if (start_column == max_col + 1 and row == buffer.lines.length())
+        return;
+
     var delete_entire_line = if (start_column == 1 and end_column >= max_col) true else false;
     var delete_within_line = if (start_column > 1 and end_column < max_col) true else false;
     var delete_new_line_char = if (end_column >= max_col) true else false;
