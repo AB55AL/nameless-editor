@@ -24,8 +24,6 @@ pub fn build(b: *Builder) void {
     exe.addPackage(glfw.pkg);
     exe.addPackage(freetype.pkg);
 
-    // exe.linkSystemLibrary("dl");
-
     glfw.link(b, exe, .{});
     freetype.link(b, exe, .{});
     exe.install();
@@ -35,4 +33,11 @@ pub fn build(b: *Builder) void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+
+    const tests = b.addTest("tests/buffer.zig");
+    tests.setBuildMode(std.builtin.Mode.ReleaseSafe);
+    tests.addPackagePath("core", "src/core.zig");
+
+    const test_step = b.step("test", "Run library tests");
+    test_step.dependOn(&tests.step);
 }
