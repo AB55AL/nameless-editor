@@ -8,7 +8,7 @@ const unicode = std.unicode;
 const Cursor = @import("cursor.zig").Cursor;
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
 
-const with_history_change = @import("without_history_change_edits.zig");
+const without_history_change = @import("without_history_change_edits.zig");
 const history = @import("history.zig");
 const History = history.History;
 const HistoryBufferState = history.HistoryBufferState;
@@ -17,7 +17,7 @@ const HistoryChange = history.HistoryChange;
 
 const utils = @import("utils.zig");
 
-const end_of_line = std.math.maxInt(i32);
+const end_of_line = 69_420_666;
 
 const Buffer = @This();
 
@@ -118,30 +118,28 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
     if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;
     if (row <= 0 or row > buffer.lines.length()) {
         print("insert(): range out of bounds\n", .{});
-        return;
+        return error.IndexOutOfBounds;
     }
 
     var line = buffer.lines.elementAt(row - 1);
     var num_of_lines: u32 = utils.countChar(string, '\n');
 
-    var current_state = &buffer.current_state;
-    var next_state = &buffer.next_state;
-
     try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
-    if (current_state.content.isEmpty()) {
-        try current_state.content.replaceAllWith(line.sliceOfContent());
-        current_state.first_row = row;
-        current_state.last_row = row;
+
+    var current_state = &buffer.current_state;
+    if (buffer.lines.length() > 0) {
+        if (line.isEmpty())
+            try buffer.updateState(current_state, row, row, true)
+        else
+            try buffer.updateState(current_state, row, row, false);
     }
 
-    try with_history_change.insert(buffer, row, column, string);
+    //////////////////////////////////////////////
+    try without_history_change.insert(buffer, row, column, string);
+    //////////////////////////////////////////////
 
-    var next_state_content = try buffer.copyOfRows(row, row + num_of_lines);
-    defer buffer.allocator.free(next_state_content);
-
-    try next_state.content.replaceAllWith(next_state_content);
-    next_state.first_row = row;
-    next_state.last_row = row + num_of_lines;
+    try buffer.next_state.content.replaceAllWith("");
+    try buffer.updateState(&buffer.next_state, row, row + num_of_lines, false);
 
     try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
 }
@@ -150,48 +148,37 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
 pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !void {
     if (row <= 0 or row > buffer.lines.length()) {
         print("delete(): range out of bounds\n", .{});
-        return;
+        return error.IndexOutOfBounds;
     }
 
     var line = buffer.lines.elementAt(row - 1);
+    var max_col = try unicode.utf8CountCodepoints(line.sliceOfContent());
 
-    var max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
-    var end_row = if (end_column > max_col)
-        row + 1
-    else
-        row;
+    var delete_entire_line = if (start_column == 1 and end_column >= max_col) true else false;
+    var delete_within_line = if (start_column > 1 and end_column < max_col) true else false;
+    var delete_new_line_char = if (end_column >= max_col) true else false;
 
     var current_state = &buffer.current_state;
-    var next_state = &buffer.next_state;
-
-    if (current_state.content.isEmpty()) {
-        var content = if (end_row > row)
-            try buffer.copyOfRows(row, end_row)
-        else
-            line.sliceOfContent();
-
-        defer if (end_row > row) buffer.allocator.free(content);
-
-        try current_state.content.replaceAllWith(content);
-        current_state.first_row = row;
-        current_state.last_row = end_row;
-    } else {
-        try history.updateHistoryIfNeeded(buffer, row, end_row);
+    if (delete_entire_line or delete_within_line) {
+        try buffer.updateState(current_state, row, row, false);
+    } else if (delete_new_line_char) {
+        try buffer.updateState(current_state, row, row + 1, false);
     }
 
-    try with_history_change.delete(buffer, row, start_column, end_column);
+    //////////////////////////////////////////////
+    try without_history_change.delete(buffer, row, start_column, end_column);
+    //////////////////////////////////////////////
 
-    max_col = unicode.utf8CountCodepoints(line.sliceOfContent()) catch 1;
-    var next_state_content = if (start_column == 1 and end_column > max_col)
-        ""
-    else
-        line.sliceOfContent();
+    max_col = try unicode.utf8CountCodepoints(line.sliceOfContent());
 
-    try next_state.content.replaceAllWith(next_state_content);
-    next_state.first_row = row;
-    next_state.last_row = row;
-
-    if (end_row > row)
+    var next_state = &buffer.next_state;
+    try next_state.content.replaceAllWith("");
+    if (delete_entire_line) {
+        try buffer.updateState(next_state, row, row, true);
+    } else if (delete_within_line or delete_new_line_char) {
+        try buffer.updateState(next_state, row, row, false);
+    }
+    if (delete_entire_line or delete_new_line_char)
         try history.updateHistory(buffer);
 
     if (builtin.mode == std.builtin.Mode.Debug) {
@@ -203,68 +190,45 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     }
 }
 
+pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
+    _ = buffer;
+    _ = start_row;
+    _ = end_row;
+}
+
 pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
     if (start_row > end_row) {
-        print("deleteRange(): start_row needs to be less than end_row\n", .{});
-        return;
+        return error.IndexOutOfBounds;
     }
     if (start_row <= 0 or end_row > buffer.lines.length()) {
-        print("deleteRange(): range out of bounds\n", .{});
+        return error.IndexOutOfBounds;
+    }
+
+    var last_line = buffer.lines.elementAt(end_row - 1);
+    var max_col = try unicode.utf8CountCodepoints(last_line.sliceOfContent());
+
+    if (start_row == end_row) {
+        try buffer.delete(start_row, start_col, end_col + 1);
+        try history.updateHistory(buffer);
+        return;
+    } else if (start_col == 1 and end_col >= max_col) {
+        try buffer.deleteRows(start_row, end_row);
         return;
     }
 
     try history.updateHistory(buffer);
 
-    var last_line = buffer.lines.elementAt(end_row - 1);
-    var max_col = unicode.utf8CountCodepoints(last_line.sliceOfContent()) catch 1;
-    var delete_all = start_col == 1 and end_col >= max_col;
-    var delete_mid_to_end = end_col >= max_col;
-    var delete_begin_to_mid = start_col == 1;
-
-    var current_state = &buffer.current_state;
-    var next_state = &buffer.next_state;
-
-    var current_state_content: []const u8 = undefined;
-    var current_state_first_row = start_row;
-    var current_state_last_row: i32 = undefined;
-
-    if (delete_all) {
-        current_state_content = try buffer.copyOfRows(start_row, end_row);
-        current_state_last_row = end_row;
-    } else if (delete_mid_to_end) {
-        current_state_content = try buffer.copyOfRows(start_row, end_row + 1);
-        current_state_last_row = end_row + 1;
-    } else if (delete_begin_to_mid) {
-        current_state_content = try buffer.copyOfRows(start_row, end_row);
-        current_state_last_row = end_row;
+    if (end_col < max_col) {
+        try buffer.updateState(&buffer.current_state, start_row, end_row, false);
+    } else if (end_col >= max_col) {
+        try buffer.updateState(&buffer.current_state, start_row, end_row + 1, false);
     }
 
-    defer buffer.allocator.free(current_state_content);
+    //////////////////////////////////////////////
+    try without_history_change.deleteRange(buffer, start_row, start_col, end_row, end_col);
+    //////////////////////////////////////////////
 
-    try current_state.content.replaceAllWith(current_state_content);
-    current_state.first_row = current_state_first_row;
-    current_state.last_row = current_state_last_row;
-
-    try with_history_change.deleteRange(buffer, start_row, start_col, end_row, end_col);
-
-    var next_state_content: []const u8 = undefined;
-    var next_state_first_row = start_row;
-    var next_state_last_row: i32 = undefined;
-
-    if (delete_all) {
-        next_state_content = "";
-        next_state_last_row = start_row;
-    } else if (delete_mid_to_end) {
-        next_state_content = buffer.lines.elementAt(start_row - 1).sliceOfContent();
-        next_state_last_row = start_row;
-    } else if (delete_begin_to_mid) {
-        next_state_content = last_line.sliceOfContent();
-        next_state_last_row = start_row;
-    }
-
-    try next_state.content.replaceAllWith(next_state_content);
-    next_state.first_row = next_state_first_row;
-    next_state.last_row = next_state_last_row;
+    try buffer.updateState(&buffer.next_state, start_row, start_row, false);
 
     try history.updateHistory(buffer);
 }
@@ -288,13 +252,33 @@ pub fn mergeRows(buffer: *Buffer, first_row: usize, second_row: usize) !void {
     buffer.allocator.free(next_line.content);
 }
 
-pub fn copyOfRows(buffer: *Buffer, start_row: u32, end_row: u32) ![]u8 {
+pub fn copyOfRows(buffer: *Buffer, start_row: usize, end_row: usize) ![]u8 {
     var copy = ArrayList(u8).init(buffer.allocator);
-
+    var end = std.math.min(end_row, buffer.lines.length());
     var i: usize = start_row - 1;
-    while (i < end_row) : (i += 1) {
+    while (i < end) : (i += 1) {
         try copy.appendSlice(buffer.lines.elementAt(i).sliceOfContent());
     }
 
     return copy.toOwnedSlice();
+}
+
+pub fn copyAll(buffer: *Buffer) ![]u8 {
+    return buffer.copyOfRows(1, buffer.lines.length());
+}
+
+fn updateState(buffer: *Buffer, state: *HistoryBufferStateResizeable, start_row: u32, end_row: u32, is_empty: bool) !void {
+    if (state.content.isEmpty()) {
+        if (is_empty) {
+            try state.content.replaceAllWith("");
+        } else {
+            var content = try buffer.copyOfRows(start_row, end_row);
+            defer buffer.allocator.free(content);
+            try state.content.replaceAllWith(content);
+        }
+        state.first_row = start_row;
+        state.last_row = end_row;
+    } else {
+        try history.updateHistoryIfNeeded(buffer, start_row, end_row);
+    }
 }

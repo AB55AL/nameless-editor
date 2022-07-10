@@ -127,10 +127,6 @@ pub fn redo(buffer: *Buffer) !void {
             previous_state.first_row,
             previous_state.last_row,
         );
-        // var con = try buffer.copyOfRows(1, @intCast(i32, buffer.lines.length()));
-        // defer buffer.allocator.free(con);
-        // print("{s}", .{con});
-        // print("\n-----------------------------------------------------------\n", .{});
     }
 
     try buffer.history.stack.append(the_change);
@@ -140,7 +136,7 @@ pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: u32, last_row: u32) !vo
     var current_state = &buffer.current_state;
     if (current_state.content.isEmpty()) return;
 
-    if (current_state.first_row != first_row or current_state.last_row != last_row)
+    if (current_state.first_row != first_row and current_state.last_row != last_row)
         try updateHistory(buffer);
 }
 
