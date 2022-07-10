@@ -77,7 +77,7 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
 
     var j: i32 = 0;
     // var lines = buffer.lines.sliceOfContent();
-    var lines = try buffer.copyOfRows(1, @intCast(u32, buffer.lines.length()));
+    var lines = try buffer.copyAll();
     defer buffer.allocator.free(lines);
     var iter = utils.splitAfter(u8, lines, '\n');
     while (iter.next()) |line| {

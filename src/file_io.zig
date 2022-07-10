@@ -35,7 +35,7 @@ pub fn writeToFile(buffer: *Buffer) !void {
     });
     defer buffer.allocator.free(original_tmp_file_path);
 
-    const content_of_buffer = try buffer.copyOfRows(1, @intCast(i32, buffer.lines.length()));
+    const content_of_buffer = try buffer.copyAll();
     defer buffer.allocator.free(content_of_buffer);
 
     const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.file_path).?, .{}));
