@@ -78,40 +78,6 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.allocator.destroy(buffer);
 }
 
-pub fn moveCursorRelative(buffer: *Buffer, row_offset: i32, col_offset: i32) void {
-    if (buffer.lines.length() == 0) return;
-
-    var new_row = @intCast(i32, buffer.cursor.row) + row_offset;
-    var new_col = @intCast(i32, buffer.cursor.col) + col_offset;
-
-    new_row = if (new_row <= 0) 1 else new_row;
-    new_col = if (new_row <= 0) 1 else new_col;
-
-    buffer.moveCursorAbsolute(@intCast(u32, new_row), @intCast(u32, new_col));
-}
-
-pub fn moveCursorAbsolute(buffer: *Buffer, row: u32, col: u32) void {
-    if (buffer.lines.length() == 0) return;
-    var new_row = row;
-    var new_col = col;
-
-    if (new_row <= 0)
-        new_row = 1
-    else
-        new_row = std.math.min(new_row, buffer.lines.length());
-
-    const line = buffer.lines.elementAt(new_row - 1);
-    if (new_col <= 0) {
-        new_col = 1;
-    } else {
-        var max_col = (unicode.utf8CountCodepoints(line.sliceOfContent()) catch unreachable) + 1;
-        new_col = std.math.min(new_col, max_col);
-    }
-
-    buffer.cursor.row = new_row;
-    buffer.cursor.col = new_col;
-}
-
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
     if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;

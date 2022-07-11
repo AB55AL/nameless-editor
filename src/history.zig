@@ -99,6 +99,7 @@ pub fn undo(buffer: *Buffer) !void {
     }
 
     try buffer.history.redo_stack.append(the_change);
+    Cursor.resetPosition(buffer);
 }
 
 pub fn redo(buffer: *Buffer) !void {
@@ -130,6 +131,7 @@ pub fn redo(buffer: *Buffer) !void {
     }
 
     try buffer.history.stack.append(the_change);
+    Cursor.resetPosition(buffer);
 }
 
 pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: u32, last_row: u32) !void {
