@@ -3,15 +3,18 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
 const Buffer = @import("buffer.zig");
+const Cursor = @import("cursor.zig");
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
 const without_history_change = @import("without_history_change_edits.zig");
 
+// TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
 pub const HistoryBufferState = struct {
     content: []const u8,
     first_row: u32,
     last_row: u32,
 };
 
+// TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
 pub const HistoryBufferStateResizeable = struct {
     content: GapBuffer(u8),
     first_row: u32,
@@ -71,6 +74,7 @@ pub const History = struct {
 };
 
 pub fn undo(buffer: *Buffer) !void {
+    try updateHistory(buffer);
     if (buffer.history.stack.items.len == 0) return;
 
     var the_change = buffer.history.stack.pop();
@@ -147,6 +151,7 @@ pub fn updateHistory(buffer: *Buffer) !void {
     var next_state = &buffer.next_state;
 
     if (current_state.content.isEmpty()) return;
+
     try buffer.history.update(HistoryChange{
         .previous_state = .{
             .content = try current_state.content.copyOfContent(),
