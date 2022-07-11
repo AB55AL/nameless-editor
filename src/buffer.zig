@@ -77,7 +77,6 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.allocator.free(buffer.file_path);
     buffer.allocator.destroy(buffer);
 }
-
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
     if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;
@@ -89,7 +88,10 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
     var line = buffer.lines.elementAt(row - 1);
     var num_of_lines: u32 = utils.countChar(string, '\n');
 
-    try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
+    if (string.len == 1 and string[0] == '\n')
+        try history.updateHistory(buffer)
+    else
+        try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
 
     var current_state = &buffer.current_state;
     if (buffer.lines.length() > 0) {
@@ -106,7 +108,10 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
     try buffer.next_state.content.replaceAllWith("");
     try buffer.updateState(&buffer.next_state, row, row + num_of_lines, false);
 
-    try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
+    if (string.len == 1 and string[0] == '\n')
+        try history.updateHistory(buffer)
+    else
+        try history.updateHistoryIfNeeded(buffer, row, row + num_of_lines);
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
