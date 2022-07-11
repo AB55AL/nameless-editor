@@ -12,6 +12,9 @@ const Buffer = @import("buffer.zig");
 const Renderer = @import("ui/renderer.zig");
 const matrices = @import("matrices.zig");
 const file_io = @import("file_io.zig");
+const GapBuffer = @import("gap_buffer.zig").GapBuffer;
+
+const input_layer = @import("input_layer");
 
 // variables
 var window_width: u32 = 800;
@@ -79,6 +82,9 @@ pub fn main() !void {
     window.setKeyCallback(input.keyInputCallback);
     window.setCursorPosCallback(cursorPositionCallback);
     window.setScrollCallback(scrollCallback);
+
+    input_layer.inputLayerInit();
+    defer input_layer.inputLayerDeinit();
 
     buffer = file_io.openFile(gpa.allocator(), "build.zig") catch |err| {
         print("{}\n", .{err});
