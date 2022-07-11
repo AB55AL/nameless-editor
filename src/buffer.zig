@@ -231,6 +231,14 @@ pub fn copyOfRows(buffer: *Buffer, start_row: usize, end_row: usize) ![]u8 {
     return copy.toOwnedSlice();
 }
 
+pub fn countCodePointsAtRow(buffer: *Buffer, row: u32) u32 {
+    if (buffer.lines.length() == 0) return 0;
+
+    const line = buffer.lines.elementAt(row - 1);
+    const val = (unicode.utf8CountCodepoints(line.sliceOfContent()) catch unreachable) + 1;
+    return @intCast(u32, val);
+}
+
 pub fn copyAll(buffer: *Buffer) ![]u8 {
     return buffer.copyOfRows(1, buffer.lines.length());
 }
