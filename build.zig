@@ -19,6 +19,7 @@ pub fn buildEditor(b: *Builder, comptime input_layer_path: []const u8) void {
 
     const exe = b.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
     exe.linkLibC();
+    exe.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
     exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{
         "-lc",
         "-lglfw3",
