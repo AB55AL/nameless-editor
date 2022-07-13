@@ -23,11 +23,12 @@ pub fn inputLayerDeinit() void {
     _ = gpa.deinit();
 }
 
-pub fn keyInputCallback(key: []const u8) void {
-    if (mappings.get(key)) |f| f();
+pub fn keyInput(key: []const u8) void {
+    if (mappings.get(key)) |f|
+        f();
 }
 
-pub fn characterInputCallback(utf8_seq: []const u8) void {
+pub fn characterInput(utf8_seq: []const u8) void {
     buffer.insert(
         buffer.cursor.row,
         buffer.cursor.col,

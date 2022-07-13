@@ -16,15 +16,16 @@ const input_layer = @import("input_layer");
 extern var font_size: i32;
 extern var buffer: *Buffer;
 
-var fixed_buffer: [64]u8 = undefined;
+var fixed_buffer: [256]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&fixed_buffer);
 const fixed_allocator = fba.allocator();
 
+/// Sends a UTF-8 encoded code point to the input_layer
 pub fn characterInputCallback(window: glfw.Window, code_point: u21) void {
     _ = window;
     var utf8_bytes: [4]u8 = undefined;
     var bytes = unicode.utf8Encode(code_point, &utf8_bytes) catch unreachable;
-    input_layer.characterInputCallback(utf8_bytes[0..bytes]);
+    input_layer.characterInput(utf8_bytes[0..bytes]);
 }
 
 pub fn keyInputCallback(window: glfw.Window, key: glfw.Key, scancode: i32, action: glfw.Action, mods: Mods) void {
@@ -32,12 +33,13 @@ pub fn keyInputCallback(window: glfw.Window, key: glfw.Key, scancode: i32, actio
     if (action == glfw.Action.press or action == glfw.Action.repeat) {
         var mod = @intToEnum(Modifiers, (mods.toInt(u8) & 0b111));
 
-        var key_name = (key.getName(scancode) catch unreachable);
         var key_value: []const u8 = undefined;
-        if (key_name) |name| {
+        const key_name = (key.getName(scancode) catch unreachable);
+
+        if (key_name != null and key_name.?.len == 1) {
             key_value = std.mem.concat(fixed_allocator, u8, &[_][]const u8{
-                modifierToString(mod),
-                name,
+                modifierToStringNoShift(mod),
+                &[_]u8{shiftASCII(key, mod).?},
             }) catch unreachable;
         } else if (functionKeyToString(key)) |function_key| {
             key_value = std.mem.concat(fixed_allocator, u8, &[_][]const u8{
@@ -47,7 +49,8 @@ pub fn keyInputCallback(window: glfw.Window, key: glfw.Key, scancode: i32, actio
         } else {
             return;
         }
-        input_layer.keyInputCallback(key_value);
+
+        input_layer.keyInput(key_value);
         fixed_allocator.free(key_value);
     }
 }
@@ -120,7 +123,20 @@ fn modifierToString(mod: Modifiers) []const u8 {
     };
 }
 
-const Modifiers = enum(u3) {
+fn modifierToStringNoShift(mod: Modifiers) []const u8 {
+    return switch (mod) {
+        .none => "",
+        .shift => "",
+        .control => "C_",
+        .control_shift => "C_",
+        .alt => "A_",
+        .alt_shift => "A_",
+        .control_alt => "C_A_",
+        .control_alt_shift => "C_A_",
+    };
+}
+
+pub const Modifiers = enum(u3) {
     none = 0,
     shift = 1,
     control = 2,
@@ -130,3 +146,37 @@ const Modifiers = enum(u3) {
     control_alt = 6,
     control_alt_shift = 7,
 };
+
+fn shiftASCII(key: glfw.Key, mods: Modifiers) ?u8 {
+    return switch (mods) {
+        .shift, .control_shift, .alt_shift, .control_alt_shift => {
+            return switch (key) {
+                .equal => '+',
+                .apostrophe => '"',
+                .comma => '<',
+                .minus => '_',
+                .period => '>',
+                .slash => '?',
+                .zero => ')',
+                .one => '!',
+                .two => '@',
+                .three => '#',
+                .four => '$',
+                .five => '%',
+                .six => '^',
+                .seven => '&',
+                .eight => '*',
+                .nine => '(',
+                .semicolon => ':',
+                .left_bracket => '{',
+                .backslash => '|',
+                .right_bracket => '}',
+                .grave_accent => '~',
+                // The value of the these alphabet enums start at 65. So these are upper case
+                .a, .b, .c, .d, .e, .f, .g, .h, .i, .j, .k, .l, .m, .n, .o, .p, .q, .r, .s, .t, .u, .v, .w, .x, .y, .z => @intCast(u8, @enumToInt(key) & 0xFF),
+                else => null,
+            };
+        },
+        else => std.ascii.toLower(@intCast(u8, @enumToInt(key) & 0xFF)),
+    };
+}
