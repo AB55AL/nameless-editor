@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const utf8 = @import("utf8.zig");
+
 pub fn countChar(string: []const u8, char: u8) u32 {
     var count: u32 = 0;
     for (string) |c| {
@@ -70,6 +72,16 @@ pub fn getLine(string: []const u8, index: usize) []const u8 {
     } else {
         return string;
     }
+}
+
+pub fn getIndex(string: []const u8, row: u32, col: u32) usize {
+    const line = getNewline(string, row - 1);
+    var index: usize = if (line) |l| l + 1 else 0;
+
+    const slice = getLine(string, row);
+    index += utf8.firstByteOfCodeUnit(slice, col);
+
+    return index;
 }
 
 pub fn splitAfter(comptime T: type, buffer: []const T, delimiter: T) SplitAfterIterator(T) {

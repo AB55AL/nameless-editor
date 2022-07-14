@@ -10,9 +10,7 @@ const utf8 = @import("utf8.zig");
 /// Inserts the given string at the given row and column. (1-based)
 /// Doesn't modify the history
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
-    const line = utils.getNewline(buffer.lines.sliceOfContent(), row - 1);
-    const index = if (line) |nl| nl + column else column - 1;
-    print("{}\n", .{index});
+    const index = utils.getIndex(buffer.lines.sliceOfContent(), row, column);
     buffer.lines.moveGapPosAbsolute(index);
     try buffer.lines.insert(string);
 
@@ -32,10 +30,12 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
         return error.IndexOutOfBounds;
     }
 
-    const line = utils.getNewline(buffer.lines.sliceOfContent(), row - 1);
-    const index = if (line) |nl| nl + start_column else start_column - 1;
+    const index = utils.getIndex(buffer.lines.sliceOfContent(), row, start_column);
+    const slice = utils.getLine(buffer.lines.sliceOfContent(), row);
+    const substring = utf8.substringOfUTF8Sequence(slice, start_column, end_column - 1) catch unreachable;
+
     buffer.lines.moveGapPosAbsolute(index);
-    try buffer.lines.delete(end_column - start_column);
+    try buffer.lines.delete(substring.len);
 
     // Insure the last byte is a newline char
     buffer.lines.moveGapPosRelative(-1);
@@ -43,4 +43,17 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
         buffer.lines.moveGapPosAbsolute(buffer.lines.length());
         try buffer.lines.insert("\n");
     }
+}
+
+pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
+    _ = buffer;
+    _ = start_row;
+    _ = end_row;
+}
+
+pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
+    if (start_row > end_row or start_col > end_col) {
+        return error.InvalidPositions;
+    }
+    _ = buffer;
 }

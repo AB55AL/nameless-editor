@@ -4,7 +4,7 @@ const unicode = std.unicode;
 
 /// Given a valid UTF-8 sequence returns a slice
 /// containing the bytes of the ith character up to and including the jth character
-pub fn substringOfUTF8Sequence(utf8_seq: []u8, i: usize, j: usize) ![]u8 {
+pub fn substringOfUTF8Sequence(utf8_seq: []const u8, i: usize, j: usize) ![]const u8 {
     if (i == j) {
         var start = firstByteOfCodeUnit(utf8_seq, i);
         var end = try unicode.utf8ByteSequenceLength(utf8_seq[start]);
@@ -12,11 +12,6 @@ pub fn substringOfUTF8Sequence(utf8_seq: []u8, i: usize, j: usize) ![]u8 {
     }
 
     var start = firstByteOfCodeUnit(utf8_seq, i);
-    // const seq_after_start = utf8_seq[start..];
-
-    // const new_j = j - (utf8_seq.len - seq_after_start.len);
-
-    // var end = lastByteOfCodeUnit(seq_after_start, new_j);
     var end = lastByteOfCodeUnit(utf8_seq, j);
 
     return utf8_seq[start .. end + 1];
