@@ -12,17 +12,18 @@ pub fn substringOfUTF8Sequence(utf8_seq: []u8, i: usize, j: usize) ![]u8 {
     }
 
     var start = firstByteOfCodeUnit(utf8_seq, i);
-    const seq_after_start = utf8_seq[start..];
+    // const seq_after_start = utf8_seq[start..];
 
-    const new_j = j - (utf8_seq.len - seq_after_start.len);
+    // const new_j = j - (utf8_seq.len - seq_after_start.len);
 
-    var end = lastByteOfCodeUnit(seq_after_start, new_j);
+    // var end = lastByteOfCodeUnit(seq_after_start, new_j);
+    var end = lastByteOfCodeUnit(utf8_seq, j);
 
     return utf8_seq[start .. end + 1];
 }
 
 /// Returns a slice of first and last bytes of the ith character (1-based) in a UTF-8 encoded array
-pub fn sliceOfUTF8Char(utf8_string: []u8, index: usize) ![]u8 {
+pub fn sliceOfUTF8Char(utf8_string: []const u8, index: usize) ![]const u8 {
     var start = firstByteOfCodeUnit(utf8_string, index);
     var len = try unicode.utf8ByteSequenceLength(utf8_string[start]);
     var end = start + len;

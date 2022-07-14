@@ -122,6 +122,8 @@ pub fn render(text: Text, string: []const u8, x_coord: i32, y_coord: i32, color:
         if (code_point == '\n' and builtin.mode != std.builtin.Mode.Debug) {
             continue;
         }
+        if (code_point > 0x700)
+            return;
         const character = text.characters[code_point];
 
         var xpos = @intToFloat(f32, @intCast(i32, x) + character.Bearing.x);

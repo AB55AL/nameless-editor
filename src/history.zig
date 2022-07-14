@@ -5,7 +5,6 @@ const ArrayList = std.ArrayList;
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
-const without_history_change = @import("without_history_change_edits.zig");
 
 // TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
 pub const HistoryBufferState = struct {
@@ -16,7 +15,7 @@ pub const HistoryBufferState = struct {
 
 // TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
 pub const HistoryBufferStateResizeable = struct {
-    content: GapBuffer(u8),
+    content: GapBuffer,
     first_row: u32,
     last_row: u32,
 };
@@ -74,68 +73,70 @@ pub const History = struct {
 };
 
 pub fn undo(buffer: *Buffer) !void {
-    try updateHistory(buffer);
-    if (buffer.history.stack.items.len == 0) return;
+    _ = buffer;
+    // try updateHistory(buffer);
+    // if (buffer.history.stack.items.len == 0) return;
 
-    var the_change = buffer.history.stack.pop();
-    var next_state = the_change.next_state;
-    var previous_state = the_change.previous_state;
+    // var the_change = buffer.history.stack.pop();
+    // var next_state = the_change.next_state;
+    // var previous_state = the_change.previous_state;
 
-    if (next_state.content.len == 0) {
-        try without_history_change.insertNewLine(
-            buffer,
-            previous_state.first_row,
-            previous_state.content,
-        );
-    } else if (previous_state.content.len == 0) {
-        try without_history_change.deleteRows(
-            buffer,
-            previous_state.first_row,
-            previous_state.last_row,
-        );
-    } else {
-        try without_history_change.replaceRows(
-            buffer,
-            previous_state.content,
-            next_state.first_row,
-            next_state.last_row,
-        );
-    }
+    // if (next_state.content.len == 0) {
+    //     try without_history_change.insertNewLine(
+    //         buffer,
+    //         previous_state.first_row,
+    //         previous_state.content,
+    //     );
+    // } else if (previous_state.content.len == 0) {
+    //     try without_history_change.deleteRows(
+    //         buffer,
+    //         previous_state.first_row,
+    //         previous_state.last_row,
+    //     );
+    // } else {
+    //     try without_history_change.replaceRows(
+    //         buffer,
+    //         previous_state.content,
+    //         next_state.first_row,
+    //         next_state.last_row,
+    //     );
+    // }
 
-    try buffer.history.redo_stack.append(the_change);
-    Cursor.resetPosition(buffer);
+    // try buffer.history.redo_stack.append(the_change);
+    // Cursor.resetPosition(buffer);
 }
 
 pub fn redo(buffer: *Buffer) !void {
-    if (buffer.history.redo_stack.items.len == 0) return;
+    _ = buffer;
+    // if (buffer.history.redo_stack.items.len == 0) return;
 
-    var the_change = buffer.history.redo_stack.pop();
-    var next_state = the_change.next_state;
-    var previous_state = the_change.previous_state;
+    // var the_change = buffer.history.redo_stack.pop();
+    // var next_state = the_change.next_state;
+    // var previous_state = the_change.previous_state;
 
-    if (next_state.content.len == 0) {
-        try without_history_change.deleteRows(
-            buffer,
-            previous_state.first_row,
-            previous_state.last_row,
-        );
-    } else if (previous_state.content.len == 0) {
-        try without_history_change.insertNewLine(
-            buffer,
-            previous_state.first_row,
-            next_state.content,
-        );
-    } else {
-        try without_history_change.replaceRows(
-            buffer,
-            next_state.content,
-            previous_state.first_row,
-            previous_state.last_row,
-        );
-    }
+    // if (next_state.content.len == 0) {
+    //     try without_history_change.deleteRows(
+    //         buffer,
+    //         previous_state.first_row,
+    //         previous_state.last_row,
+    //     );
+    // } else if (previous_state.content.len == 0) {
+    //     try without_history_change.insertNewLine(
+    //         buffer,
+    //         previous_state.first_row,
+    //         next_state.content,
+    //     );
+    // } else {
+    //     try without_history_change.replaceRows(
+    //         buffer,
+    //         next_state.content,
+    //         previous_state.first_row,
+    //         previous_state.last_row,
+    //     );
+    // }
 
-    try buffer.history.stack.append(the_change);
-    Cursor.resetPosition(buffer);
+    // try buffer.history.stack.append(the_change);
+    // Cursor.resetPosition(buffer);
 }
 
 pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: u32, last_row: u32) !void {

@@ -64,11 +64,14 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     var cursor_x: i64 = 0;
 
     var i: u32 = 1;
-    var l = buffer.lines.elementAt(buffer.cursor.row - 1).sliceOfContent();
+
+    var l = utils.getLine(buffer.lines.sliceOfContent(), buffer.cursor.row);
+
     while (i < buffer.cursor.col) : (i += 1) {
         var slice = try utf8.sliceOfUTF8Char(l, i);
         var code_point = try unicode.utf8Decode(slice);
-        cursor_x += @intCast(i64, renderer.text.characters[code_point].Advance >> 6);
+        if (code_point < 0x700)
+            cursor_x += @intCast(i64, renderer.text.characters[code_point].Advance >> 6);
     }
     var cursor_h = renderer.text.font_size;
     var cursor_y = (@intCast(i32, buffer.cursor.row) - 1) * cursor_h + 10 - start;
@@ -76,8 +79,7 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     renderer.cursor.render(@intCast(i32, cursor_x), cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
 
     var j: i32 = 0;
-    // var lines = buffer.lines.sliceOfContent();
-    var lines = try buffer.copyAll();
+    var lines = try buffer.lines.copy();
     defer buffer.allocator.free(lines);
     var iter = utils.splitAfter(u8, lines, '\n');
     while (iter.next()) |line| {
