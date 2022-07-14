@@ -92,16 +92,17 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
-    _ = buffer;
-    _ = start_row;
-    _ = end_row;
+    if (start_row > end_row)
+        return error.InvalidRange;
+
+    try without_history_change.deleteRows(buffer, start_row, end_row);
 }
 
 pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
-    if (start_row > end_row or start_col > end_col) {
-        return error.IndexOutOfBounds;
-    }
-    _ = buffer;
+    if (start_row > end_row or start_col > end_col)
+        return error.InvalidRange;
+
+    try without_history_change.deleteRange(buffer, start_row, start_col, end_row, end_col);
 }
 
 // TODO: this

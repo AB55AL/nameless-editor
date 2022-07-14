@@ -52,7 +52,7 @@ pub fn insert(gbuffer: *GapBuffer, content: []const u8) !void {
 }
 
 /// deletes a given number of elements after the gap_pos
-pub fn delete(gbuffer: *GapBuffer, num: usize) !void {
+pub fn delete(gbuffer: *GapBuffer, num: usize) void {
     var n = std.math.min(num, (gbuffer.content.len - 1) - gbuffer.gapEndPos());
     gbuffer.gap_size += n;
 }
