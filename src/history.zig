@@ -38,13 +38,17 @@ pub const History = struct {
     pub fn deinit(history: *History) void {
         const free = history.stack.allocator.free;
 
-        while (history.stack.popOrNull()) |buffer_states|
+        while (history.stack.popOrNull()) |buffer_states| {
             for (buffer_states) |state|
                 free(state.content);
+            free(buffer_states);
+        }
 
-        while (history.redo_stack.popOrNull()) |buffer_states|
+        while (history.redo_stack.popOrNull()) |buffer_states| {
             for (buffer_states) |state|
                 free(state.content);
+            free(buffer_states);
+        }
 
         history.redo_stack.deinit();
         history.stack.deinit();
