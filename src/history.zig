@@ -81,8 +81,14 @@ pub fn undo(buffer: *Buffer) !void {
                     change.index,
                     change.content.len,
                 );
+                try buffer.insureLastByteIsNewline();
             },
             TypeOfChange.deletion => {
+                // Delete the newline char so that it doesn't stick around after undoing
+                // an entire buffer deletion
+                if (buffer.lines.length() == 1) {
+                    buffer.lines.deleteAfter(0, 1);
+                }
                 try buffer.lines.insertAt(
                     change.index,
                     change.content,
@@ -114,6 +120,7 @@ pub fn redo(buffer: *Buffer) !void {
                     change.index,
                     change.content.len,
                 );
+                try buffer.insureLastByteIsNewline();
             },
         }
     }
@@ -131,7 +138,6 @@ pub fn updateRelatedHistoryChanges(buffer: *Buffer) !void {
     var pc = &buffer.previous_change;
 
     if (pc.content.isEmpty()) return;
-    print("updating\n", .{});
 
     try buffer.related_history_changes.append(.{
         .content = try pc.content.copy(),

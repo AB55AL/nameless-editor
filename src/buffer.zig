@@ -91,6 +91,8 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
+/// If end_column is greater than the number of characters in the line then
+/// delete() would delete to the end of line
 pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !void {
     if (row <= 0 or row > buffer.lines.length()) {
         print("delete(): range out of bounds\n", .{});
@@ -123,16 +125,13 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     var from = utils.getNewline(buffer.lines.sliceOfContent(), start_row - 1).?;
     var to = utils.getNewline(buffer.lines.sliceOfContent(), end_row) orelse buffer.lines.length();
 
-    const substring = utf8.substringOfUTF8Sequence(
-        buffer.lines.sliceOfContent(),
-        from + 1,
-        to,
-    ) catch unreachable;
+    const f = if (from == 0) 0 else from + 1;
+    const substring = buffer.lines.sliceOfContent()[f .. to + 1];
 
     buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = substring,
-        .index = from,
+        .index = f,
         .type_of_change = TypeOfChange.deletion,
     });
 
@@ -306,7 +305,7 @@ fn mergeChanges(
     }
 }
 
-fn insureLastByteIsNewline(buffer: *Buffer) !void {
+pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     buffer.lines.moveGapPosRelative(-1);
     if (buffer.lines.content[buffer.lines.content.len - 1] != '\n' or
         buffer.lines.length() == 0)
