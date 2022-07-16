@@ -77,6 +77,7 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
         return error.IndexOutOfBounds;
 
     const index = utils.getIndex(buffer.lines.sliceOfContent(), row, column);
+    buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = string,
         .index = index,
@@ -102,6 +103,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     const slice = utils.getLine(buffer.lines.sliceOfContent(), row);
     const substring = utf8.substringOfUTF8Sequence(slice, start_column, end_column - 1) catch unreachable;
 
+    buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = substring,
         .index = index,
@@ -127,6 +129,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
         to,
     ) catch unreachable;
 
+    buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = substring,
         .index = from,

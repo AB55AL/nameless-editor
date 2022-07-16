@@ -50,7 +50,7 @@ pub const History = struct {
         history.stack.deinit();
     }
 
-    fn emptyRedoStack(history: *History) void {
+    pub fn emptyRedoStack(history: *History) void {
         const free = history.stack.allocator.free;
         while (history.redo_stack.popOrNull()) |buffer_states|
             for (buffer_states) |state|
