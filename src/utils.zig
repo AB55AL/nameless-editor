@@ -1,4 +1,5 @@
 const std = @import("std");
+const print = std.debug.print;
 
 const utf8 = @import("utf8.zig");
 
@@ -11,8 +12,10 @@ pub fn countChar(string: []const u8, char: u8) u32 {
 }
 
 /// Returns the index (0-based) of the ith (1-based) newline character in a string or
-/// null if it doesn't find it or if the index is 0
+/// 0 if index is 0 or null if it doesn't find it
 pub fn getNewline(string: []const u8, index: usize) ?usize {
+    if (index == 0) return 0;
+
     var count: u32 = 0;
     for (string) |c, i| {
         if (c == '\n') {

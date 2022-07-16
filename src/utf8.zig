@@ -3,7 +3,7 @@ const print = std.debug.print;
 const unicode = std.unicode;
 
 /// Given a valid UTF-8 sequence returns a slice
-/// containing the bytes of the ith character up to and including the jth character
+/// containing the bytes of the ith character up to and including the jth character (1-based)
 pub fn substringOfUTF8Sequence(utf8_seq: []const u8, i: usize, j: usize) ![]const u8 {
     if (i == j) {
         var start = firstByteOfCodeUnit(utf8_seq, i);
@@ -29,11 +29,11 @@ pub fn sliceOfUTF8Char(utf8_string: []const u8, index: usize) ![]const u8 {
 /// Returns the index (0-based) of the first byte of the ith character (1-based) in a UTF-8 encoded array
 pub fn firstByteOfCodeUnit(utf8_string: []const u8, index: usize) usize {
     var i: usize = 0;
-    var char: usize = 0;
+    var char_count: usize = 0;
     for (utf8_string) |byte, byte_index| {
-        if (char >= index) break;
+        if (char_count >= index) break;
         if (byte & 0b11_000000 != 0b10_000000 or byte & 0b10000000 == 0) {
-            char += 1;
+            char_count += 1;
             i = byte_index;
         }
     }
