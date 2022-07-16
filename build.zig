@@ -14,10 +14,10 @@ pub const core_pkg = std.build.Pkg{
     .source = .{ .path = thisDir() ++ "/src/core.zig" },
 };
 
-pub fn buildEditor(b: *Builder, comptime input_layer_path: []const u8) void {
-    b.setPreferredReleaseMode(std.builtin.Mode.Debug);
+pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
+    bob.setPreferredReleaseMode(std.builtin.Mode.Debug);
 
-    const exe = b.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
+    const exe = bob.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
     exe.linkLibC();
     exe.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
     exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{
@@ -40,25 +40,25 @@ pub fn buildEditor(b: *Builder, comptime input_layer_path: []const u8) void {
         .dependencies = &.{core_pkg},
     });
 
-    glfw.link(b, exe, .{});
-    freetype.link(b, exe, .{});
+    glfw.link(bob, exe, .{});
+    freetype.link(bob, exe, .{});
     exe.install();
 
     const run_cmd = exe.run();
-    run_cmd.step.dependOn(b.getInstallStep());
+    run_cmd.step.dependOn(bob.getInstallStep());
 
-    const run_step = b.step("run", "Run the app");
+    const run_step = bob.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const tests = b.addTest(comptime thisDir() ++ "/tests/buffer.zig");
-    tests.setBuildMode(std.builtin.Mode.ReleaseSafe);
+    const tests = bob.addTest(comptime thisDir() ++ "/tests/buffer.zig");
+    tests.setBuildMode(std.builtin.Mode.Debug);
     tests.addPackagePath("core", comptime thisDir() ++ "/src/core.zig");
 
-    const test_step = b.step("test", "Run library tests");
+    const test_step = bob.step("test", "Run library tests");
     test_step.dependOn(&tests.step);
 }
 
-pub fn build(b: *Builder) void {
+pub fn build(bob: *Builder) void {
     const standard_input_layer_path = comptime thisDir() ++ "/input-layers/standard-input-layer";
-    buildEditor(b, standard_input_layer_path);
+    buildEditor(bob, standard_input_layer_path);
 }
