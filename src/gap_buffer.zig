@@ -51,16 +51,39 @@ pub fn insert(gbuffer: *GapBuffer, content: []const u8) !void {
     if (gbuffer.gap_size == 0) try gbuffer.resizeGap();
 }
 
+/// Inserts a slice at the index.
+/// resizes the gap when needed
+pub fn insertAt(gbuffer: *GapBuffer, index: usize, content: []const u8) !void {
+    gbuffer.moveGapPosAbsolute(index);
+    try gbuffer.insert(content);
+}
+
 /// deletes a given number of elements after the gap_pos
 pub fn delete(gbuffer: *GapBuffer, num: usize) void {
     var n = std.math.min(num, (gbuffer.content.len - 1) - gbuffer.gapEndPos());
     gbuffer.gap_size += n;
 }
 
+/// deletes a given number of elements after the index
+pub fn deleteAfter(gbuffer: *GapBuffer, index: usize, num: usize) void {
+    gbuffer.moveGapPosAbsolute(index);
+    gbuffer.delete(num);
+}
+
 pub fn replaceAllWith(gbuffer: *GapBuffer, new_content: []const u8) !void {
     gbuffer.moveGapPosAbsolute(0);
     gbuffer.delete(gbuffer.length());
     try gbuffer.insert(new_content);
+}
+
+pub fn prepend(gbuffer: *GapBuffer, string: []const u8) !void {
+    gbuffer.moveGapPosAbsolute(0);
+    try gbuffer.insert(string);
+}
+
+pub fn append(gbuffer: *GapBuffer, string: []const u8) !void {
+    gbuffer.moveGapPosAbsolute(gbuffer.length());
+    try gbuffer.insert(string);
 }
 
 /// Moves the gap to before the index

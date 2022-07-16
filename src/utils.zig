@@ -75,6 +75,10 @@ pub fn getLine(string: []const u8, index: usize) []const u8 {
 }
 
 pub fn getIndex(string: []const u8, row: u32, col: u32) usize {
+    if (row == 1) {
+        return utf8.firstByteOfCodeUnit(string, col);
+    }
+
     const line = getNewline(string, row - 1);
     var index: usize = if (line) |l| l + 1 else 0;
 
@@ -123,4 +127,10 @@ pub fn SplitAfterIterator(comptime T: type) type {
             return null;
         }
     };
+}
+
+/// Takes three numbers and returns true if the first number is in the range
+/// of the second and third numbers
+pub fn inRange(comptime T: type, a: T, b: T, c: T) bool {
+    return a >= b and a <= c;
 }

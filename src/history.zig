@@ -1,176 +1,139 @@
 const std = @import("std");
 const print = std.debug.print;
+const Stack = std.ArrayList;
 const ArrayList = std.ArrayList;
 
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
-const GapBuffer = @import("gap_buffer.zig").GapBuffer;
+const GapBuffer = @import("gap_buffer.zig");
 
-// TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
+pub const TypeOfChange = enum(u1) {
+    insertion,
+    deletion,
+};
+
 pub const HistoryBufferState = struct {
     content: []const u8,
-    first_row: u32,
-    last_row: u32,
+    index: usize,
+    type_of_change: TypeOfChange,
 };
 
-// TODO: Add start_col and end_col to use for moving the cursor after an undo/redo
 pub const HistoryBufferStateResizeable = struct {
     content: GapBuffer,
-    first_row: u32,
-    last_row: u32,
-};
-
-pub const HistoryChange = struct {
-    previous_state: HistoryBufferState,
-    next_state: HistoryBufferState,
+    index: usize,
+    type_of_change: TypeOfChange,
 };
 
 pub const History = struct {
-    stack: ArrayList(HistoryChange),
-    redo_stack: ArrayList(HistoryChange),
+    stack: Stack([]const HistoryBufferState),
+    redo_stack: Stack([]const HistoryBufferState),
 
     pub fn init(allocator: std.mem.Allocator) History {
         return History{
-            .stack = ArrayList(HistoryChange).init(allocator),
-            .redo_stack = ArrayList(HistoryChange).init(allocator),
+            .stack = Stack([]const HistoryBufferState).init(allocator),
+            .redo_stack = Stack([]const HistoryBufferState).init(allocator),
         };
     }
 
     pub fn deinit(history: *History) void {
         const free = history.stack.allocator.free;
-        for (history.stack.items) |item| {
-            free(item.previous_state.content);
-            free(item.next_state.content);
-        }
-        for (history.redo_stack.items) |item| {
-            free(item.previous_state.content);
-            free(item.next_state.content);
-        }
+
+        while (history.stack.popOrNull()) |buffer_states|
+            for (buffer_states) |state|
+                free(state.content);
+
+        while (history.redo_stack.popOrNull()) |buffer_states|
+            for (buffer_states) |state|
+                free(state.content);
+
         history.redo_stack.deinit();
         history.stack.deinit();
     }
 
-    fn update(history: *History, latest_change: HistoryChange) !void {
-        history.emptyRedoStack();
-        try history.pushChange(latest_change);
-    }
-
-    pub fn peekStack(stack: ArrayList(HistoryChange)) HistoryChange {
-        return stack.items[stack.items.len - 1];
-    }
-
     fn emptyRedoStack(history: *History) void {
         const free = history.stack.allocator.free;
-        while (history.redo_stack.popOrNull()) |item| {
-            free(item.previous_state.content);
-            free(item.next_state.content);
-        }
-    }
-
-    fn pushChange(history: *History, the_change: HistoryChange) !void {
-        try history.stack.append(the_change);
+        while (history.redo_stack.popOrNull()) |buffer_states|
+            for (buffer_states) |state|
+                free(state.content);
     }
 };
 
 pub fn undo(buffer: *Buffer) !void {
-    _ = buffer;
-    // try updateHistory(buffer);
-    // if (buffer.history.stack.items.len == 0) return;
+    try commitHistoryChanges(buffer);
+    if (buffer.history.stack.items.len == 0) return;
 
-    // var the_change = buffer.history.stack.pop();
-    // var next_state = the_change.next_state;
-    // var previous_state = the_change.previous_state;
+    const stack = &buffer.history.stack;
 
-    // if (next_state.content.len == 0) {
-    //     try without_history_change.insertNewLine(
-    //         buffer,
-    //         previous_state.first_row,
-    //         previous_state.content,
-    //     );
-    // } else if (previous_state.content.len == 0) {
-    //     try without_history_change.deleteRows(
-    //         buffer,
-    //         previous_state.first_row,
-    //         previous_state.last_row,
-    //     );
-    // } else {
-    //     try without_history_change.replaceRows(
-    //         buffer,
-    //         previous_state.content,
-    //         next_state.first_row,
-    //         next_state.last_row,
-    //     );
-    // }
+    var changes = stack.pop();
+    if (changes.len == 0) return;
 
-    // try buffer.history.redo_stack.append(the_change);
-    // Cursor.resetPosition(buffer);
+    var i: usize = changes.len;
+    while (i > 0) {
+        i -= 1;
+        const change: HistoryBufferState = changes[i];
+        switch (change.type_of_change) {
+            TypeOfChange.insertion => {
+                buffer.lines.deleteAfter(
+                    change.index,
+                    change.content.len,
+                );
+            },
+            TypeOfChange.deletion => {
+                try buffer.lines.insertAt(
+                    change.index,
+                    change.content,
+                );
+            },
+        }
+    }
+
+    try buffer.history.redo_stack.append(changes);
 }
 
 pub fn redo(buffer: *Buffer) !void {
-    _ = buffer;
-    // if (buffer.history.redo_stack.items.len == 0) return;
+    if (buffer.history.redo_stack.items.len == 0) return;
 
-    // var the_change = buffer.history.redo_stack.pop();
-    // var next_state = the_change.next_state;
-    // var previous_state = the_change.previous_state;
+    const redo_stack = &buffer.history.redo_stack;
+    var changes = redo_stack.pop();
+    if (changes.len == 0) return;
 
-    // if (next_state.content.len == 0) {
-    //     try without_history_change.deleteRows(
-    //         buffer,
-    //         previous_state.first_row,
-    //         previous_state.last_row,
-    //     );
-    // } else if (previous_state.content.len == 0) {
-    //     try without_history_change.insertNewLine(
-    //         buffer,
-    //         previous_state.first_row,
-    //         next_state.content,
-    //     );
-    // } else {
-    //     try without_history_change.replaceRows(
-    //         buffer,
-    //         next_state.content,
-    //         previous_state.first_row,
-    //         previous_state.last_row,
-    //     );
-    // }
+    for (changes) |change| {
+        switch (change.type_of_change) {
+            TypeOfChange.insertion => {
+                try buffer.lines.insertAt(
+                    change.index,
+                    change.content,
+                );
+            },
+            TypeOfChange.deletion => {
+                buffer.lines.deleteAfter(
+                    change.index,
+                    change.content.len,
+                );
+            },
+        }
+    }
 
-    // try buffer.history.stack.append(the_change);
-    // Cursor.resetPosition(buffer);
+    try buffer.history.stack.append(changes);
 }
 
-pub fn updateHistoryIfNeeded(buffer: *Buffer, first_row: u32, last_row: u32) !void {
-    var current_state = &buffer.current_state;
-    if (current_state.content.isEmpty()) return;
-
-    if (current_state.first_row != first_row and current_state.last_row != last_row)
-        try updateHistory(buffer);
+pub fn commitHistoryChanges(buffer: *Buffer) !void {
+    try updateRelatedHistoryChanges(buffer);
+    if (buffer.related_history_changes.items.len == 0) return;
+    try buffer.history.stack.append(buffer.related_history_changes.toOwnedSlice());
 }
 
-pub fn updateHistory(buffer: *Buffer) !void {
-    var current_state = &buffer.current_state;
-    var next_state = &buffer.next_state;
+pub fn updateRelatedHistoryChanges(buffer: *Buffer) !void {
+    var pc = &buffer.previous_change;
 
-    if (current_state.content.isEmpty()) return;
+    if (pc.content.isEmpty()) return;
+    print("updating\n", .{});
 
-    try buffer.history.update(HistoryChange{
-        .previous_state = .{
-            .content = try current_state.content.copyOfContent(),
-            .first_row = current_state.first_row,
-            .last_row = current_state.last_row,
-        },
-        .next_state = .{
-            .content = try next_state.content.copyOfContent(),
-            .first_row = next_state.first_row,
-            .last_row = next_state.last_row,
-        },
+    try buffer.related_history_changes.append(.{
+        .content = try pc.content.copy(),
+        .index = pc.index,
+        .type_of_change = pc.type_of_change,
     });
-
-    try current_state.content.replaceAllWith("");
-    current_state.first_row = buffer.cursor.row;
-    current_state.last_row = buffer.cursor.row;
-
-    try next_state.content.replaceAllWith("");
-    next_state.first_row = buffer.cursor.row;
-    next_state.last_row = buffer.cursor.row;
+    pc.content.replaceAllWith("") catch unreachable;
+    pc.index = 0;
 }
