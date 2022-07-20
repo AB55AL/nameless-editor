@@ -10,7 +10,7 @@ const c_ft_hb = @import("c_ft_hb");
 const Shader = @import("shaders.zig").Shader;
 const Face = freetype.Face;
 
-const vectors = @import("../vectors.zig");
+const vectors = @import("vectors.zig");
 const c = @import("../c.zig");
 
 extern var global_allocator: std.mem.Allocator;

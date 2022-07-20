@@ -3,8 +3,8 @@ const print = std.debug.print;
 
 const c = @import("../c.zig");
 const Shader = @import("shaders.zig").Shader;
-const vectors = @import("../vectors.zig");
-const matrices = @import("../matrices.zig");
+const vectors = @import("vectors.zig");
+const matrices = @import("matrices.zig");
 
 const indices = [_]u32{
     0, 1, 3, // first triangle
