@@ -16,7 +16,7 @@ pub fn openFile(allocator: std.mem.Allocator, file_path: []const u8) !*Buffer {
     var buf = try file.readToEndAlloc(allocator, metadata.size());
     defer allocator.free(buf);
 
-    return Buffer.init(allocator, full_file_path, buf);
+    return Buffer.init(full_file_path, buf);
 }
 
 pub fn writeToFile(buffer: *Buffer) !void {

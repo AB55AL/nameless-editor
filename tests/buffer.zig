@@ -8,6 +8,9 @@ const core = @import("core");
 const Buffer = core.Buffer;
 const history = core.history;
 
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+export var global_allocator: std.mem.Allocator = gpa.allocator();
+
 test "deleteRange()" {
     const original_text =
         \\hello there my friend
@@ -22,7 +25,7 @@ test "deleteRange()" {
         \\
     ;
 
-    var buffer = try Buffer.init(allocator, "", original_text);
+    var buffer = try Buffer.init("", original_text);
     defer buffer.deinit();
 
     try buffer.deleteRange(2, 2, 3, 22);
@@ -64,7 +67,7 @@ test "deleteRows()" {
         \\
     ;
 
-    var buffer = try Buffer.init(allocator, "", original_text);
+    var buffer = try Buffer.init("", original_text);
     var lines = &buffer.lines;
     defer buffer.deinit();
 
@@ -109,7 +112,7 @@ test "undo and redo delete()" {
         \\
     ;
 
-    var buffer = try Buffer.init(allocator, "", original_text);
+    var buffer = try Buffer.init("", original_text);
 
     {
         try buffer.delete(2, 1, 999);
@@ -173,7 +176,7 @@ test "undo and redo deleteRows()" {
         \\
     ;
 
-    var buffer = try Buffer.init(allocator, "", original_text);
+    var buffer = try Buffer.init("", original_text);
     var lines = &buffer.lines;
     defer buffer.deinit();
 

@@ -21,6 +21,7 @@ var window_width: u32 = 800;
 var window_height: u32 = 600;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+export var global_allocator: std.mem.Allocator = gpa.allocator();
 
 export var buffer: *Buffer = undefined;
 export var start: i32 = 0;
@@ -75,7 +76,7 @@ pub fn main() !void {
     _ = c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, glfw.getProcAddress));
     c.glViewport(0, 0, @intCast(c_int, window_width), @intCast(c_int, window_height));
 
-    renderer = try Renderer.init(gpa.allocator(), window_width, window_height);
+    renderer = try Renderer.init(window_width, window_height);
     defer renderer.deinit();
 
     window.setFramebufferSizeCallback(framebufferSizeCallback);
@@ -87,7 +88,7 @@ pub fn main() !void {
     input_layer.inputLayerInit();
     defer input_layer.inputLayerDeinit();
 
-    buffer = file_io.openFile(gpa.allocator(), "build.zig") catch |err| {
+    buffer = file_io.openFile(global_allocator, "build.zig") catch |err| {
         print("{}\n", .{err});
         return;
     };

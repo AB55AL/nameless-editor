@@ -13,6 +13,8 @@ const Face = freetype.Face;
 const vectors = @import("../vectors.zig");
 const c = @import("../c.zig");
 
+extern var global_allocator: std.mem.Allocator;
+
 pub const Character = struct {
     texture_id: u32, // ID handle of the glyph texture
     Size: vectors.uVector, // Size of glyph
@@ -93,11 +95,9 @@ pub const Text = struct {
     hb_buffer: harfbuzz.Buffer,
     hb_font: harfbuzz.Font,
 
-    allocator: std.mem.Allocator,
-
     /// Initializes data required for rendering text
-    pub fn init(allocator: std.mem.Allocator, shader: Shader) !*Text {
-        var text = try allocator.create(Text);
+    pub fn init(shader: Shader) !*Text {
+        var text = try global_allocator.create(Text);
         text.ft_lib = try freetype.Library.init();
         text.ft_face = try text.ft_lib.newFace("/usr/share/fonts/TTF/Amiri-Regular.ttf", 0);
         // text.ft_face = try text.ft_lib.newFace("/usr/share/fonts/nerd-fonts-complete/OTF/Fira Code Light Nerd Font Complete Mono.otf", 0);
@@ -109,12 +109,11 @@ pub const Text = struct {
 
         try text.generateAndCacheAsciiTextures();
 
-        text.unicode_textures = StringArrayHashMap([]const Character).init(allocator);
+        text.unicode_textures = StringArrayHashMap([]const Character).init(global_allocator);
         text.shader = shader;
         text.font_size = font_size;
         text.hb_font = harfbuzz.Font.fromFtFace(text.ft_face);
         text.hb_buffer = harfbuzz.Buffer.init().?;
-        text.allocator = allocator;
 
         return text;
     }
@@ -122,8 +121,8 @@ pub const Text = struct {
     pub fn deinit(text: *Text) void {
         var iter = text.unicode_textures.iterator();
         while (iter.next()) |element| {
-            text.allocator.free(element.value_ptr.*);
-            text.allocator.free(element.key_ptr.*);
+            global_allocator.free(element.value_ptr.*);
+            global_allocator.free(element.key_ptr.*);
         }
         text.unicode_textures.deinit();
 
@@ -132,7 +131,7 @@ pub const Text = struct {
         text.ft_face.deinit();
         text.ft_lib.deinit();
 
-        text.allocator.destroy(text);
+        global_allocator.destroy(text);
     }
 
     pub fn generateAndCacheAsciiTextures(text: *Text) !void {
@@ -214,7 +213,7 @@ pub const Text = struct {
         var infos = c_ft_hb.hb_buffer_get_glyph_infos(text.hb_buffer.handle, null)[0..len];
 
         var characters_index: usize = 0;
-        var characters = try text.allocator.alloc(
+        var characters = try global_allocator.alloc(
             Character,
             unicode.utf8CountCodepoints(utf8_seq) catch {
                 print("unreachable here\n", .{});
@@ -299,7 +298,7 @@ pub const Text = struct {
                 text.renderGlyph(character, &x, &y);
             } else {
                 var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
-                    var utf8_seq = try text.allocator.alloc(u8, text_segment.utf8_seq.len);
+                    var utf8_seq = try global_allocator.alloc(u8, text_segment.utf8_seq.len);
                     std.mem.copy(u8, utf8_seq, text_segment.utf8_seq);
                     break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
                 };

@@ -18,6 +18,8 @@ const TypeOfChange = history.TypeOfChange;
 
 const utils = @import("utils.zig");
 
+extern var global_allocator: std.mem.Allocator;
+
 const Buffer = @This();
 
 file_path: []u8,
@@ -25,26 +27,24 @@ size: usize,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: GapBuffer,
-allocator: std.mem.Allocator,
 
 history: History,
 related_history_changes: Stack(HistoryBufferState),
 previous_change: HistoryBufferStateResizeable,
 
-pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !*Buffer {
-    var buffer = try allocator.create(Buffer);
-    buffer.lines = try GapBuffer.init(allocator, buf);
+pub fn init(file_path: []const u8, buf: []const u8) !*Buffer {
+    var buffer = try global_allocator.create(Buffer);
+    buffer.lines = try GapBuffer.init(global_allocator, buf);
     buffer.cursor = .{ .row = 1, .col = 1 };
-    buffer.allocator = allocator;
-    buffer.file_path = try allocator.alloc(u8, file_path.len);
+    buffer.file_path = try global_allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, buffer.file_path, file_path);
 
-    buffer.related_history_changes = Stack(HistoryBufferState).init(allocator);
+    buffer.related_history_changes = Stack(HistoryBufferState).init(global_allocator);
 
     buffer.size = buf.len;
-    buffer.history = History.init(allocator);
+    buffer.history = History.init();
     buffer.previous_change = .{
-        .content = try GapBuffer.init(allocator, null),
+        .content = try GapBuffer.init(global_allocator, null),
         .index = 0,
         .type_of_change = TypeOfChange.insertion,
     };
@@ -56,13 +56,13 @@ pub fn deinit(buffer: *Buffer) void {
 
     buffer.previous_change.content.deinit();
     while (buffer.related_history_changes.popOrNull()) |item|
-        buffer.allocator.free(item.content);
+        global_allocator.free(item.content);
 
     buffer.related_history_changes.deinit();
     buffer.history.deinit();
 
-    buffer.allocator.free(buffer.file_path);
-    buffer.allocator.destroy(buffer);
+    global_allocator.free(buffer.file_path);
+    global_allocator.destroy(buffer);
 }
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {

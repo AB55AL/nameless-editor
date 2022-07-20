@@ -20,15 +20,16 @@ const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 
+extern var global_allocator: std.mem.Allocator;
+
 pub const Renderer = @This();
 
 cursor: CursorRenderInfo,
 text: *Text,
 window_width: u32,
 window_height: u32,
-allocator: std.mem.Allocator,
 
-pub fn init(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !Renderer {
+pub fn init(window_width: u32, window_height: u32) !Renderer {
     var text_shader = try Shader.init("shaders/font.vs", "shaders/font.fs");
     var cursor_shader = try Shader.init("shaders/cursor.vs", "shaders/cursor.fs");
 
@@ -42,14 +43,13 @@ pub fn init(allocator: std.mem.Allocator, window_width: u32, window_height: u32)
 
     var cursor = CursorRenderInfo.init(cursor_shader);
 
-    var txt = try Text.init(allocator, text_shader);
+    var txt = try Text.init(text_shader);
 
     return Renderer{
         .cursor = cursor,
         .text = txt,
         .window_width = window_width,
         .window_height = window_height,
-        .allocator = allocator,
     };
 }
 
@@ -60,7 +60,7 @@ pub fn deinit(renderer: Renderer) void {
 pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
     var j: i32 = 0;
     var lines = try buffer.lines.copy();
-    defer buffer.allocator.free(lines);
+    defer global_allocator.free(lines);
     var iter = utils.splitAfter(u8, lines, '\n');
     while (iter.next()) |line| {
         try renderer.text.render(line, 0, renderer.text.font_size - start + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });

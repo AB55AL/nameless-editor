@@ -7,7 +7,8 @@ const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
 
 const FuncType = fn ([]PossibleValues) CommandRunError!void;
 
-var command_line_allocator: std.mem.Allocator = undefined;
+extern var global_allocator: std.mem.Allocator;
+
 var command_function_lut: std.StringHashMap(FuncType) = undefined;
 
 const ParseError = error{
@@ -28,9 +29,8 @@ pub const PossibleValues = union(PossibleValuesTag) {
     bool: bool,
 };
 
-pub fn init(allocator: std.mem.Allocator) void {
-    command_function_lut = std.StringHashMap(FuncType).init(allocator);
-    command_line_allocator = allocator;
+pub fn init() void {
+    command_function_lut = std.StringHashMap(FuncType).init(global_allocator);
 }
 
 pub fn deinit() void {
@@ -60,10 +60,10 @@ pub fn run(command_string: []const u8) void {
         print("{}\n", .{err});
         return;
     };
-    defer command_line_allocator.free(parsed_string);
+    defer global_allocator.free(parsed_string);
     var command = parsed_string[0];
     var args = convertArgsToValues(parsed_string[1..]);
-    defer command_line_allocator.free(args);
+    defer global_allocator.free(args);
     call(command, args);
 }
 
@@ -84,7 +84,7 @@ fn call(command: []const u8, args: []PossibleValues) void {
 }
 
 fn parse(string: []const u8) ![][]const u8 {
-    var array = ArrayList([]const u8).init(command_line_allocator);
+    var array = ArrayList([]const u8).init(global_allocator);
     var iter = std.mem.split(u8, string, " ");
 
     var double_q_num = count(u8, string, "\"");
@@ -112,7 +112,7 @@ fn parse(string: []const u8) ![][]const u8 {
             if (top_of_stack[0] != '"') {
                 return ParseError.DoubleQuoteInvalidPosition;
             }
-            var content = try std.mem.concat(command_line_allocator, u8, &[_][]const u8{
+            var content = try std.mem.concat(global_allocator, u8, &[_][]const u8{
                 array.pop(),
                 " ",
                 s,
@@ -136,7 +136,7 @@ fn parse(string: []const u8) ![][]const u8 {
 }
 
 fn convertArgsToValues(args_str: [][]const u8) []PossibleValues {
-    var args = command_line_allocator.alloc(PossibleValues, args_str.len) catch unreachable;
+    var args = global_allocator.alloc(PossibleValues, args_str.len) catch unreachable;
     for (args_str) |arg, i| {
         if (arg[0] == '"' and arg[arg.len - 1] == '"') {
             if (arg.len == 2) {
