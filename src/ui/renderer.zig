@@ -13,7 +13,8 @@ const Shader = @import("shaders.zig");
 const vectors = @import("../vectors.zig");
 const matrices = @import("../matrices.zig");
 const CursorRenderInfo = @import("cursor.zig");
-const Text = @import("text.zig");
+const text = @import("text.zig");
+const Text = text.Text;
 const Buffer = @import("../buffer.zig");
 const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
@@ -41,11 +42,11 @@ pub fn init(allocator: std.mem.Allocator, window_width: u32, window_height: u32)
 
     var cursor = CursorRenderInfo.init(cursor_shader);
 
-    var text = try Text.init(allocator, text_shader);
+    var txt = try Text.init(allocator, text_shader);
 
     return Renderer{
         .cursor = cursor,
-        .text = text,
+        .text = txt,
         .window_width = window_width,
         .window_height = window_height,
         .allocator = allocator,
@@ -70,7 +71,7 @@ pub fn render(renderer: Renderer, buffer: *Buffer, start: i32) !void {
 
     var i: u32 = 1;
     var l = utils.getLine(buffer.lines.sliceOfContent(), buffer.cursor.row);
-    var it = Text.splitByLanguage(l);
+    var it = text.splitByLanguage(l);
     while (it.next()) |text_segment| : (i += 1) {
         if (i >= buffer.cursor.col) break;
 
