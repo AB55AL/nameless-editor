@@ -33,15 +33,11 @@ previous_change: HistoryBufferStateResizeable,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !*Buffer {
     var buffer = try allocator.create(Buffer);
-    buffer.lines = try GapBuffer.init(allocator, null);
+    buffer.lines = try GapBuffer.init(allocator, buf);
     buffer.cursor = .{ .row = 1, .col = 1 };
     buffer.allocator = allocator;
     buffer.file_path = try allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, buffer.file_path, file_path);
-
-    buffer.lines.moveGapPosAbsolute(0);
-    try buffer.lines.insert(buf);
-    buffer.lines.moveGapPosAbsolute(0);
 
     buffer.related_history_changes = Stack(HistoryBufferState).init(allocator);
 
