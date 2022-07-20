@@ -75,7 +75,8 @@ pub fn main() !void {
     _ = c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, glfw.getProcAddress));
     c.glViewport(0, 0, @intCast(c_int, window_width), @intCast(c_int, window_height));
 
-    renderer = try Renderer.init(window_width, window_height);
+    renderer = try Renderer.init(gpa.allocator(), window_width, window_height);
+    defer renderer.deinit();
 
     window.setFramebufferSizeCallback(framebufferSizeCallback);
     window.setCharCallback(input.characterInputCallback);

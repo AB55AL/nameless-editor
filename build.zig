@@ -15,9 +15,8 @@ pub const core_pkg = std.build.Pkg{
 };
 
 pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
-    bob.setPreferredReleaseMode(std.builtin.Mode.Debug);
-
     const exe = bob.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
+    exe.setBuildMode(std.builtin.Mode.Debug);
     exe.linkLibC();
     exe.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
     exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{
@@ -33,6 +32,7 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
     });
     exe.addPackage(glfw.pkg);
     exe.addPackage(freetype.pkg);
+    exe.addPackage(freetype.harfbuzz_pkg);
 
     exe.addPackage(.{
         .name = "input_layer",
@@ -40,8 +40,10 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
         .dependencies = &.{core_pkg},
     });
 
+    exe.addPackagePath("c_ft_hb", "libs/mach-freetype/src/c.zig");
+
     glfw.link(bob, exe, .{});
-    freetype.link(bob, exe, .{});
+    freetype.link(bob, exe, .{ .harfbuzz = .{} });
     exe.install();
 
     const run_cmd = exe.run();
