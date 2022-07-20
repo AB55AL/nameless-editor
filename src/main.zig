@@ -13,6 +13,7 @@ const Renderer = @import("ui/renderer.zig");
 const matrices = @import("matrices.zig");
 const file_io = @import("file_io.zig");
 const GapBuffer = @import("gap_buffer.zig").GapBuffer;
+const command_line = @import("command_line.zig");
 
 const input_layer = @import("input_layer");
 
@@ -87,6 +88,8 @@ pub fn main() !void {
 
     input_layer.inputLayerInit();
     defer input_layer.inputLayerDeinit();
+    command_line.init();
+    defer command_line.deinit();
 
     buffer = file_io.openFile(global_allocator, "build.zig") catch |err| {
         print("{}\n", .{err});
