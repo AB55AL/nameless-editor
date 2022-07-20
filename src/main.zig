@@ -5,12 +5,9 @@ const ArrayList = std.ArrayList;
 
 const glfw = @import("glfw");
 const c = @import("c.zig");
-const input = @import("input.zig");
-const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
 const renderer = @import("ui/renderer.zig");
 const file_io = @import("file_io.zig");
-const GapBuffer = @import("gap_buffer.zig").GapBuffer;
 const command_line = @import("command_line.zig");
 const glfw_window = @import("glfw.zig");
 
