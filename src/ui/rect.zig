@@ -62,14 +62,14 @@ pub fn createVaoVboAndEbo(rect: *Rect) void {
     rect.EBO = EBO;
 }
 
-pub fn render(rect: Rect, x_coord: i32, y_coord: i32, width: i32, height: i32, color: vectors.vec3) void {
+pub fn render(rect: Rect, x_coord: f32, y_coord: f32, width: f32, height: f32, color: vectors.vec3) void {
     rect.shader.use();
     c.glBindVertexArray(rect.VAO);
 
-    var x = @intToFloat(f32, x_coord);
-    var y = @intToFloat(f32, y_coord);
-    var w = @intToFloat(f32, width);
-    var h = @intToFloat(f32, height);
+    var x = x_coord;
+    var y = y_coord;
+    var w = width;
+    var h = height;
 
     // zig fmt: off
     var position = [12]f32{
