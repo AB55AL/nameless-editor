@@ -276,7 +276,7 @@ pub const Text = struct {
         return characters;
     }
 
-    pub fn render(text: *Text, window: Window, string: []const u8, color: vectors.vec3) !void {
+    pub fn render(text: *Text, window: *Window, string: []const u8, color: vectors.vec3) !void {
         c.glEnable(c.GL_CULL_FACE);
         c.glEnable(c.GL_BLEND);
         c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
@@ -286,14 +286,27 @@ pub const Text = struct {
         c.glActiveTexture(c.GL_TEXTURE0);
         c.glBindVertexArray(text.VAO);
 
+        window.start_row = std.math.max(1, window.start_row);
+        window.start_col = std.math.max(1, window.start_col);
+        window.num_of_rows = std.math.max(1, window.num_of_rows);
+
+        var visible_lines = utils.getLines(string, window.start_row, window.start_row + window.num_of_rows - 1);
+
         var y = window.y;
-        var line_iter = utils.splitAfter(u8, string, '\n');
+        var line_iter = utils.splitAfter(u8, visible_lines, '\n');
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
+
+            if (window.start_col > line.len) continue;
+
+            var visible_line = line;
+            if (!window.options.wrap_text)
+                visible_line = line[window.start_col - 1 ..];
+
             var x = window.x;
 
             if (y >= window.height + window.y) break;
-            var iter = splitByLanguage(line);
+            var iter = splitByLanguage(visible_line);
             while (iter.next()) |text_segment| {
                 if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
                     continue;
@@ -301,7 +314,7 @@ pub const Text = struct {
 
                 if (text_segment.is_ascii) {
                     var character = text.ascii_textures[text_segment.utf8_seq[0]];
-                    text.wrapOrCut(window, &x, &y, character) catch break;
+                    text.wrapOrCut(window.*, &x, &y, character) catch break;
                     text.renderGlyph(character, &x, &y);
                 } else {
                     var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
@@ -310,7 +323,7 @@ pub const Text = struct {
                         break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
                     };
                     for (characters) |character| {
-                        text.wrapOrCut(window, &x, &y, character) catch break;
+                        text.wrapOrCut(window.*, &x, &y, character) catch break;
                         text.renderGlyph(character, &x, &y);
                     }
                 }

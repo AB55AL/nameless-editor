@@ -56,6 +56,21 @@ pub fn getNewlines(string: []const u8, i: usize, j: usize) ?NewlineLocations {
     return null;
 }
 
+/// Returns a slice from the *i*th row till the *j*th row. (inclusive).
+/// If *i* is found and *j* hasn't been found then the slice is from the
+/// first byte of the *i*th row to the end of the string
+pub fn getLines(string: []const u8, i: usize, j: usize) []const u8 {
+    var first_newline = getNewline(string, i - 1).?;
+    if (i > 1) first_newline += 1;
+    var second_newline = getNewline(string, j);
+
+    if (second_newline) |snl| {
+        return string[first_newline .. snl + 1];
+    } else {
+        return string[first_newline..];
+    }
+}
+
 /// Given a string, returns a slice of the *i*th line (1-based)
 /// A line is:
 /// A: The bytes between two newline chars including the second newline char or
@@ -77,6 +92,9 @@ pub fn getLine(string: []const u8, index: usize) []const u8 {
     }
 }
 
+/// Translates 2D indices to 1D in a string.
+/// Returns the index of the first byte of a UTF-8 sequence in the
+/// string at *row* and *col*
 pub fn getIndex(string: []const u8, row: u32, col: u32) usize {
     if (row == 1) {
         return utf8.firstByteOfCodeUnit(string, col);

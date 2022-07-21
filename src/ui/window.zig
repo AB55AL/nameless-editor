@@ -10,5 +10,10 @@ pub const Window = struct {
     y: f32,
     width: f32,
     height: f32,
+
+    start_col: u32 = 0,
+    start_row: u32 = 0,
+    num_of_rows: u32 = 0,
+
     options: WindowOptions = .{},
 };
