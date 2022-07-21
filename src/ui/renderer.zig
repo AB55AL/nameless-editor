@@ -20,12 +20,13 @@ const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 const Window = @import("window.zig").Window;
+const cursor = @import("cursor.zig");
 
 // Variables
 extern var global_allocator: std.mem.Allocator;
 extern var buffer: *Buffer;
 
-var renderer_cursor: Rect = undefined;
+var renderer_rect: Rect = undefined;
 var renderer_text: *Text = undefined;
 var window_width: u32 = 800;
 var window_height: u32 = 600;
@@ -34,7 +35,7 @@ var glfw_window: *glfw.Window = undefined;
 
 pub fn init(window: *glfw.Window, width: u32, height: u32) !void {
     var text_shader = try Shader.init("shaders/text.vs", "shaders/text.fs");
-    var cursor_shader = try Shader.init("shaders/rect.vs", "shaders/rect.fs");
+    var rect_shader = try Shader.init("shaders/rect.vs", "shaders/rect.fs");
 
     glfw_window = window;
     var projection = matrices.createOrthoMatrix(0, @intToFloat(f32, window_width), @intToFloat(f32, window_height), 0, -1, 1);
@@ -42,10 +43,10 @@ pub fn init(window: *glfw.Window, width: u32, height: u32) !void {
     text_shader.use();
     c.glUniformMatrix4fv(c.glGetUniformLocation(text_shader.ID, "projection"), 1, c.GL_FALSE, &projection);
 
-    cursor_shader.use();
-    c.glUniformMatrix4fv(c.glGetUniformLocation(cursor_shader.ID, "projection"), 1, c.GL_FALSE, &projection);
+    rect_shader.use();
+    c.glUniformMatrix4fv(c.glGetUniformLocation(rect_shader.ID, "projection"), 1, c.GL_FALSE, &projection);
 
-    renderer_cursor = Rect.init(cursor_shader);
+    renderer_rect = Rect.init(rect_shader);
     renderer_text = try Text.init(text_shader);
 
     window_width = width;
@@ -62,35 +63,12 @@ pub fn render(buffer_to_render: *Buffer) !void {
 
     const window = Window{ .x = 100, .y = 100, .width = 250, .height = 500 };
 
-    renderer_cursor.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
     var lines = try buffer_to_render.lines.copy();
     defer global_allocator.free(lines);
+
+    renderer_rect.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
     try renderer_text.render(window, lines, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
-
-    var cursor_x: i64 = 0;
-
-    var i: u32 = 1;
-    var l = utils.getLine(buffer.lines.sliceOfContent(), buffer.cursor.row);
-    var it = text.splitByLanguage(l);
-    while (it.next()) |text_segment| : (i += 1) {
-        if (i >= buffer.cursor.col) break;
-
-        if (text_segment.is_ascii) {
-            var character = renderer_text.ascii_textures[text_segment.utf8_seq[0]];
-            cursor_x += @intCast(i64, character.Advance >> 6);
-        } else {
-            var characters = renderer_text.unicode_textures.get(text_segment.utf8_seq) orelse continue;
-            for (characters) |character| {
-                cursor_x += @intCast(i64, character.Advance >> 6);
-                i += 1;
-                if (i >= buffer.cursor.col) break;
-            }
-        }
-    }
-    var cursor_h = renderer_text.font_size;
-    var cursor_y = (@intCast(i32, buffer.cursor.row) - 1) * cursor_h + 10 - start_of_y;
-
-    renderer_cursor.render(@intCast(i32, cursor_x), cursor_y, 1, cursor_h, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, lines, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
 
     try glfw_window.swapBuffers();
 }
@@ -106,8 +84,8 @@ pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) voi
     renderer_text.shader.use();
     c.glUniformMatrix4fv(c.glGetUniformLocation(renderer_text.shader.ID, "projection"), 1, c.GL_FALSE, &projection);
 
-    renderer_cursor.shader.use();
-    c.glUniformMatrix4fv(c.glGetUniformLocation(renderer_cursor.shader.ID, "projection"), 1, c.GL_FALSE, &projection);
+    renderer_rect.shader.use();
+    c.glUniformMatrix4fv(c.glGetUniformLocation(renderer_rect.shader.ID, "projection"), 1, c.GL_FALSE, &projection);
     _ = window;
 }
 
