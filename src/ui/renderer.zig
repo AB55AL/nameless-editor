@@ -19,6 +19,7 @@ const Buffer = @import("../buffer.zig");
 const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
+const Window = @import("window.zig").Window;
 
 // Variables
 extern var global_allocator: std.mem.Allocator;
@@ -59,14 +60,12 @@ pub fn render(buffer_to_render: *Buffer) !void {
     c.glClearColor(0.2, 0.3, 0.3, 1.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-    var j: i32 = 0;
+    const window = Window{ .x = 100, .y = 100, .width = 250, .height = 500 };
+
+    renderer_cursor.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
     var lines = try buffer_to_render.lines.copy();
     defer global_allocator.free(lines);
-    var iter = utils.splitAfter(u8, lines, '\n');
-    while (iter.next()) |line| {
-        try renderer_text.render(line, 0, renderer_text.font_size - start_of_y + j, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
-        j += renderer_text.font_size;
-    }
+    try renderer_text.render(window, lines, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
 
     var cursor_x: i64 = 0;
 

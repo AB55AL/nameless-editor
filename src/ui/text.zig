@@ -9,6 +9,8 @@ const harfbuzz = @import("harfbuzz");
 const c_ft_hb = @import("c_ft_hb");
 const Shader = @import("shaders.zig").Shader;
 const Face = freetype.Face;
+const utils = @import("../utils.zig");
+const Window = @import("window.zig").Window;
 
 const vectors = @import("vectors.zig");
 const c = @import("../c.zig");
@@ -274,44 +276,52 @@ pub const Text = struct {
         return characters;
     }
 
-    pub fn render(text: *Text, string: []const u8, x_coord: i32, y_coord: i32, color: vectors.vec3) !void {
-        var x = @intToFloat(f32, x_coord);
-        var y = @intToFloat(f32, y_coord);
+    pub fn render(text: *Text, window: Window, string: []const u8, color: vectors.vec3) !void {
+        c.glEnable(c.GL_CULL_FACE);
+        c.glEnable(c.GL_BLEND);
+        c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
 
-        var iter = splitByLanguage(string);
-        while (iter.next()) |text_segment| {
-            if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
-                continue;
-            }
+        text.shader.use();
+        c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
+        c.glActiveTexture(c.GL_TEXTURE0);
+        c.glBindVertexArray(text.VAO);
 
-            c.glEnable(c.GL_CULL_FACE);
-            c.glEnable(c.GL_BLEND);
-            c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
+        var y = window.y;
+        var line_iter = utils.splitAfter(u8, string, '\n');
+        while (line_iter.next()) |line| {
+            y += @intToFloat(f32, text.font_size);
+            var x = window.x;
 
-            text.shader.use();
-            c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
-            c.glActiveTexture(c.GL_TEXTURE0);
-            c.glBindVertexArray(text.VAO);
+            if (y >= window.height + window.y) break;
+            var iter = splitByLanguage(line);
+            while (iter.next()) |text_segment| {
+                if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
+                    continue;
+                }
 
-            if (text_segment.is_ascii) {
-                var character = text.ascii_textures[text_segment.utf8_seq[0]];
-                text.renderGlyph(character, &x, &y);
-            } else {
-                var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
-                    var utf8_seq = try global_allocator.alloc(u8, text_segment.utf8_seq.len);
-                    std.mem.copy(u8, utf8_seq, text_segment.utf8_seq);
-                    break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
-                };
-                for (characters) |character|
+                if (text_segment.is_ascii) {
+                    var character = text.ascii_textures[text_segment.utf8_seq[0]];
+                    text.wrapOrCut(window, &x, &y, character) catch break;
                     text.renderGlyph(character, &x, &y);
+                } else {
+                    var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
+                        var utf8_seq = try global_allocator.alloc(u8, text_segment.utf8_seq.len);
+                        std.mem.copy(u8, utf8_seq, text_segment.utf8_seq);
+                        break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
+                    };
+                    for (characters) |character| {
+                        text.wrapOrCut(window, &x, &y, character) catch break;
+                        text.renderGlyph(character, &x, &y);
+                    }
+                }
             }
-
-            c.glBindVertexArray(0);
-            c.glBindTexture(c.GL_TEXTURE_2D, 0);
-
-            c.glDisable(c.GL_CULL_FACE);
-            c.glDisable(c.GL_BLEND);
         }
+
+        c.glBindVertexArray(0);
+        c.glBindTexture(c.GL_TEXTURE_2D, 0);
+
+        c.glDisable(c.GL_CULL_FACE);
+        c.glDisable(c.GL_BLEND);
     }
 
     pub fn renderGlyph(text: Text, character: Character, x_offset: *f32, y_offset: *f32) void {
@@ -338,6 +348,19 @@ pub const Text = struct {
         c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
         c.glDrawArrays(c.GL_TRIANGLES, 0, 6);
         x_offset.* += @intToFloat(f32, (character.Advance >> 6)); // bitshift by 6 to get value in pixels (2^6 = 64)
+    }
+
+    pub fn wrapOrCut(text: *Text, window: Window, x: *f32, y: *f32, character: Character) !void {
+        var advance = @intToFloat(f32, character.Advance >> 6);
+        if (x.* >= window.width + window.x - advance) {
+            if (window.options.wrap_text) {
+                y.* += @intToFloat(f32, text.font_size);
+                x.* = window.x;
+                if (y.* >= window.height + window.y) return error.CoordOutOfBounds;
+            } else {
+                return error.CoordOutOfBounds;
+            }
+        }
     }
 
     pub fn createVaoAndVbo(text: *Text) void {
