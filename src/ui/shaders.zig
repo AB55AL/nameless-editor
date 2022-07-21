@@ -1,8 +1,6 @@
 const std = @import("std");
 const fs = std.fs;
-const c = @cImport({
-    @cInclude("glad/glad.h");
-});
+const c = @import("../c.zig");
 
 pub const Shader = @This();
 

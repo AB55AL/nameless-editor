@@ -12,7 +12,7 @@ const c = @import("../c.zig");
 const Shader = @import("shaders.zig");
 const vectors = @import("vectors.zig");
 const matrices = @import("matrices.zig");
-const CursorRenderInfo = @import("cursor.zig");
+const Rect = @import("rect.zig");
 const text = @import("text.zig");
 const Text = text.Text;
 const Buffer = @import("../buffer.zig");
@@ -24,7 +24,7 @@ const utf8 = @import("../utf8.zig");
 extern var global_allocator: std.mem.Allocator;
 extern var buffer: *Buffer;
 
-var renderer_cursor: CursorRenderInfo = undefined;
+var renderer_cursor: Rect = undefined;
 var renderer_text: *Text = undefined;
 var window_width: u32 = 800;
 var window_height: u32 = 600;
@@ -32,8 +32,8 @@ var start_of_y: i32 = 0;
 var glfw_window: *glfw.Window = undefined;
 
 pub fn init(window: *glfw.Window, width: u32, height: u32) !void {
-    var text_shader = try Shader.init("shaders/font.vs", "shaders/font.fs");
-    var cursor_shader = try Shader.init("shaders/cursor.vs", "shaders/cursor.fs");
+    var text_shader = try Shader.init("shaders/text.vs", "shaders/text.fs");
+    var cursor_shader = try Shader.init("shaders/rect.vs", "shaders/rect.fs");
 
     glfw_window = window;
     var projection = matrices.createOrthoMatrix(0, @intToFloat(f32, window_width), @intToFloat(f32, window_height), 0, -1, 1);
@@ -44,8 +44,7 @@ pub fn init(window: *glfw.Window, width: u32, height: u32) !void {
     cursor_shader.use();
     c.glUniformMatrix4fv(c.glGetUniformLocation(cursor_shader.ID, "projection"), 1, c.GL_FALSE, &projection);
 
-    renderer_cursor = CursorRenderInfo.init(cursor_shader);
-
+    renderer_cursor = Rect.init(cursor_shader);
     renderer_text = try Text.init(text_shader);
 
     window_width = width;

@@ -18,7 +18,7 @@ var vertices = [12]f32{
     -0.5, 1.0, 0.0, // top left
 };
 
-pub const CursorRenderInfo = @This();
+pub const Rect = @This();
 
 VAO: u32,
 VBO: u32,
@@ -26,16 +26,16 @@ EBO: u32,
 
 shader: Shader,
 
-pub fn init(shader: Shader) CursorRenderInfo {
-    var cri: CursorRenderInfo = undefined;
+pub fn init(shader: Shader) Rect {
+    var rect: Rect = undefined;
 
-    shader.use();
-    cri.createVaoVboAndEbo();
-
-    return cri;
+    rect.shader = shader;
+    rect.createVaoVboAndEbo();
+    return rect;
 }
 
-pub fn createVaoVboAndEbo(cri: *CursorRenderInfo) void {
+pub fn createVaoVboAndEbo(rect: *Rect) void {
+    rect.shader.use();
     var VAO: u32 = undefined;
     c.glGenVertexArrays(1, &VAO);
     c.glBindVertexArray(VAO);
@@ -45,7 +45,7 @@ pub fn createVaoVboAndEbo(cri: *CursorRenderInfo) void {
     c.glBindBuffer(c.GL_ARRAY_BUFFER, VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * vertices.len, &vertices, c.GL_STATIC_DRAW);
 
-    // neven unbind EBO before VAO
+    // never unbind EBO before VAO
     var EBO: u32 = undefined;
     c.glGenBuffers(1, &EBO);
     c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -57,14 +57,14 @@ pub fn createVaoVboAndEbo(cri: *CursorRenderInfo) void {
     c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
     c.glBindVertexArray(0);
 
-    cri.VAO = VAO;
-    cri.VBO = VBO;
-    cri.EBO = EBO;
+    rect.VAO = VAO;
+    rect.VBO = VBO;
+    rect.EBO = EBO;
 }
 
-pub fn render(cri: CursorRenderInfo, x_coord: i32, y_coord: i32, width: i32, height: i32, color: vectors.vec3) void {
-    cri.shader.use();
-    c.glBindVertexArray(cri.VAO);
+pub fn render(rect: Rect, x_coord: i32, y_coord: i32, width: i32, height: i32, color: vectors.vec3) void {
+    rect.shader.use();
+    c.glBindVertexArray(rect.VAO);
 
     var x = @intToFloat(f32, x_coord);
     var y = @intToFloat(f32, y_coord);
@@ -80,10 +80,10 @@ pub fn render(cri: CursorRenderInfo, x_coord: i32, y_coord: i32, width: i32, hei
     };
     // zig fmt: on
 
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, cri.VBO);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, rect.VBO);
     c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(f32) * position.len, &position, c.GL_STATIC_DRAW);
 
-    c.glUniform3f(c.glGetUniformLocation(cri.shader.ID, "cursorColor"), color.x, color.y, color.z);
+    c.glUniform3f(c.glGetUniformLocation(rect.shader.ID, "cursorColor"), color.x, color.y, color.z);
 
     c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, null);
 }
