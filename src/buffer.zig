@@ -32,23 +32,30 @@ history: History,
 related_history_changes: Stack(HistoryBufferState),
 previous_change: HistoryBufferStateResizeable,
 
-pub fn init(file_path: []const u8, buf: []const u8) !*Buffer {
-    var buffer = try global_allocator.create(Buffer);
-    buffer.lines = try GapBuffer.init(global_allocator, buf);
-    buffer.cursor = .{ .row = 1, .col = 1 };
-    buffer.file_path = try global_allocator.alloc(u8, file_path.len);
-    std.mem.copy(u8, buffer.file_path, file_path);
+pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
+    var lines = try GapBuffer.init(global_allocator, buf);
+    var cursor = .{ .row = 1, .col = 1 };
+    var fp = try global_allocator.alloc(u8, file_path.len);
+    std.mem.copy(u8, fp, file_path);
 
-    buffer.related_history_changes = Stack(HistoryBufferState).init(global_allocator);
+    var related_history_changes = Stack(HistoryBufferState).init(global_allocator);
 
-    buffer.size = buf.len;
-    buffer.history = History.init();
-    buffer.previous_change = .{
+    var size = buf.len;
+    var buffer_history = History.init();
+    var previous_change = .{
         .content = try GapBuffer.init(global_allocator, null),
         .index = 0,
         .type_of_change = TypeOfChange.insertion,
     };
-    return buffer;
+    return Buffer{
+        .file_path = fp,
+        .size = size,
+        .cursor = cursor,
+        .lines = lines,
+        .history = buffer_history,
+        .related_history_changes = related_history_changes,
+        .previous_change = previous_change,
+    };
 }
 
 pub fn deinit(buffer: *Buffer) void {
@@ -62,7 +69,6 @@ pub fn deinit(buffer: *Buffer) void {
     buffer.history.deinit();
 
     global_allocator.free(buffer.file_path);
-    global_allocator.destroy(buffer);
 }
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {

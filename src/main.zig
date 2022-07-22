@@ -36,10 +36,10 @@ pub fn main() !void {
     command_line.init();
     defer command_line.deinit();
 
-    buffer = file_io.openFile(global_allocator, "build.zig") catch |err| {
+    buffer = &(file_io.openFile(global_allocator, "build.zig") catch |err| {
         print("{}\n", .{err});
         return;
-    };
+    });
     defer buffer.deinit();
 
     while (!window.shouldClose()) {

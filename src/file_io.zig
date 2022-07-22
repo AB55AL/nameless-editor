@@ -4,8 +4,8 @@ const fs = std.fs;
 
 const Buffer = @import("buffer.zig");
 
-/// Opens a file and returns a pointer to a buffer
-pub fn openFile(allocator: std.mem.Allocator, file_path: []const u8) !*Buffer {
+/// Opens a file and returns a copy of a buffer
+pub fn openFile(allocator: std.mem.Allocator, file_path: []const u8) !Buffer {
     const full_file_path = try fullFilePath(allocator, file_path);
     defer allocator.free(full_file_path);
 
