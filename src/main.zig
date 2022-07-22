@@ -74,10 +74,10 @@ pub fn main() !void {
     _ = try buffer_ops.createBuffer("src/main.zig");
     global.focused_buffer = global.buffers.items[0];
 
-    try internal.windows.createNew(global.buffers.items[0]);
-    try internal.windows.createLeft(global.buffers.items[3]);
-    try internal.windows.createBelow(global.buffers.items[1]);
-    try internal.windows.createAbove(global.buffers.items[2]);
+    try buffer_ops.openBuffer(0, null);
+    try buffer_ops.openBufferRight(1, null);
+    try buffer_ops.openBufferLeft(2, null);
+    try buffer_ops.openBufferAbove(3, null);
     while (!window.shouldClose()) {
         try renderer.render();
         try glfw.pollEvents();

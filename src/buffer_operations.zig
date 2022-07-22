@@ -19,9 +19,8 @@ extern var internal: GlobalInternal;
 /// creates a new buffer, adds it to the global.buffers array and
 /// returns a pointer to it.
 pub fn createBuffer(file_path: []const u8) !*Buffer {
-    for (global.buffers.items) |buffer|
-        if (eql(u8, file_path, buffer.file_path))
-            return buffer;
+    var buf = getBuffer(null, file_path);
+    if (buf) |b| return b;
 
     var buffer = try createLocalBuffer(file_path);
     try global.buffers.append(buffer);
@@ -45,4 +44,55 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     buffer.* = try Buffer.init(full_file_path, buf);
 
     return buffer;
+}
+
+/// Given an *index* or a *file_path* searches the global.buffers array for a buffer
+/// matching either.
+/// Returns null if the buffer isn't found or if both index and file_path are null
+pub fn getBuffer(index: ?u32, file_path: ?[]const u8) ?*Buffer {
+    for (global.buffers.items) |buffer| {
+        if (index) |i|
+            if (buffer.index.? == i)
+                return buffer;
+        if (file_path) |fp|
+            if (eql(u8, fp, buffer.file_path))
+                return buffer;
+    }
+    return null;
+}
+
+pub fn openBuffer(index: ?u32, file_path: ?[]const u8) !void {
+    var buffer = getBuffer(index, file_path);
+    if (buffer) |buf|
+        try internal.windows.createNew(buf)
+    else
+        return error.CannotFindBuffer;
+}
+pub fn openBufferRight(index: ?u32, file_path: ?[]const u8) !void {
+    var buffer = getBuffer(index, file_path);
+    if (buffer) |buf|
+        try internal.windows.createRight(buf)
+    else
+        return error.CannotFindBuffer;
+}
+pub fn openBufferLeft(index: ?u32, file_path: ?[]const u8) !void {
+    var buffer = getBuffer(index, file_path);
+    if (buffer) |buf|
+        try internal.windows.createLeft(buf)
+    else
+        return error.CannotFindBuffer;
+}
+pub fn openBufferAbove(index: ?u32, file_path: ?[]const u8) !void {
+    var buffer = getBuffer(index, file_path);
+    if (buffer) |buf|
+        try internal.windows.createAbove(buf)
+    else
+        return error.CannotFindBuffer;
+}
+pub fn openBufferBelow(index: ?u32, file_path: ?[]const u8) !void {
+    var buffer = getBuffer(index, file_path);
+    if (buffer) |buf|
+        try internal.windows.createBelow(buf)
+    else
+        return error.CannotFindBuffer;
 }
