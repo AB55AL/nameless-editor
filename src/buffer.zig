@@ -9,6 +9,9 @@ const unicode = std.unicode;
 const Cursor = @import("cursor.zig").Cursor;
 const GapBuffer = @import("gap_buffer.zig");
 const utf8 = @import("utf8.zig");
+const global_types = @import("global_types.zig");
+const Global = global_types.Global;
+const GlobalInternal = global_types.GlobalInternal;
 
 const history = @import("history.zig");
 const History = history.History;
@@ -18,9 +21,8 @@ const TypeOfChange = history.TypeOfChange;
 
 const utils = @import("utils.zig");
 
-extern var global_allocator: std.mem.Allocator;
-extern var global_buffers: ArrayList(*Buffer);
-extern var global_buffers_trashcan: ArrayList(*Buffer);
+extern var global: Global;
+extern var internal: GlobalInternal;
 
 const Buffer = @This();
 
@@ -40,17 +42,17 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
         var index: u32 = 0;
     };
     defer static.index += 1;
-    var lines = try GapBuffer.init(global_allocator, buf);
+    var lines = try GapBuffer.init(internal.allocator, buf);
     var cursor = .{ .row = 1, .col = 1 };
-    var fp = try global_allocator.alloc(u8, file_path.len);
+    var fp = try internal.allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
-    var related_history_changes = Stack(HistoryBufferState).init(global_allocator);
+    var related_history_changes = Stack(HistoryBufferState).init(internal.allocator);
 
     var size = buf.len;
     var buffer_history = History.init();
     var previous_change = .{
-        .content = try GapBuffer.init(global_allocator, null),
+        .content = try GapBuffer.init(internal.allocator, null),
         .index = 0,
         .type_of_change = TypeOfChange.insertion,
     };
@@ -69,48 +71,48 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
 /// Deinits the members of the buffer but does not destroy the buffer.
 /// So pointers to this buffer are all valid through out the life time of the
 /// program.
-/// Removes the buffer from the *global_buffers* array and places it into
-/// the *global_buffers_trashcan* to be freed just before exiting the program
+/// Removes the buffer from the *global.buffers* array and places it into
+/// the *internal.buffers_trashcan* to be freed just before exiting the program
 /// The index of the buffer is set to `null` to signify that the buffer members
 /// have been deinitialized
 pub fn deinitAndTrash(buffer: *Buffer) void {
     buffer.deinitNoTrash();
 
     var index_in_global_array: usize = 0;
-    for (global_buffers.items) |b, i| {
+    for (global.buffers.items) |b, i| {
         if (b.index.? == buffer.index.?)
             index_in_global_array = i;
     }
-    var removed_buffer = global_buffers.swapRemove(index_in_global_array);
+    var removed_buffer = global.buffers.swapRemove(index_in_global_array);
     removed_buffer.index = null;
-    global_buffers_trashcan.append(removed_buffer) catch |err| {
-        print("Couldn't append to global_buffers_trashcan err={}\n", .{err});
+    internal.buffers_trashcan.append(removed_buffer) catch |err| {
+        print("Couldn't append to internal.buffers_trashcan err={}\n", .{err});
     };
 }
 
 /// Deinits the members of the buffer but does not destroy the buffer.
 /// So pointers to this buffer are all valid through out the life time of the
 /// program.
-/// Does **NOT** Place the buffer into the global_buffers_trashcan.
+/// Does **NOT** Place the buffer into the internal.buffers_trashcan.
 /// Does **NOT** set the index to `null`
 pub fn deinitNoTrash(buffer: *Buffer) void {
     buffer.lines.deinit();
 
     buffer.previous_change.content.deinit();
     while (buffer.related_history_changes.popOrNull()) |item|
-        global_allocator.free(item.content);
+        internal.allocator.free(item.content);
 
     buffer.related_history_changes.deinit();
     buffer.history.deinit();
 
-    global_allocator.free(buffer.file_path);
+    internal.allocator.free(buffer.file_path);
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
 /// Pointers to this buffer are all invalidated
 pub fn deinitAndDestroy(buffer: *Buffer) void {
     buffer.deinitNoTrash();
-    global_allocator.destroy(buffer);
+    internal.allocator.destroy(buffer);
 }
 
 /// Inserts the given string at the given row and column. (1-based)

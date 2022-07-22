@@ -10,28 +10,40 @@ const renderer = @import("ui/renderer.zig");
 const command_line = @import("command_line.zig");
 const glfw_window = @import("glfw.zig");
 const buffer_ops = @import("buffer_operations.zig");
+const global_types = @import("global_types.zig");
+const Global = global_types.Global;
+const GlobalInternal = global_types.GlobalInternal;
 
 const input_layer = @import("input_layer");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-export var global_allocator = gpa.allocator();
 
-export var focused_buffer: *Buffer = undefined;
-export var global_buffers: ArrayList(*Buffer) = undefined;
-export var global_buffers_trashcan: ArrayList(*Buffer) = undefined;
+export var global = Global{
+    .focused_buffer = undefined,
+    .buffers = undefined,
+};
+
+export var internal = GlobalInternal{
+    .allocator = undefined,
+    .buffers_trashcan = undefined,
+};
 
 pub fn main() !void {
     defer _ = gpa.deinit();
-    global_buffers = ArrayList(*Buffer).init(global_allocator);
-    global_buffers_trashcan = ArrayList(*Buffer).init(global_allocator);
-    defer {
-        for (global_buffers.items) |buffer|
-            buffer.deinitAndDestroy();
-        global_buffers.deinit();
 
-        for (global_buffers_trashcan.items) |buffer|
-            global_allocator.destroy(buffer);
-        global_buffers_trashcan.deinit();
+    internal.allocator = gpa.allocator();
+    internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
+
+    global.buffers = ArrayList(*Buffer).init(internal.allocator);
+
+    defer {
+        for (global.buffers.items) |buffer|
+            buffer.deinitAndDestroy();
+        global.buffers.deinit();
+
+        for (internal.buffers_trashcan.items) |buffer|
+            internal.allocator.destroy(buffer);
+        internal.buffers_trashcan.deinit();
     }
 
     const window_width: u32 = 800;
@@ -53,10 +65,10 @@ pub fn main() !void {
     _ = try buffer_ops.createBuffer("src/buffer.zig");
     _ = try buffer_ops.createBuffer("src/buffer_operations.zig");
     _ = try buffer_ops.createBuffer("src/main.zig");
-    focused_buffer = global_buffers.items[0];
+    global.focused_buffer = global.buffers.items[0];
 
     while (!window.shouldClose()) {
-        try renderer.render(focused_buffer);
+        try renderer.render(global.focused_buffer);
         try glfw.pollEvents();
     }
 }

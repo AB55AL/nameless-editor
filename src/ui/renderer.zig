@@ -22,9 +22,6 @@ const Window = @import("window.zig").Window;
 const cursor = @import("cursor.zig");
 
 // Variables
-extern var global_allocator: std.mem.Allocator;
-extern var focused_buffer: *Buffer;
-
 var renderer_rect: Rect = undefined;
 var renderer_text: *Text = undefined;
 var window_width: u32 = 800;

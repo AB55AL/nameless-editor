@@ -6,8 +6,7 @@ const core = @import("core");
 const Cursor = core.Cursor;
 const history = core.history;
 
-extern var focused_buffer: *core.Buffer;
-extern var global_buffers: ArrayList(*core.Buffer);
+extern var global: core.Global;
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
@@ -31,14 +30,14 @@ pub fn keyInput(key: []const u8) void {
 }
 
 pub fn characterInput(utf8_seq: []const u8) void {
-    focused_buffer.insert(
-        focused_buffer.cursor.row,
-        focused_buffer.cursor.col,
+    global.focused_buffer.insert(
+        global.focused_buffer.cursor.row,
+        global.focused_buffer.cursor.col,
         utf8_seq,
     ) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
-    Cursor.moveRelative(focused_buffer, 0, 1);
+    Cursor.moveRelative(global.focused_buffer, 0, 1);
 }
 
 pub fn map(key: []const u8, function: fn () void) void {
@@ -70,67 +69,67 @@ fn cycleThroughBuffers() void {
         var i: usize = 0;
     };
     static.i += 1;
-    if (static.i >= global_buffers.items.len) static.i = 0;
-    focused_buffer = global_buffers.items[static.i];
+    if (static.i >= global.buffers.items.len) static.i = 0;
+    global.focused_buffer = global.buffers.items[static.i];
 }
 
 fn undo() void {
-    core.history.undo(focused_buffer) catch |err| {
+    core.history.undo(global.focused_buffer) catch |err| {
         print("input_layer.undo()\n\t{}\n", .{err});
     };
 }
 fn redo() void {
-    core.history.redo(focused_buffer) catch |err| {
+    core.history.redo(global.focused_buffer) catch |err| {
         print("input_layer.redo()\n\t{}\n", .{err});
     };
 }
 
 fn deleteBackward() void {
-    if (focused_buffer.cursor.col > 1) {
-        Cursor.moveRelative(focused_buffer, 0, -1);
-        focused_buffer.delete(focused_buffer.cursor.row, focused_buffer.cursor.col, focused_buffer.cursor.col + 1) catch |err| {
+    if (global.focused_buffer.cursor.col > 1) {
+        Cursor.moveRelative(global.focused_buffer, 0, -1);
+        global.focused_buffer.delete(global.focused_buffer.cursor.row, global.focused_buffer.cursor.col, global.focused_buffer.cursor.col + 1) catch |err| {
             print("input_layer.deleteBackward()\n\t{}\n", .{err});
         };
     }
 }
 
 fn deleteForward() void {
-    focused_buffer.delete(focused_buffer.cursor.row, focused_buffer.cursor.col, focused_buffer.cursor.col + 1) catch |err| {
+    global.focused_buffer.delete(global.focused_buffer.cursor.row, global.focused_buffer.cursor.col, global.focused_buffer.cursor.col + 1) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
 fn updateHistory() void {
-    core.history.updateHistory(focused_buffer) catch |err| {
+    core.history.updateHistory(global.focused_buffer) catch |err| {
         print("input_layer.updateHistory()\n\t{}\n", .{err});
     };
 }
 
 fn moveRight() void {
-    Cursor.moveRelative(focused_buffer, 0, 1);
+    Cursor.moveRelative(global.focused_buffer, 0, 1);
 }
 fn moveLeft() void {
-    Cursor.moveRelative(focused_buffer, 0, -1);
+    Cursor.moveRelative(global.focused_buffer, 0, -1);
 }
 fn moveUp() void {
-    Cursor.moveRelative(focused_buffer, -1, 0);
+    Cursor.moveRelative(global.focused_buffer, -1, 0);
 }
 fn moveDown() void {
-    Cursor.moveRelative(focused_buffer, 1, 0);
+    Cursor.moveRelative(global.focused_buffer, 1, 0);
 }
 
 fn insertNewLineAtCursor() void {
-    focused_buffer.insert(focused_buffer.cursor.row, focused_buffer.cursor.col, "\n") catch |err| {
+    global.focused_buffer.insert(global.focused_buffer.cursor.row, global.focused_buffer.cursor.col, "\n") catch |err| {
         print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
     };
-    Cursor.moveRelative(focused_buffer, 1, 0);
-    Cursor.moveToStartOfLine(focused_buffer);
+    Cursor.moveRelative(global.focused_buffer, 1, 0);
+    Cursor.moveToStartOfLine(global.focused_buffer);
 }
 
 fn commitHistoryChanges() void {
-    history.commitHistoryChanges(focused_buffer) catch unreachable;
+    history.commitHistoryChanges(global.focused_buffer) catch unreachable;
 }
 
 fn insertAlot() void {
-    // focused_buffer.deleteRows(1, 3) catch unreachable;
-    focused_buffer.insert(1, 1, "شششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششش") catch unreachable;
+    // global.focused_buffer.deleteRows(1, 3) catch unreachable;
+    global.focused_buffer.insert(1, 1, "شششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششش") catch unreachable;
 }
