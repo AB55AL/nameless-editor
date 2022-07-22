@@ -71,12 +71,9 @@ pub fn render(buffer_to_render: *Buffer) !void {
         .num_of_rows = 10,
     };
 
-    var lines = try buffer_to_render.lines.copy();
-    defer global_allocator.free(lines);
-
     renderer_rect.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
-    try renderer_text.render(&window, lines, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
-    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, lines, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+    try renderer_text.render(&window, buffer, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
+    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, buffer, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
 
     try glfw_window.swapBuffers();
 }

@@ -11,8 +11,9 @@ const text = @import("text.zig");
 const Text = text.Text;
 const Cursor = @import("../cursor.zig");
 const Character = text.Character;
+const Buffer = @import("../buffer.zig");
 
-pub fn render(rect: Rect, renderer_text: *Text, window: Window, cursor: Cursor, string: []const u8, color: vectors.vec3) void {
+pub fn render(rect: Rect, renderer_text: *Text, window: Window, cursor: Cursor, buffer: *Buffer, color: vectors.vec3) void {
     var initial_cursor_h = renderer_text.font_size;
     var cursor_h = @intToFloat(f32, initial_cursor_h) / 2.0 + 5.0;
     var cursor_y =
@@ -21,7 +22,7 @@ pub fn render(rect: Rect, renderer_text: *Text, window: Window, cursor: Cursor, 
     var cursor_x = window.x;
 
     var i: u32 = 1;
-    var line = utils.getLine(string, cursor.row);
+    var line = utils.getLine(buffer.lines.sliceOfContent(), cursor.row);
     var it = text.splitByLanguage(line);
     while (it.next()) |text_segment| : (i += 1) {
         if (i >= cursor.col) break;

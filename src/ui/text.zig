@@ -11,6 +11,7 @@ const Shader = @import("shaders.zig").Shader;
 const Face = freetype.Face;
 const utils = @import("../utils.zig");
 const Window = @import("window.zig").Window;
+const Buffer = @import("../buffer.zig");
 
 const vectors = @import("vectors.zig");
 const c = @import("../c.zig");
@@ -276,7 +277,7 @@ pub const Text = struct {
         return characters;
     }
 
-    pub fn render(text: *Text, window: *Window, string: []const u8, color: vectors.vec3) !void {
+    pub fn render(text: *Text, window: *Window, buffer: *Buffer, color: vectors.vec3) !void {
         c.glEnable(c.GL_CULL_FACE);
         c.glEnable(c.GL_BLEND);
         c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
@@ -290,7 +291,7 @@ pub const Text = struct {
         window.start_col = std.math.max(1, window.start_col);
         window.num_of_rows = std.math.max(1, window.num_of_rows);
 
-        var visible_lines = utils.getLines(string, window.start_row, window.start_row + window.num_of_rows - 1);
+        var visible_lines = utils.getLines(buffer.lines.sliceOfContent(), window.start_row, window.start_row + window.num_of_rows - 1);
 
         var y = window.y;
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');
