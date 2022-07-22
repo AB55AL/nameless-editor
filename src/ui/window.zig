@@ -45,7 +45,7 @@ pub const Window = struct {
     buffer: *Buffer,
     start_col: u32 = 1,
     start_row: u32 = 1,
-    num_of_rows: u32 = 1,
+    num_of_rows: u32 = std.math.maxInt(u16),
 
     options: WindowOptions = .{},
 };
@@ -74,7 +74,6 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-            .num_of_rows = 10,
         });
     }
     pub fn createRight(windows: *Windows, buffer: *Buffer) !void {
@@ -91,7 +90,6 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-            .num_of_rows = 10,
         });
 
         focused.width /= 2;
@@ -110,7 +108,6 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-            .num_of_rows = 10,
         });
 
         focused.width /= 2;
@@ -130,7 +127,6 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-            .num_of_rows = 10,
         });
 
         focused.height /= 2;
@@ -150,7 +146,6 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-            .num_of_rows = 10,
         });
 
         focused.height /= 2;
