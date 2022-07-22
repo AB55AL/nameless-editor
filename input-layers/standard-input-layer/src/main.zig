@@ -7,7 +7,7 @@ const Cursor = core.Cursor;
 const history = core.history;
 
 extern var focused_buffer: *core.Buffer;
-extern var global_buffers: ArrayList(core.Buffer);
+extern var global_buffers: ArrayList(*core.Buffer);
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
@@ -71,7 +71,7 @@ fn cycleThroughBuffers() void {
     };
     static.i += 1;
     if (static.i >= global_buffers.items.len) static.i = 0;
-    focused_buffer = &global_buffers.items[static.i];
+    focused_buffer = global_buffers.items[static.i];
 }
 
 fn undo() void {

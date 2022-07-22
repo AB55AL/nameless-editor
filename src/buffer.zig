@@ -19,9 +19,12 @@ const TypeOfChange = history.TypeOfChange;
 const utils = @import("utils.zig");
 
 extern var global_allocator: std.mem.Allocator;
+extern var global_buffers: ArrayList(*Buffer);
+extern var global_buffers_trashcan: ArrayList(*Buffer);
 
 const Buffer = @This();
 
+index: ?u32,
 file_path: []u8,
 size: usize,
 cursor: Cursor,
@@ -33,6 +36,10 @@ related_history_changes: Stack(HistoryBufferState),
 previous_change: HistoryBufferStateResizeable,
 
 pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
+    const static = struct {
+        var index: u32 = 0;
+    };
+    defer static.index += 1;
     var lines = try GapBuffer.init(global_allocator, buf);
     var cursor = .{ .row = 1, .col = 1 };
     var fp = try global_allocator.alloc(u8, file_path.len);
@@ -48,6 +55,7 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
         .type_of_change = TypeOfChange.insertion,
     };
     return Buffer{
+        .index = static.index,
         .file_path = fp,
         .size = size,
         .cursor = cursor,
@@ -58,7 +66,34 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
     };
 }
 
-pub fn deinit(buffer: *Buffer) void {
+/// Deinits the members of the buffer but does not destroy the buffer.
+/// So pointers to this buffer are all valid through out the life time of the
+/// program.
+/// Removes the buffer from the *global_buffers* array and places it into
+/// the *global_buffers_trashcan* to be freed just before exiting the program
+/// The index of the buffer is set to `null` to signify that the buffer members
+/// have been deinitialized
+pub fn deinitAndTrash(buffer: *Buffer) void {
+    buffer.deinitNoTrash();
+
+    var index_in_global_array: usize = 0;
+    for (global_buffers.items) |b, i| {
+        if (b.index.? == buffer.index.?)
+            index_in_global_array = i;
+    }
+    var removed_buffer = global_buffers.swapRemove(index_in_global_array);
+    removed_buffer.index = null;
+    global_buffers_trashcan.append(removed_buffer) catch |err| {
+        print("Couldn't append to global_buffers_trashcan err={}\n", .{err});
+    };
+}
+
+/// Deinits the members of the buffer but does not destroy the buffer.
+/// So pointers to this buffer are all valid through out the life time of the
+/// program.
+/// Does **NOT** Place the buffer into the global_buffers_trashcan.
+/// Does **NOT** set the index to `null`
+pub fn deinitNoTrash(buffer: *Buffer) void {
     buffer.lines.deinit();
 
     buffer.previous_change.content.deinit();
@@ -70,6 +105,14 @@ pub fn deinit(buffer: *Buffer) void {
 
     global_allocator.free(buffer.file_path);
 }
+
+/// Deinits the members of the buffer and destroys the buffer.
+/// Pointers to this buffer are all invalidated
+pub fn deinitAndDestroy(buffer: *Buffer) void {
+    buffer.deinitNoTrash();
+    global_allocator.destroy(buffer);
+}
+
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
     if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;

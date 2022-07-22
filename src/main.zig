@@ -17,16 +17,21 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 export var global_allocator = gpa.allocator();
 
 export var focused_buffer: *Buffer = undefined;
-export var global_buffers: ArrayList(Buffer) = undefined;
+export var global_buffers: ArrayList(*Buffer) = undefined;
+export var global_buffers_trashcan: ArrayList(*Buffer) = undefined;
 
 pub fn main() !void {
     defer _ = gpa.deinit();
-    global_buffers = ArrayList(Buffer).init(global_allocator);
+    global_buffers = ArrayList(*Buffer).init(global_allocator);
+    global_buffers_trashcan = ArrayList(*Buffer).init(global_allocator);
     defer {
-        var i: usize = 0;
-        while (i < global_buffers.items.len) : (i += 1)
-            global_buffers.items[i].deinit();
+        for (global_buffers.items) |buffer|
+            buffer.deinitAndDestroy();
         global_buffers.deinit();
+
+        for (global_buffers_trashcan.items) |buffer|
+            global_allocator.destroy(buffer);
+        global_buffers_trashcan.deinit();
     }
 
     const window_width: u32 = 800;
@@ -44,11 +49,11 @@ pub fn main() !void {
     command_line.init();
     defer command_line.deinit();
 
-    try buffer_ops.createBuffer("build.zig");
-    try buffer_ops.createBuffer("src/buffer.zig");
-    try buffer_ops.createBuffer("src/buffer_operations.zig");
-    try buffer_ops.createBuffer("src/main.zig");
-    focused_buffer = &global_buffers.items[0];
+    _ = try buffer_ops.createBuffer("build.zig");
+    _ = try buffer_ops.createBuffer("src/buffer.zig");
+    _ = try buffer_ops.createBuffer("src/buffer_operations.zig");
+    _ = try buffer_ops.createBuffer("src/main.zig");
+    focused_buffer = global_buffers.items[0];
 
     while (!window.shouldClose()) {
         try renderer.render(focused_buffer);
