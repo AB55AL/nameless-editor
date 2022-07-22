@@ -1,11 +1,13 @@
 const std = @import("std");
 const print = std.debug.print;
+const ArrayList = std.ArrayList;
 
 const core = @import("core");
 const Cursor = core.Cursor;
 const history = core.history;
 
 extern var focused_buffer: *core.Buffer;
+extern var global_buffers: ArrayList(core.Buffer);
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
@@ -50,6 +52,7 @@ fn setDefaultMappnigs() void {
     map("C_y", redo);
     map("<F1>", commitHistoryChanges);
     map("<F2>", insertAlot);
+    map("<F3>", cycleThroughBuffers);
 
     map("<BACKSPACE>", deleteBackward);
     map("<DELETE>", deleteForward);
@@ -60,6 +63,15 @@ fn setDefaultMappnigs() void {
     map("<DOWN>", moveDown);
 
     map("<ENTER>", insertNewLineAtCursor);
+}
+
+fn cycleThroughBuffers() void {
+    const static = struct {
+        var i: usize = 0;
+    };
+    static.i += 1;
+    if (static.i >= global_buffers.items.len) static.i = 0;
+    focused_buffer = &global_buffers.items[static.i];
 }
 
 fn undo() void {

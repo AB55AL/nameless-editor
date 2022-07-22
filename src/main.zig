@@ -45,6 +45,9 @@ pub fn main() !void {
     defer command_line.deinit();
 
     try buffer_ops.createBuffer("build.zig");
+    try buffer_ops.createBuffer("src/buffer.zig");
+    try buffer_ops.createBuffer("src/buffer_operations.zig");
+    try buffer_ops.createBuffer("src/main.zig");
     focused_buffer = &global_buffers.items[0];
 
     while (!window.shouldClose()) {
