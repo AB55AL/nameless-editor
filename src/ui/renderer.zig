@@ -19,7 +19,14 @@ const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 const Window = @import("window.zig").Window;
+const Windows = @import("window.zig").Windows;
 const cursor = @import("cursor.zig");
+const global_types = @import("../global_types.zig");
+const Global = global_types.Global;
+const GlobalInternal = global_types.GlobalInternal;
+
+extern var global: Global;
+extern var internal: GlobalInternal;
 
 // Variables
 var renderer_rect: Rect = undefined;
@@ -53,23 +60,20 @@ pub fn deinit() void {
     renderer_text.deinit();
 }
 
-pub fn render(buffer_to_render: *Buffer) !void {
+pub fn render() !void {
     c.glClearColor(0.2, 0.3, 0.3, 1.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-    var window = Window{
-        .x = 100,
-        .y = 100,
-        .width = 250,
-        .height = 500,
-        .start_col = 1,
-        .start_row = 1,
-        .num_of_rows = 10,
-    };
+    var wins = internal.windows.wins.items;
+    var i: usize = 0;
+    while (i < wins.len) : (i += 1) {
+        var window = internal.windows.wins.items[i];
 
-    renderer_rect.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
-    try renderer_text.render(&window, buffer_to_render, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
-    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, buffer_to_render, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+        renderer_rect.renderFraction(window, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
+        try renderer_text.render(&window, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
+    }
+    if (internal.windows.wins.items.len > 0)
+        cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow().*, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
 
     try glfw_window.swapBuffers();
 }
@@ -79,6 +83,8 @@ pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) voi
         print("Can't resize window err={}\n", .{err});
         return;
     };
+
+    internal.os_window = .{ .width = @intToFloat(f32, width), .height = @intToFloat(f32, height) };
     c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
     var projection = matrices.createOrthoMatrix(0, @intToFloat(f32, width), @intToFloat(f32, height), 0, -1, 1);

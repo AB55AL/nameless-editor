@@ -11,6 +11,7 @@ const Shader = @import("shaders.zig").Shader;
 const Face = freetype.Face;
 const utils = @import("../utils.zig");
 const Window = @import("window.zig").Window;
+const WindowPixels = @import("window.zig").WindowPixels;
 const Buffer = @import("../buffer.zig");
 const GlobalInternal = @import("../global_types.zig").GlobalInternal;
 
@@ -278,7 +279,7 @@ pub const Text = struct {
         return characters;
     }
 
-    pub fn render(text: *Text, window: *Window, buffer: *Buffer, color: vectors.vec3) !void {
+    pub fn render(text: *Text, window: *Window, color: vectors.vec3) !void {
         c.glEnable(c.GL_CULL_FACE);
         c.glEnable(c.GL_BLEND);
         c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
@@ -292,9 +293,11 @@ pub const Text = struct {
         window.start_col = std.math.max(1, window.start_col);
         window.num_of_rows = std.math.max(1, window.num_of_rows);
 
-        var visible_lines = utils.getLines(buffer.lines.sliceOfContent(), window.start_row, window.start_row + window.num_of_rows - 1);
+        var visible_lines = utils.getLines(window.buffer.lines.sliceOfContent(), window.start_row, window.start_row + window.num_of_rows - 1);
 
-        var y = window.y;
+        var window_p = WindowPixels.convert(window.*);
+
+        var y = window_p.y;
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
@@ -305,9 +308,9 @@ pub const Text = struct {
             if (!window.options.wrap_text)
                 visible_line = line[window.start_col - 1 ..];
 
-            var x = window.x;
+            var x = window_p.x;
 
-            if (y >= window.height + window.y) break;
+            if (y >= window_p.height + window_p.y) break;
             var iter = splitByLanguage(visible_line);
             while (iter.next()) |text_segment| {
                 if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
@@ -316,7 +319,7 @@ pub const Text = struct {
 
                 if (text_segment.is_ascii) {
                     var character = text.ascii_textures[text_segment.utf8_seq[0]];
-                    text.wrapOrCut(window.*, &x, &y, character) catch break;
+                    text.wrapOrCut(window_p, &x, &y, character, window.options.wrap_text) catch break;
                     text.renderGlyph(character, &x, &y);
                 } else {
                     var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
@@ -325,7 +328,7 @@ pub const Text = struct {
                         break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
                     };
                     for (characters) |character| {
-                        text.wrapOrCut(window.*, &x, &y, character) catch break;
+                        text.wrapOrCut(window_p, &x, &y, character, window.options.wrap_text) catch break;
                         text.renderGlyph(character, &x, &y);
                     }
                 }
@@ -365,10 +368,10 @@ pub const Text = struct {
         x_offset.* += @intToFloat(f32, (character.Advance >> 6)); // bitshift by 6 to get value in pixels (2^6 = 64)
     }
 
-    pub fn wrapOrCut(text: *Text, window: Window, x: *f32, y: *f32, character: Character) !void {
+    pub fn wrapOrCut(text: *Text, window: WindowPixels, x: *f32, y: *f32, character: Character, wrap_text: bool) !void {
         var advance = @intToFloat(f32, character.Advance >> 6);
         if (x.* >= window.width + window.x - advance) {
-            if (window.options.wrap_text) {
+            if (wrap_text) {
                 y.* += @intToFloat(f32, text.font_size);
                 x.* = window.x;
                 if (y.* >= window.height + window.y) return error.CoordOutOfBounds;

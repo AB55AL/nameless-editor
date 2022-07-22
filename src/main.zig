@@ -7,6 +7,7 @@ const glfw = @import("glfw");
 const c = @import("c.zig");
 const Buffer = @import("buffer.zig");
 const renderer = @import("ui/renderer.zig");
+const Window = @import("ui/window.zig").Window;
 const command_line = @import("command_line.zig");
 const glfw_window = @import("glfw.zig");
 const buffer_ops = @import("buffer_operations.zig");
@@ -26,13 +27,20 @@ export var global = Global{
 export var internal = GlobalInternal{
     .allocator = undefined,
     .buffers_trashcan = undefined,
+    .windows = undefined,
+    .os_window = undefined,
 };
 
 pub fn main() !void {
     defer _ = gpa.deinit();
 
+    const window_width: u32 = 800;
+    const window_height: u32 = 600;
+
     internal.allocator = gpa.allocator();
     internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
+    internal.windows.wins = ArrayList(Window).init(internal.allocator);
+    internal.os_window = .{ .width = window_width, .height = window_height };
 
     global.buffers = ArrayList(*Buffer).init(internal.allocator);
 
@@ -44,10 +52,9 @@ pub fn main() !void {
         for (internal.buffers_trashcan.items) |buffer|
             internal.allocator.destroy(buffer);
         internal.buffers_trashcan.deinit();
-    }
 
-    const window_width: u32 = 800;
-    const window_height: u32 = 600;
+        internal.windows.wins.deinit();
+    }
 
     var window = try glfw_window.init(window_width, window_height);
     defer glfw_window.deinit(&window);
@@ -67,8 +74,12 @@ pub fn main() !void {
     _ = try buffer_ops.createBuffer("src/main.zig");
     global.focused_buffer = global.buffers.items[0];
 
+    try internal.windows.createNew(global.buffers.items[0]);
+    try internal.windows.createLeft(global.buffers.items[3]);
+    try internal.windows.createBelow(global.buffers.items[1]);
+    try internal.windows.createAbove(global.buffers.items[2]);
     while (!window.shouldClose()) {
-        try renderer.render(global.focused_buffer);
+        try renderer.render();
         try glfw.pollEvents();
     }
 }

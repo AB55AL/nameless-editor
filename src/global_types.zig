@@ -2,6 +2,8 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 
 const Buffer = @import("buffer.zig");
+const Windows = @import("ui/window.zig").Windows;
+const OSWindow = @import("ui/window.zig").OSWindow;
 
 pub const Global = struct {
     /// A Pointer to the currently focused buffer
@@ -15,4 +17,8 @@ pub const GlobalInternal = struct {
     allocator: std.mem.Allocator,
     /// When a buffer is removed from global.buffers it is placed here
     buffers_trashcan: ArrayList(*Buffer),
+    /// An ArrayList holding every visible window
+    windows: Windows,
+    /// The width and height of the window system window
+    os_window: OSWindow,
 };

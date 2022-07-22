@@ -5,6 +5,8 @@ const c = @import("../c.zig");
 const Shader = @import("shaders.zig").Shader;
 const vectors = @import("vectors.zig");
 const matrices = @import("matrices.zig");
+const Window = @import("window.zig").Window;
+const WindowPixels = @import("window.zig").WindowPixels;
 
 const indices = [_]u32{
     0, 1, 3, // first triangle
@@ -86,4 +88,9 @@ pub fn render(rect: Rect, x_coord: f32, y_coord: f32, width: f32, height: f32, c
     c.glUniform3f(c.glGetUniformLocation(rect.shader.ID, "cursorColor"), color.x, color.y, color.z);
 
     c.glDrawElements(c.GL_TRIANGLES, 6, c.GL_UNSIGNED_INT, null);
+}
+
+pub fn renderFraction(rect: Rect, window: Window, color: vectors.vec3) void {
+    const window_p = WindowPixels.convert(window);
+    rect.render(window_p.x, window_p.y, window_p.width, window_p.height, color);
 }

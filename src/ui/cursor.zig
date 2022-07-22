@@ -12,14 +12,20 @@ const Text = text.Text;
 const Cursor = @import("../cursor.zig");
 const Character = text.Character;
 const Buffer = @import("../buffer.zig");
+const WindowPixels = @import("window.zig").WindowPixels;
 
-pub fn render(rect: Rect, renderer_text: *Text, window: Window, cursor: Cursor, buffer: *Buffer, color: vectors.vec3) void {
+pub fn render(rect: Rect, renderer_text: *Text, window: Window, color: vectors.vec3) void {
+    var cursor = window.buffer.cursor;
+    var buffer = window.buffer;
+
+    var window_p = WindowPixels.convert(window);
+
     var initial_cursor_h = renderer_text.font_size;
     var cursor_h = @intToFloat(f32, initial_cursor_h) / 2.0 + 5.0;
     var cursor_y =
         @intToFloat(f32, (@intCast(i32, cursor.row - 1) * initial_cursor_h) +
-        @floatToInt(i32, window.y) + initial_cursor_h);
-    var cursor_x = window.x;
+        @floatToInt(i32, window_p.y) + initial_cursor_h);
+    var cursor_x = window_p.x;
 
     var i: u32 = 1;
     var line = utils.getLine(buffer.lines.sliceOfContent(), cursor.row);
