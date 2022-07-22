@@ -2,7 +2,6 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const unicode = std.unicode;
-
 const glfw = @import("glfw");
 const freetype = @import("freetype");
 const harfbuzz = @import("harfbuzz");
@@ -24,7 +23,7 @@ const cursor = @import("cursor.zig");
 
 // Variables
 extern var global_allocator: std.mem.Allocator;
-extern var buffer: *Buffer;
+extern var focused_buffer: *Buffer;
 
 var renderer_rect: Rect = undefined;
 var renderer_text: *Text = undefined;
@@ -72,8 +71,8 @@ pub fn render(buffer_to_render: *Buffer) !void {
     };
 
     renderer_rect.render(window.x, window.y, window.width, window.height, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
-    try renderer_text.render(&window, buffer, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
-    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, buffer, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+    try renderer_text.render(&window, buffer_to_render, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
+    cursor.render(renderer_rect, renderer_text, window, buffer_to_render.cursor, buffer_to_render, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
 
     try glfw_window.swapBuffers();
 }
@@ -103,11 +102,5 @@ pub fn cursorPositionCallback(window: glfw.Window, x_pos: f64, y_pos: f64) void 
 pub fn scrollCallback(window: glfw.Window, x_offset: f64, y_offset: f64) void {
     _ = window;
     _ = x_offset;
-    start_of_y -= @floatToInt(i32, y_offset) * renderer_text.font_size;
-    start_of_y = if (start_of_y <= 0)
-        0
-    else if (start_of_y >= buffer.lines.length() * @intCast(usize, renderer_text.font_size))
-        @intCast(i32, (buffer.lines.length() - 1) * @intCast(usize, renderer_text.font_size))
-    else
-        start_of_y;
+    _ = y_offset;
 }

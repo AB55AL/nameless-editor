@@ -2,10 +2,10 @@ const std = @import("std");
 const print = std.debug.print;
 
 const core = @import("core");
-const input = core.input;
 const Cursor = core.Cursor;
+const history = core.history;
 
-extern var buffer: *core.Buffer;
+extern var focused_buffer: *core.Buffer;
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
@@ -29,14 +29,14 @@ pub fn keyInput(key: []const u8) void {
 }
 
 pub fn characterInput(utf8_seq: []const u8) void {
-    buffer.insert(
-        buffer.cursor.row,
-        buffer.cursor.col,
+    focused_buffer.insert(
+        focused_buffer.cursor.row,
+        focused_buffer.cursor.col,
         utf8_seq,
     ) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
-    Cursor.moveRelative(buffer, 0, 1);
+    Cursor.moveRelative(focused_buffer, 0, 1);
 }
 
 pub fn map(key: []const u8, function: fn () void) void {
@@ -48,6 +48,8 @@ pub fn map(key: []const u8, function: fn () void) void {
 fn setDefaultMappnigs() void {
     map("C_z", undo);
     map("C_y", redo);
+    map("<F1>", commitHistoryChanges);
+    map("<F2>", insertAlot);
 
     map("<BACKSPACE>", deleteBackward);
     map("<DELETE>", deleteForward);
@@ -61,53 +63,62 @@ fn setDefaultMappnigs() void {
 }
 
 fn undo() void {
-    core.history.undo(buffer) catch |err| {
+    core.history.undo(focused_buffer) catch |err| {
         print("input_layer.undo()\n\t{}\n", .{err});
     };
 }
 fn redo() void {
-    core.history.redo(buffer) catch |err| {
+    core.history.redo(focused_buffer) catch |err| {
         print("input_layer.redo()\n\t{}\n", .{err});
     };
 }
 
 fn deleteBackward() void {
-    if (buffer.cursor.col > 1) {
-        Cursor.moveRelative(buffer, 0, -1);
-        buffer.delete(buffer.cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
+    if (focused_buffer.cursor.col > 1) {
+        Cursor.moveRelative(focused_buffer, 0, -1);
+        focused_buffer.delete(focused_buffer.cursor.row, focused_buffer.cursor.col, focused_buffer.cursor.col + 1) catch |err| {
             print("input_layer.deleteBackward()\n\t{}\n", .{err});
         };
     }
 }
 
 fn deleteForward() void {
-    buffer.delete(buffer.cursor.row, buffer.cursor.col, buffer.cursor.col + 1) catch |err| {
+    focused_buffer.delete(focused_buffer.cursor.row, focused_buffer.cursor.col, focused_buffer.cursor.col + 1) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
 fn updateHistory() void {
-    core.history.updateHistory(buffer) catch |err| {
+    core.history.updateHistory(focused_buffer) catch |err| {
         print("input_layer.updateHistory()\n\t{}\n", .{err});
     };
 }
 
 fn moveRight() void {
-    Cursor.moveRelative(buffer, 0, 1);
+    Cursor.moveRelative(focused_buffer, 0, 1);
 }
 fn moveLeft() void {
-    Cursor.moveRelative(buffer, 0, -1);
+    Cursor.moveRelative(focused_buffer, 0, -1);
 }
 fn moveUp() void {
-    Cursor.moveRelative(buffer, -1, 0);
+    Cursor.moveRelative(focused_buffer, -1, 0);
 }
 fn moveDown() void {
-    Cursor.moveRelative(buffer, 1, 0);
+    Cursor.moveRelative(focused_buffer, 1, 0);
 }
 
 fn insertNewLineAtCursor() void {
-    buffer.insert(buffer.cursor.row, buffer.cursor.col, "\n") catch |err| {
+    focused_buffer.insert(focused_buffer.cursor.row, focused_buffer.cursor.col, "\n") catch |err| {
         print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
     };
-    Cursor.moveRelative(buffer, 1, 0);
-    Cursor.moveToStartOfLine(buffer);
+    Cursor.moveRelative(focused_buffer, 1, 0);
+    Cursor.moveToStartOfLine(focused_buffer);
+}
+
+fn commitHistoryChanges() void {
+    history.commitHistoryChanges(focused_buffer) catch unreachable;
+}
+
+fn insertAlot() void {
+    // focused_buffer.deleteRows(1, 3) catch unreachable;
+    focused_buffer.insert(1, 1, "شششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششش") catch unreachable;
 }

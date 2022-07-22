@@ -14,7 +14,7 @@ const history = @import("history.zig");
 const input_layer = @import("input_layer");
 
 extern var font_size: i32;
-extern var buffer: *Buffer;
+extern var focused_buffer: *Buffer;
 
 var fixed_buffer: [256]u8 = undefined;
 var fba = std.heap.FixedBufferAllocator.init(&fixed_buffer);

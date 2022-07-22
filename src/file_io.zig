@@ -4,21 +4,6 @@ const fs = std.fs;
 
 const Buffer = @import("buffer.zig");
 
-/// Opens a file and returns a copy of a buffer
-pub fn openFile(allocator: std.mem.Allocator, file_path: []const u8) !Buffer {
-    const full_file_path = try fullFilePath(allocator, file_path);
-    defer allocator.free(full_file_path);
-
-    const file = try fs.cwd().openFile(full_file_path, .{});
-    defer file.close();
-    const metadata = try file.metadata();
-    try file.seekTo(0);
-    var buf = try file.readToEndAlloc(allocator, metadata.size());
-    defer allocator.free(buf);
-
-    return Buffer.init(full_file_path, buf);
-}
-
 pub fn writeToFile(buffer: *Buffer) !void {
     const new_file_suffix = ".editor-new";
     const original_file_suffix = ".editor-original";
