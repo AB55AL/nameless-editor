@@ -3,6 +3,7 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
 const Buffer = @import("../buffer.zig");
+const VCursor = @import("vcursor.zig").VCursor;
 const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
@@ -45,7 +46,12 @@ pub const Window = struct {
     buffer: *Buffer,
     start_col: u32 = 1,
     start_row: u32 = 1,
+    /// Number of rows to render
     num_of_rows: u32 = std.math.maxInt(u16),
+    /// Number of rows that have been rendered
+    visible_rows: u32 = 0,
+    /// Number of cols that have been rendered at buffer.cursor.row
+    visible_cols_at_buffer_row: u32 = 0,
 
     options: WindowOptions = .{},
 };

@@ -300,10 +300,18 @@ pub const Text = struct {
 
         var y = window_p.y;
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');
+        window.visible_rows = 0;
+        var row = window.start_row - 1;
+        window.visible_cols_at_buffer_row = 0;
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
+            if (y >= window_p.height + window_p.y) break;
 
-            if (window.start_col > line.len) continue;
+            window.visible_rows += 1;
+            row += 1;
+            if (window.start_col > line.len) {
+                continue;
+            }
 
             var visible_line = line;
             if (!window.options.wrap_text) {
@@ -313,7 +321,6 @@ pub const Text = struct {
 
             var x = window_p.x;
 
-            if (y >= window_p.height + window_p.y) break;
             var iter = splitByLanguage(visible_line);
             while (iter.next()) |text_segment| {
                 if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
@@ -322,8 +329,10 @@ pub const Text = struct {
 
                 if (text_segment.is_ascii) {
                     var character = text.ascii_textures[text_segment.utf8_seq[0]];
-                    text.wrapOrCut(window_p, &x, &y, character, window.options.wrap_text) catch break;
+                    text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
                     text.renderGlyph(character, &x, &y);
+                    if (window.buffer.cursor.row == row)
+                        window.visible_cols_at_buffer_row += 1;
                 } else {
                     var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
                         var utf8_seq = try internal.allocator.alloc(u8, text_segment.utf8_seq.len);
@@ -331,8 +340,10 @@ pub const Text = struct {
                         break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
                     };
                     for (characters) |character| {
-                        text.wrapOrCut(window_p, &x, &y, character, window.options.wrap_text) catch break;
+                        text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
                         text.renderGlyph(character, &x, &y);
+                        if (window.buffer.cursor.row == row)
+                            window.visible_cols_at_buffer_row += 1;
                     }
                 }
             }
@@ -371,13 +382,15 @@ pub const Text = struct {
         x_offset.* += @intToFloat(f32, (character.Advance >> 6)); // bitshift by 6 to get value in pixels (2^6 = 64)
     }
 
-    pub fn wrapOrCut(text: *Text, window: WindowPixels, x: *f32, y: *f32, character: Character, wrap_text: bool) !void {
+    pub fn wrapOrCut(text: *Text, window: *Window, x: *f32, y: *f32, character: Character, wrap_text: bool) !void {
+        var window_p = WindowPixels.convert(window.*);
         var advance = @intToFloat(f32, character.Advance >> 6);
-        if (x.* >= window.width + window.x - advance) {
+        if (x.* >= window_p.width + window_p.x - advance) {
             if (wrap_text) {
                 y.* += @intToFloat(f32, text.font_size);
-                x.* = window.x;
-                if (y.* >= window.height + window.y) return error.CoordOutOfBounds;
+                x.* = window_p.x;
+                if (y.* >= window_p.height + window_p.y) return error.CoordOutOfBounds;
+                window.visible_rows += 1;
             } else {
                 return error.CoordOutOfBounds;
             }

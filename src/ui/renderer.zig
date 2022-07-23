@@ -24,6 +24,8 @@ const cursor = @import("cursor.zig");
 const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
+const VCursor = @import("vcursor.zig").VCursor;
+const Cursor = @import("../cursor.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;
@@ -67,13 +69,13 @@ pub fn render() !void {
     var wins = internal.windows.wins.items;
     var i: usize = 0;
     while (i < wins.len) : (i += 1) {
-        var window = internal.windows.wins.items[i];
+        var window = &internal.windows.wins.items[i];
 
-        renderer_rect.renderFraction(window, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
-        try renderer_text.render(&window, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
+        renderer_rect.renderFraction(window.*, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
+        try renderer_text.render(window, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
     }
     if (internal.windows.wins.items.len > 0)
-        cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow().*, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+        cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow(), .{ .x = 0.0, .y = 0.0, .z = 0.0 });
 
     try glfw_window.swapBuffers();
 }
