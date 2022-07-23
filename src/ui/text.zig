@@ -14,6 +14,7 @@ const Window = @import("window.zig").Window;
 const WindowPixels = @import("window.zig").WindowPixels;
 const Buffer = @import("../buffer.zig");
 const GlobalInternal = @import("../global_types.zig").GlobalInternal;
+const utf8 = @import("../utf8.zig");
 
 const vectors = @import("vectors.zig");
 const c = @import("../c.zig");
@@ -220,8 +221,8 @@ pub const Text = struct {
         var characters_index: usize = 0;
         var characters = try internal.allocator.alloc(
             Character,
-            unicode.utf8CountCodepoints(utf8_seq) catch {
-                print("unreachable here\n", .{});
+            unicode.utf8CountCodepoints(utf8_seq) catch |err| {
+                print("ui/text.zig err={}\n", .{err});
                 unreachable;
             },
         );
@@ -305,8 +306,10 @@ pub const Text = struct {
             if (window.start_col > line.len) continue;
 
             var visible_line = line;
-            if (!window.options.wrap_text)
-                visible_line = line[window.start_col - 1 ..];
+            if (!window.options.wrap_text) {
+                const s = utf8.firstByteOfCodeUnit(visible_line, window.start_col);
+                visible_line = line[s..];
+            }
 
             var x = window_p.x;
 
