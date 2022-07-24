@@ -63,36 +63,61 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) ?*Buffer {
 
 pub fn openBuffer(index: ?u32, file_path: ?[]const u8) !void {
     var buffer = getBuffer(index, file_path);
-    if (buffer) |buf|
-        try internal.windows.createNew(buf)
-    else
+    if (buffer) |buf| {
+        try internal.windows.createNew(buf);
+        global.focused_buffer = buf;
+    } else if (file_path) |fp| {
+        global.focused_buffer = try createBuffer(fp);
+        internal.windows.focusedWindow().buffer = global.focused_buffer;
+    } else {
         return error.CannotFindBuffer;
+    }
 }
 pub fn openBufferRight(index: ?u32, file_path: ?[]const u8) !void {
     var buffer = getBuffer(index, file_path);
-    if (buffer) |buf|
-        try internal.windows.createRight(buf)
-    else
+    if (buffer) |buf| {
+        try internal.windows.createRight(buf);
+        global.focused_buffer = buf;
+    } else if (file_path) |fp| {
+        global.focused_buffer = try createBuffer(fp);
+        try internal.windows.createRight(global.focused_buffer);
+    } else {
         return error.CannotFindBuffer;
+    }
 }
 pub fn openBufferLeft(index: ?u32, file_path: ?[]const u8) !void {
     var buffer = getBuffer(index, file_path);
-    if (buffer) |buf|
-        try internal.windows.createLeft(buf)
-    else
+    if (buffer) |buf| {
+        try internal.windows.createLeft(buf);
+        global.focused_buffer = buf;
+    } else if (file_path) |fp| {
+        global.focused_buffer = try createBuffer(fp);
+        try internal.windows.createLeft(global.focused_buffer);
+    } else {
         return error.CannotFindBuffer;
+    }
 }
 pub fn openBufferAbove(index: ?u32, file_path: ?[]const u8) !void {
     var buffer = getBuffer(index, file_path);
-    if (buffer) |buf|
-        try internal.windows.createAbove(buf)
-    else
+    if (buffer) |buf| {
+        try internal.windows.createAbove(buf);
+        global.focused_buffer = buf;
+    } else if (file_path) |fp| {
+        global.focused_buffer = try createBuffer(fp);
+        try internal.windows.createAbove(global.focused_buffer);
+    } else {
         return error.CannotFindBuffer;
+    }
 }
 pub fn openBufferBelow(index: ?u32, file_path: ?[]const u8) !void {
     var buffer = getBuffer(index, file_path);
-    if (buffer) |buf|
-        try internal.windows.createBelow(buf)
-    else
+    if (buffer) |buf| {
+        try internal.windows.createBelow(buf);
+        global.focused_buffer = buf;
+    } else if (file_path) |fp| {
+        global.focused_buffer = try createBuffer(fp);
+        try internal.windows.createBelow(global.focused_buffer);
+    } else {
         return error.CannotFindBuffer;
+    }
 }

@@ -6,12 +6,18 @@ const fmt = std.fmt;
 const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
 
 const GlobalInternal = @import("global_types.zig").GlobalInternal;
+const Global = @import("global_types.zig").Global;
+const Buffer = @import("buffer.zig");
+const Cursor = @import("cursor.zig");
+const default_commands = @import("default_commands.zig");
 
 const FuncType = fn ([]PossibleValues) CommandRunError!void;
 
 extern var internal: GlobalInternal;
+extern var global: Global;
 
 var command_function_lut: std.StringHashMap(FuncType) = undefined;
+var previous_buffer: *Buffer = undefined;
 
 const ParseError = error{
     DoubleQuoteInvalidPosition,
@@ -24,22 +30,49 @@ const CommandRunError = error{
 };
 
 const PossibleValuesTag = enum { int, string, float, bool };
-pub const PossibleValues = union(PossibleValuesTag) {
+const PossibleValues = union(PossibleValuesTag) {
     int: i64,
     string: []const u8,
     float: f64,
     bool: bool,
 };
 
-pub fn init() void {
+pub fn init() !void {
     command_function_lut = std.StringHashMap(FuncType).init(internal.allocator);
+    try default_commands.setDefaultCommands();
 }
 
 pub fn deinit() void {
     command_function_lut.deinit();
 }
 
-pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) void {
+pub fn openCommandLine() void {
+    global.command_line_is_open = true;
+    previous_buffer = global.focused_buffer;
+    global.focused_buffer = global.command_line_buffer;
+}
+
+pub fn closeCommandLine() void {
+    global.command_line_is_open = false;
+    global.focused_buffer = previous_buffer;
+    global.command_line_buffer.clear() catch |err| {
+        print("cloudn't clear command_line buffer err={}", .{err});
+    };
+    Cursor.moveAbsolute(global.command_line_buffer, 1, 1);
+}
+
+pub fn runCommand() void {
+    var command_str: [4096]u8 = undefined;
+    var len = global.command_line_buffer.lines.length();
+
+    for (global.command_line_buffer.lines.sliceOfContent()) |b, i|
+        command_str[i] = b;
+
+    closeCommandLine();
+    run(command_str[0 .. len - 1]);
+}
+
+pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
@@ -53,7 +86,7 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) void {
             @compileError("The command name shouldn't have a space");
     }
 
-    command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy) catch unreachable;
+    try command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy);
 }
 
 pub fn run(command_string: []const u8) void {
@@ -64,6 +97,9 @@ pub fn run(command_string: []const u8) void {
     };
     defer internal.allocator.free(parsed_string);
     var command = parsed_string[0];
+
+    if (parsed_string.len <= 1) return;
+
     var args = convertArgsToValues(parsed_string[1..]);
     defer internal.allocator.free(args);
     call(command, args);

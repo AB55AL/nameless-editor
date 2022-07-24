@@ -22,6 +22,7 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 export var global = Global{
     .focused_buffer = undefined,
     .buffers = undefined,
+    .command_line_buffer = undefined,
 };
 
 export var internal = GlobalInternal{
@@ -29,6 +30,7 @@ export var internal = GlobalInternal{
     .buffers_trashcan = undefined,
     .windows = undefined,
     .os_window = undefined,
+    .command_line_window = undefined,
 };
 
 pub fn main() !void {
@@ -38,9 +40,20 @@ pub fn main() !void {
     const window_height: u32 = 600;
 
     internal.allocator = gpa.allocator();
+
+    global.command_line_buffer = try internal.allocator.create(Buffer);
+    global.command_line_buffer.* = try Buffer.init("", "");
+
     internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
     internal.windows.wins = ArrayList(Window).init(internal.allocator);
     internal.os_window = .{ .width = window_width, .height = window_height };
+    internal.command_line_window = .{
+        .x = 0,
+        .y = 0.95,
+        .width = 1,
+        .height = 0.1,
+        .buffer = global.command_line_buffer,
+    };
 
     global.buffers = ArrayList(*Buffer).init(internal.allocator);
 
@@ -54,6 +67,7 @@ pub fn main() !void {
         internal.buffers_trashcan.deinit();
 
         internal.windows.wins.deinit();
+        global.command_line_buffer.deinitAndDestroy();
     }
 
     var window = try glfw_window.init(window_width, window_height);
@@ -65,20 +79,18 @@ pub fn main() !void {
     input_layer.inputLayerInit();
     defer input_layer.inputLayerDeinit();
 
-    command_line.init();
+    try command_line.init();
     defer command_line.deinit();
 
-    _ = try buffer_ops.createBuffer("build.zig");
-    _ = try buffer_ops.createBuffer("src/buffer.zig");
-    _ = try buffer_ops.createBuffer("src/buffer_operations.zig");
-    _ = try buffer_ops.createBuffer("src/main.zig");
-    global.focused_buffer = global.buffers.items[0];
+    if (global.buffers.items.len == 0) {
+        var buffer = try internal.allocator.create(Buffer);
+        buffer.* = try Buffer.init("", "");
+        try global.buffers.append(buffer);
+        try buffer_ops.openBuffer(1, null);
+    }
 
-    try buffer_ops.openBuffer(0, null);
-    try buffer_ops.openBufferRight(1, null);
-    try buffer_ops.openBufferLeft(2, null);
-    try buffer_ops.openBufferAbove(3, null);
     while (!window.shouldClose()) {
+        if (global.buffers.items.len == 0) window.setShouldClose(true);
         try renderer.render();
         try glfw.pollEvents();
     }

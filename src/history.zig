@@ -100,6 +100,9 @@ pub fn undo(buffer: *Buffer) !void {
         }
     }
 
+    Cursor.moveAbsolute(buffer, 1, 1);
+    // changes.items[0].index;
+
     try buffer.history.redo_stack.append(changes);
 }
 
@@ -128,6 +131,7 @@ pub fn redo(buffer: *Buffer) !void {
         }
     }
 
+    Cursor.moveAbsolute(buffer, 1, 1);
     try buffer.history.stack.append(changes);
 }
 

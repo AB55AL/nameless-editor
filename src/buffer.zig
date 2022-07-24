@@ -56,7 +56,7 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
         .index = 0,
         .type_of_change = TypeOfChange.insertion,
     };
-    return Buffer{
+    var buffer = Buffer{
         .index = static.index,
         .file_path = fp,
         .size = size,
@@ -66,6 +66,9 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
         .related_history_changes = related_history_changes,
         .previous_change = previous_change,
     };
+
+    buffer.insureLastByteIsNewline() catch unreachable;
+    return buffer;
 }
 
 /// Deinits the members of the buffer but does not destroy the buffer.
@@ -360,4 +363,14 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
         buffer.lines.moveGapPosAbsolute(buffer.lines.length());
         try buffer.lines.insert("\n");
     }
+}
+
+pub fn clear(buffer: *Buffer) !void {
+    try history.updateRelatedHistoryChanges(buffer);
+    try buffer.previous_change.content.replaceAllWith(buffer.lines.sliceOfContent());
+    buffer.previous_change.index = 1;
+    buffer.previous_change.type_of_change = TypeOfChange.deletion;
+
+    buffer.lines.replaceAllWith("") catch unreachable;
+    buffer.insureLastByteIsNewline() catch unreachable;
 }

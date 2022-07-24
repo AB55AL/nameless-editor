@@ -74,8 +74,14 @@ pub fn render() !void {
         renderer_rect.renderFraction(window.*, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
         try renderer_text.render(window, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
     }
-    if (internal.windows.wins.items.len > 0)
-        cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow(), .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+    if (global.command_line_is_open) {
+        renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+        try renderer_text.render(&internal.command_line_window, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
+    } else {
+        if (internal.windows.wins.items.len > 0)
+            cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow(), .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+    }
 
     try glfw_window.swapBuffers();
 }

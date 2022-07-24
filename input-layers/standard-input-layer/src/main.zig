@@ -61,16 +61,19 @@ fn setDefaultMappnigs() void {
     map("<UP>", moveUp);
     map("<DOWN>", moveDown);
 
-    map("<ENTER>", insertNewLineAtCursor);
+    map("<ENTER>", enterKey);
+    map("C_c", toggleCommandLine);
 }
 
 fn cycleThroughBuffers() void {
+    if (global.buffers.items.len == 0) return;
     const static = struct {
         var i: usize = 0;
     };
     static.i += 1;
     if (static.i >= global.buffers.items.len) static.i = 0;
     global.focused_buffer = global.buffers.items[static.i];
+    print("cycle\n", .{});
 }
 
 fn undo() void {
@@ -115,6 +118,20 @@ fn moveUp() void {
 }
 fn moveDown() void {
     Cursor.moveRelative(global.focused_buffer, 1, 0);
+}
+
+fn toggleCommandLine() void {
+    if (global.command_line_is_open)
+        core.closeCommandLine()
+    else
+        core.openCommandLine();
+}
+
+fn enterKey() void {
+    if (global.command_line_is_open)
+        core.runCommand()
+    else
+        insertNewLineAtCursor();
 }
 
 fn insertNewLineAtCursor() void {
