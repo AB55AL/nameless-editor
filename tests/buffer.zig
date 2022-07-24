@@ -3,15 +3,33 @@ const expect = std.testing.expect;
 const allocator = std.testing.allocator;
 const print = std.debug.print;
 const expectEqualStrings = std.testing.expectEqualStrings;
+const ArrayList = std.ArrayList;
 
 const core = @import("core");
 const Buffer = core.Buffer;
 const history = core.history;
 
+pub const GlobalInternal = struct {
+    /// Global allocator
+    allocator: std.mem.Allocator,
+    /// When a buffer is removed from global.buffers it is placed here
+    buffers_trashcan: ArrayList(*Buffer),
+    // windows: Windows,
+    // command_line_window: Window,
+    // os_window: OSWindow,
+};
+
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-export var global_allocator: std.mem.Allocator = gpa.allocator();
+export var internal: GlobalInternal = undefined;
+// .allocator = gpa.allocator();
+// .buffers_trashcan = undefined;
+// .windows = undefined;
+// .command_line_window = undefined;
+// .os_window = undefined;
+// };
 
 test "deleteRange()" {
+    internal.allocator = gpa.allocator();
     const original_text =
         \\hello there my friend
         \\this is a test text.
@@ -26,7 +44,7 @@ test "deleteRange()" {
     ;
 
     var buffer = try Buffer.init("", original_text);
-    defer buffer.deinit();
+    defer buffer.deinitNoTrash();
 
     try buffer.deleteRange(2, 2, 3, 22);
     try std.testing.expectEqualStrings(string_after_change, buffer.lines.sliceOfContent());
@@ -67,9 +85,9 @@ test "deleteRows()" {
         \\
     ;
 
-    var buffer = try Buffer.init("", original_text);
+    var buffer = &(try Buffer.init("", original_text));
     var lines = &buffer.lines;
-    defer buffer.deinit();
+    defer buffer.deinitNoTrash();
 
     try buffer.deleteRows(1, 5);
     try std.testing.expectEqualStrings(begin_to_end, lines.sliceOfContent());
@@ -112,7 +130,7 @@ test "undo and redo delete()" {
         \\
     ;
 
-    var buffer = try Buffer.init("", original_text);
+    var buffer = &(try Buffer.init("", original_text));
 
     {
         try buffer.delete(2, 1, 999);
@@ -138,7 +156,7 @@ test "undo and redo delete()" {
         try expectEqualStrings(deleted_within_line, buffer.lines.sliceOfContent());
     }
 
-    buffer.deinit();
+    buffer.deinitNoTrash();
 }
 
 test "undo and redo deleteRows()" {
@@ -176,9 +194,9 @@ test "undo and redo deleteRows()" {
         \\
     ;
 
-    var buffer = try Buffer.init("", original_text);
+    var buffer = &(try Buffer.init("", original_text));
     var lines = &buffer.lines;
-    defer buffer.deinit();
+    defer buffer.deinitNoTrash();
 
     {
         try buffer.deleteRows(1, 5);
