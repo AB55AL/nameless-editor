@@ -4,6 +4,7 @@ const ArrayList = std.ArrayList;
 const count = std.mem.count;
 const fmt = std.fmt;
 const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
+const ascii = std.ascii;
 
 const GlobalInternal = @import("global_types.zig").GlobalInternal;
 const Global = @import("global_types.zig").Global;
@@ -35,6 +36,18 @@ const PossibleValues = union(PossibleValuesTag) {
     string: []const u8,
     float: f64,
     bool: bool,
+};
+
+const Token = struct {
+    type: Types,
+    content: []const u8,
+};
+
+const Types = enum {
+    string,
+    int,
+    float,
+    bool,
 };
 
 pub fn init() !void {
@@ -89,20 +102,30 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) !void 
     try command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy);
 }
 
-pub fn run(command_string: []const u8) void {
-    var parsed_string = parse(command_string) catch |err| {
+fn run(command_string: []const u8) void {
+    var arena = std.heap.ArenaAllocator.init(internal.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var parsed_string = parse(alloc, command_string) catch |err| {
         // TODO: Notify user instead of printing
         print("{}\n", .{err});
         return;
     };
-    defer internal.allocator.free(parsed_string);
+    if (parsed_string.len > 128) {
+        print("too many args for command\n", .{});
+        return;
+    }
+
     var command = parsed_string[0];
 
-    if (parsed_string.len <= 1) return;
+    var tokens: [128]Token = undefined;
+    var tokens_num = stringToTokens(parsed_string[1..], &tokens);
 
-    var args = convertArgsToValues(parsed_string[1..]);
-    defer internal.allocator.free(args);
-    call(command, args);
+    var values: [128]PossibleValues = undefined;
+    var pv_num = tokensToValues(tokens[0..tokens_num], &values);
+
+    call(command, values[0..pv_num]);
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
@@ -121,8 +144,9 @@ fn call(command: []const u8, args: []PossibleValues) void {
     }
 }
 
-fn parse(string: []const u8) ![][]const u8 {
-    var array = ArrayList([]const u8).init(internal.allocator);
+fn parse(allocator: std.mem.Allocator, string: []const u8) ![][]const u8 {
+    var array = ArrayList([]const u8).init(allocator);
+
     var iter = std.mem.split(u8, string, " ");
 
     var double_q_num = count(u8, string, "\"");
@@ -150,7 +174,8 @@ fn parse(string: []const u8) ![][]const u8 {
             if (top_of_stack[0] != '"') {
                 return ParseError.DoubleQuoteInvalidPosition;
             }
-            var content = try std.mem.concat(internal.allocator, u8, &[_][]const u8{
+
+            var content = try std.mem.concat(allocator, u8, &[_][]const u8{
                 array.pop(),
                 " ",
                 s,
@@ -161,41 +186,85 @@ fn parse(string: []const u8) ![][]const u8 {
         }
     }
 
-    for (array.items) |item, i| {
-        if (i == 0) continue;
-        if (item[0] == '"' and item[item.len - 1] == '"') continue;
-
-        for (item) |char|
-            if (!std.ascii.isDigit(char) and char != '.')
-                return ParseError.ContainsInvalidValues;
-    }
-
-    return array.toOwnedSlice();
+    return array.items;
 }
 
-fn convertArgsToValues(args_str: [][]const u8) []PossibleValues {
-    var args = internal.allocator.alloc(PossibleValues, args_str.len) catch unreachable;
-    for (args_str) |arg, i| {
-        if (arg[0] == '"' and arg[arg.len - 1] == '"') {
-            if (arg.len == 2) {
-                args[i] = .{ .string = "" };
-            } else {
-                args[i] = .{ .string = arg[1 .. arg.len - 1] }; // strip the ""
-            }
-        } else if (eqlIgnoreCase(arg, "true")) {
-            args[i] = .{ .bool = true };
-        } else if (eqlIgnoreCase(arg, "false")) {
-            args[i] = .{ .bool = false };
-        } else if (count(u8, arg, ".") == 1) {
-            var float = fmt.parseFloat(f64, arg) catch unreachable;
-            args[i] = .{ .float = float };
-        } else {
-            var int = fmt.parseInt(i64, arg, 10) catch unreachable;
-            args[i] = .{ .int = int };
+fn tokensToValues(tokens: []Token, pv: []PossibleValues) u16 {
+    var i: u16 = 0;
+    for (tokens) |token, index| {
+        defer i += 1;
+        switch (token.type) {
+            Types.string => {
+                pv[index] = .{ .string = token.content };
+            },
+            Types.int => {
+                const val = fmt.parseInt(i64, token.content, 10) catch unreachable;
+                pv[index] = .{ .int = val };
+            },
+            Types.float => {
+                const val = fmt.parseFloat(f64, token.content) catch unreachable;
+                pv[index] = .{ .float = val };
+            },
+            Types.bool => {
+                if (token.content.len > 1) unreachable;
+                var val = charToBool(token.content[0]);
+                pv[index] = .{ .bool = val };
+            },
         }
     }
 
-    return args;
+    return i;
+}
+
+fn stringToTokens(args_str: [][]const u8, out_buffer: []Token) u16 {
+    var num: u16 = 0;
+    for (args_str) |arg, i| {
+        defer num += 1;
+        if (arg[0] == '"' and arg[arg.len - 1] == '"') {
+            if (arg.len == 2) {
+                out_buffer[i] = .{ .type = Types.string, .content = "" };
+            } else {
+                out_buffer[i] = .{ .type = Types.string, .content = arg[1 .. arg.len - 1] }; // strip the ""
+            }
+        } else if (eqlIgnoreCase(arg, "T") or eqlIgnoreCase(arg, "F")) {
+            out_buffer[i] = .{ .type = Types.bool, .content = arg };
+        } else if (isFloat(arg)) {
+            out_buffer[i] = .{ .type = Types.float, .content = arg };
+        } else if (isInt(arg)) {
+            out_buffer[i] = .{ .type = Types.int, .content = arg };
+        } else { // assume double-quote-less string
+            out_buffer[i] = .{ .type = Types.string, .content = arg };
+        }
+    }
+
+    return num;
+}
+
+fn isFloat(str: []const u8) bool {
+    if (count(u8, str, ".") != 1) return false;
+    for (str) |c| {
+        if (ascii.isDigit(c) or c == '.')
+            continue
+        else
+            return false;
+    }
+
+    return true;
+}
+
+fn isInt(str: []const u8) bool {
+    for (str) |c| {
+        if (ascii.isDigit(c))
+            continue
+        else
+            return false;
+    }
+
+    return true;
+}
+
+fn charToBool(char: u8) bool {
+    return if (char == 'T' or char == 't') true else false;
 }
 
 // TODO: Make this not ugly
