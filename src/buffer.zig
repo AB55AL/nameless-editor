@@ -164,8 +164,11 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
 
     buffer.lines.moveGapPosAbsolute(index);
     buffer.lines.delete(substring.len);
-
     try insureLastByteIsNewline(buffer);
+
+    // make sure the cursor.row is never on an a row that doesn't exists
+    if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
+        Cursor.moveRelative(buffer, -1, 0);
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
@@ -193,6 +196,10 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     buffer.lines.delete(to - from);
 
     try insureLastByteIsNewline(buffer);
+
+    // make sure the cursor.row is never on an a row that doesn't exists
+    if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
+        Cursor.moveRelative(buffer, -1, 0);
 }
 
 pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
