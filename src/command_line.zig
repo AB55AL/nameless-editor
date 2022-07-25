@@ -118,14 +118,18 @@ fn run(command_string: []const u8) void {
     }
 
     var command = parsed_string[0];
+    if (parsed_string.len > 1) {
+        var tokens: [128]Token = undefined;
+        var tokens_num = stringToTokens(parsed_string[1..], &tokens);
 
-    var tokens: [128]Token = undefined;
-    var tokens_num = stringToTokens(parsed_string[1..], &tokens);
+        var values: [128]PossibleValues = undefined;
+        var pv_num = tokensToValues(tokens[0..tokens_num], &values);
 
-    var values: [128]PossibleValues = undefined;
-    var pv_num = tokensToValues(tokens[0..tokens_num], &values);
-
-    call(command, values[0..pv_num]);
+        call(command, values[0..pv_num]);
+    } else {
+        var pv = PossibleValues{ .string = "" };
+        call(command, &[_]PossibleValues{pv});
+    }
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
@@ -134,9 +138,8 @@ fn call(command: []const u8, args: []PossibleValues) void {
     if (function) |f| {
         f(args) catch |err| {
             // TODO: Notify user instead of printing
-            if (err == CommandRunError.FunctionCommandMismatchedTypes) {
+            if (err == CommandRunError.FunctionCommandMismatchedTypes)
                 print("The command args do not match the function\n", .{});
-            }
         };
     } else {
         // TODO: Notify user instead of printing

@@ -18,25 +18,42 @@ pub fn setDefaultCommands() !void {
     try addCommand("openLeft", openLeft);
     try addCommand("openAbove", openAbove);
     try addCommand("openBelow", openBelow);
+    try addCommand("save", save);
 }
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBuffer(null, file_path) catch unreachable;
+    buffer_ops.openBuffer(null, file_path) catch |err| {
+        print("open command: err={}\n", .{err});
+    };
 }
 fn openRight(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferRight(null, file_path) catch unreachable;
+    buffer_ops.openBufferRight(null, file_path) catch |err| {
+        print("openRight command: err={}\n", .{err});
+    };
 }
 fn openLeft(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferLeft(null, file_path) catch unreachable;
+    buffer_ops.openBufferLeft(null, file_path) catch |err| {
+        print("openLeft command: err={}\n", .{err});
+    };
 }
 fn openAbove(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferAbove(null, file_path) catch unreachable;
+    buffer_ops.openBufferAbove(null, file_path) catch |err| {
+        print("openAbove command: err={}\n", .{err});
+    };
 }
 fn openBelow(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferBelow(null, file_path) catch unreachable;
+    buffer_ops.openBufferBelow(null, file_path) catch |err| {
+        print("openBelow command: err={}\n", .{err});
+    };
+}
+
+// FIXME: after fixing the command line change this to not take any args
+fn save(ignore: []const u8) void {
+    _ = ignore;
+    buffer_ops.saveBuffer(global.focused_buffer) catch unreachable;
 }

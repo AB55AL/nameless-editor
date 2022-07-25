@@ -23,7 +23,7 @@ pub fn writeToFile(buffer: *Buffer) !void {
     });
     defer internal.allocator.free(original_tmp_file_path);
 
-    const content_of_buffer = try buffer.copyAll();
+    const content_of_buffer = try buffer.lines.copy();
     defer internal.allocator.free(content_of_buffer);
 
     const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.file_path).?, .{}));

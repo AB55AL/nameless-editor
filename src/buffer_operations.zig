@@ -121,3 +121,7 @@ pub fn openBufferBelow(index: ?u32, file_path: ?[]const u8) !void {
         return error.CannotFindBuffer;
     }
 }
+
+pub fn saveBuffer(buffer: *Buffer) !void {
+    try file_io.writeToFile(buffer);
+}
