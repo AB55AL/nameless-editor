@@ -68,7 +68,12 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8) !void {
         global.focused_buffer = buf;
     } else if (file_path) |fp| {
         global.focused_buffer = try createBuffer(fp);
-        internal.windows.focusedWindow().buffer = global.focused_buffer;
+        if (internal.windows.wins.items.len == 0) {
+            try internal.windows.createNew(global.focused_buffer);
+            internal.windows.focusedWindow().buffer = global.focused_buffer;
+        } else {
+            internal.windows.focusedWindow().buffer = global.focused_buffer;
+        }
     } else {
         return error.CannotFindBuffer;
     }
