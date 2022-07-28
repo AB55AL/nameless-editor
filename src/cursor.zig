@@ -30,13 +30,10 @@ pub fn moveAbsolute(buffer: *Buffer, row: ?u32, col: ?u32) void {
     var new_row = if (row) |r| r else buffer.cursor.row;
 
     if (row != null) {
-        var num_of_newlines = utils.countChar(buffer.lines.sliceOfContent(), '\n');
-        if (num_of_newlines == 0) num_of_newlines = 1;
-
         if (new_row <= 1)
             new_row = 1
         else
-            new_row = min(new_row, num_of_newlines);
+            new_row = min(new_row, buffer.lines.count);
 
         buffer.cursor.row = new_row;
     }
