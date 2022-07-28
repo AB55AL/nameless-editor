@@ -294,7 +294,8 @@ pub const Text = struct {
         window.start_col = std.math.max(1, window.start_col);
         window.num_of_rows = std.math.max(1, window.num_of_rows);
 
-        var visible_lines = utils.getLines(window.buffer.lines.sliceOfContent(), window.start_row, window.start_row + window.num_of_rows - 1);
+        var end_row = std.math.min(window.buffer.lines.count, window.start_row + window.num_of_rows - 1);
+        var visible_lines = window.buffer.getLines(window.start_row, end_row);
 
         var window_p = WindowPixels.convert(window.*);
 

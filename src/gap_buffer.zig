@@ -11,6 +11,8 @@ gap_size: usize,
 /// To get the length of the contents without the gap use length()
 content: []u8,
 
+/// The number of lines in the gap_buffer
+count: u32,
 allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator, input: ?[]const u8) !GapBuffer {
@@ -18,10 +20,14 @@ pub fn init(allocator: std.mem.Allocator, input: ?[]const u8) !GapBuffer {
     const gap_pos = 0;
     const size = if (input) |in| in.len else 0;
     var content = try allocator.alloc(u8, size + gap_size);
+    var nl_count: u32 = 0;
 
     if (input) |in| {
-        for (in) |element, i|
-            content[i + gap_size] = element;
+        @setRuntimeSafety(false);
+        for (in) |b, i| {
+            content[i + gap_size] = b;
+            if (b == '\n') nl_count += 1;
+        }
     }
 
     return GapBuffer{
@@ -29,6 +35,7 @@ pub fn init(allocator: std.mem.Allocator, input: ?[]const u8) !GapBuffer {
         .gap_size = gap_size,
         .content = content,
         .allocator = allocator,
+        .count = nl_count,
     };
 }
 
@@ -145,8 +152,10 @@ pub fn sliceOfContent(gbuffer: *GapBuffer) []u8 {
 /// returns the ith byte
 /// moves the gap out of the way
 pub fn byteAt(gbuffer: *GapBuffer, index: usize) u8 {
-    gbuffer.moveGapPosAbsolute(gbuffer.length());
-    return gbuffer.content[index];
+    if (index < gbuffer.gap_pos)
+        return gbuffer.content[index]
+    else
+        return gbuffer.content[index - gbuffer.gap_pos];
 }
 
 pub fn gapEndPos(gbuffer: *GapBuffer) usize {

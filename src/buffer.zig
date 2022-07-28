@@ -5,6 +5,9 @@ const fs = std.fs;
 const ArrayList = std.ArrayList;
 const Stack = std.ArrayList;
 const unicode = std.unicode;
+const assert = std.debug.assert;
+const max = std.math.max;
+const min = std.math.min;
 
 const Cursor = @import("cursor.zig").Cursor;
 const GapBuffer = @import("gap_buffer.zig");
@@ -24,14 +27,19 @@ const utils = @import("utils.zig");
 extern var global: Global;
 extern var internal: GlobalInternal;
 
+pub const NUM_OF_SECTIONS = 32;
+
 const Buffer = @This();
 
 index: ?u32,
 file_path: []u8,
-size: usize,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: GapBuffer,
+/// To make looking up lines quicker The buffer is spilt into multiple sections.
+/// Each section starts after a newline char (except section 0 which always starts at the begging of the file).
+/// The locations of these newline chars is stored here
+sections: [NUM_OF_SECTIONS]usize,
 
 history: History,
 related_history_changes: Stack(HistoryBufferState),
@@ -42,32 +50,31 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
         var index: u32 = 0;
     };
     defer static.index += 1;
-    var lines = try GapBuffer.init(internal.allocator, buf);
-    var cursor = .{ .row = 1, .col = 1 };
     var fp = try internal.allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
-    var related_history_changes = Stack(HistoryBufferState).init(internal.allocator);
-
-    var size = buf.len;
-    var buffer_history = History.init();
-    var previous_change = .{
-        .content = try GapBuffer.init(internal.allocator, null),
-        .index = 0,
-        .type_of_change = TypeOfChange.insertion,
-    };
     var buffer = Buffer{
         .index = static.index,
         .file_path = fp,
-        .size = size,
-        .cursor = cursor,
-        .lines = lines,
-        .history = buffer_history,
-        .related_history_changes = related_history_changes,
-        .previous_change = previous_change,
+        .cursor = .{ .row = 1, .col = 1 },
+        .lines = try GapBuffer.init(internal.allocator, buf),
+        .history = History.init(),
+        .related_history_changes = Stack(HistoryBufferState).init(internal.allocator),
+        .previous_change = undefined,
+        .sections = undefined,
     };
 
     buffer.insureLastByteIsNewline() catch unreachable;
+    buffer.updateSections(1, 0);
+
+    buffer.previous_change = .{
+        .content = try GapBuffer.init(internal.allocator, null),
+        .index = 0,
+        .type_of_change = TypeOfChange.insertion,
+        .sections = buffer.sections,
+        .lines_count = buffer.lines.count,
+    };
+
     return buffer;
 }
 
@@ -120,84 +127,110 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 
 /// Inserts the given string at the given row and column. (1-based)
 pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void {
+    assert(row <= buffer.lines.count + 1 and row > 0);
+
     if (builtin.mode == std.builtin.Mode.Debug) if (!unicode.utf8ValidateSlice(string)) unreachable;
 
-    var num_of_newlines: u32 = utils.countChar(buffer.lines.sliceOfContent(), '\n');
-    if (row <= 0 or row > num_of_newlines)
-        return error.IndexOutOfBounds;
+    var index = if (row <= buffer.lines.count)
+        buffer.getIndex(row, column)
+    else
+        buffer.lines.length();
 
-    const index = utils.getIndex(buffer.lines.sliceOfContent(), row, column);
     buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = string,
         .index = index,
         .type_of_change = TypeOfChange.insertion,
+        .sections = buffer.sections,
+        .lines_count = buffer.lines.count,
     });
 
     buffer.lines.moveGapPosAbsolute(index);
     try buffer.lines.insert(string);
 
+    var num_of_newlines: u32 = utils.countChar(string, '\n');
+    const old_nl_count = buffer.lines.count;
     try insureLastByteIsNewline(buffer);
+    buffer.lines.count += num_of_newlines;
+
+    buffer.adjustSections(row, num_of_newlines, @intCast(isize, string.len), old_nl_count);
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
 /// If end_column is greater than the number of characters in the line then
 /// delete() would delete to the end of line
 pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !void {
-    if (row <= 0 or row > buffer.lines.length()) {
-        print("delete(): range out of bounds\n", .{});
-        return error.IndexOutOfBounds;
-    }
+    assert(row > 0 and row <= buffer.lines.count);
 
     try insureLastByteIsNewline(buffer);
 
-    const index = utils.getIndex(buffer.lines.sliceOfContent(), row, start_column);
-    const slice = utils.getLine(buffer.lines.sliceOfContent(), row);
-    const substring = utf8.substringOfUTF8Sequence(slice, start_column, end_column - 1) catch unreachable;
+    const index = buffer.getIndex(row, start_column);
+    const slice = buffer.getLine(row);
+    const end = min(end_column - 1, unicode.utf8CountCodepoints(slice) catch unreachable);
+    const substring = utf8.substringOfUTF8Sequence(slice, start_column, end) catch unreachable;
 
     buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = substring,
         .index = index,
         .type_of_change = TypeOfChange.deletion,
+        .sections = buffer.sections,
+        .lines_count = buffer.lines.count,
     });
 
     buffer.lines.moveGapPosAbsolute(index);
     buffer.lines.delete(substring.len);
-    try insureLastByteIsNewline(buffer);
 
-    // make sure the cursor.row is never on an a row that doesn't exists
+    var num_of_newlines: u32 = utils.countChar(substring, '\n');
+    const old_nl_count = buffer.lines.count;
+    buffer.lines.count -= num_of_newlines;
+    try insureLastByteIsNewline(buffer);
+    buffer.adjustSections(row, num_of_newlines, -@intCast(isize, substring.len), old_nl_count);
+
+    // make sure the cursor.row is never on a row that doesn't exists
     if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
         Cursor.moveRelative(buffer, -1, 0);
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
-    if (start_row > end_row)
-        return error.InvalidRange;
+    assert(start_row <= end_row);
+    assert(end_row <= buffer.lines.count);
 
-    var from = utils.getNewline(buffer.lines.sliceOfContent(), start_row - 1).?;
-    var to = utils.getNewline(buffer.lines.sliceOfContent(), end_row) orelse buffer.lines.length();
+    const index = buffer.getIndex(start_row, 1);
+    var to: usize = 0;
+    if (end_row < buffer.lines.count) {
+        to = utils.getNewline(
+            buffer.lines.sliceOfContent()[index..],
+            end_row - start_row + 1,
+        ).? + index + 1;
+    } else {
+        to = buffer.lines.length();
+    }
 
-    const f = if (from == 0) 0 else from + 1;
-    const substring = buffer.lines.sliceOfContent()[f .. to + 1];
+    const substring = buffer.lines.sliceOfContent()[index..to];
 
     buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
         .content = substring,
-        .index = f,
+        .index = index,
         .type_of_change = TypeOfChange.deletion,
+        .sections = buffer.sections,
+        .lines_count = buffer.lines.count,
     });
 
     try insureLastByteIsNewline(buffer);
 
-    if (start_row == 1) to += 1; // FIXME: Find out why this is needed
+    buffer.lines.moveGapPosAbsolute(index);
+    buffer.lines.delete(substring.len);
 
-    buffer.lines.moveGapPosAbsolute(from);
-    buffer.lines.delete(to - from);
+    var num_of_newlines: u32 = end_row - start_row + 1;
+    const old_nl_count = buffer.lines.count;
+    buffer.lines.count -= num_of_newlines;
+    buffer.adjustSections(start_row, num_of_newlines, -@intCast(isize, substring.len), old_nl_count);
 
     try insureLastByteIsNewline(buffer);
 
-    // make sure the cursor.row is never on an a row that doesn't exists
+    // make sure the cursor.row is never on a row that doesn't exists
     if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
         Cursor.moveAbsolute(buffer, start_row - 1, 1);
 }
@@ -224,6 +257,14 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     }
 
     try insureLastByteIsNewline(buffer);
+}
+
+pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
+    try buffer.deleteRows(1, buffer.lines.count);
+    // Delete the insured newline
+    buffer.lines.moveGapPosAbsolute(0);
+    buffer.lines.delete(1);
+    try buffer.insert(1, 1, string);
 }
 
 // TODO: this
@@ -367,8 +408,8 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     if (buffer.lines.content[buffer.lines.content.len - 1] != '\n' or
         buffer.lines.length() == 0)
     {
-        buffer.lines.moveGapPosAbsolute(buffer.lines.length());
-        try buffer.lines.insert("\n");
+        try buffer.lines.append("\n");
+        buffer.lines.count += 1;
     }
 }
 
@@ -380,4 +421,140 @@ pub fn clear(buffer: *Buffer) !void {
 
     buffer.lines.replaceAllWith("") catch unreachable;
     buffer.insureLastByteIsNewline() catch unreachable;
+}
+
+pub fn getLine(buffer: *Buffer, row: u32) []const u8 {
+    assert(row <= buffer.lines.count);
+    const from = buffer.getIndex(row, 1);
+    const to = utils.getNewline(buffer.lines.sliceOfContent()[from..], 1).? + from + 1;
+    return buffer.lines.sliceOfContent()[from..to];
+}
+
+pub fn getLines(buffer: *Buffer, first_line: u32, second_line: u32) []const u8 {
+    assert(second_line >= first_line);
+    assert(second_line <= buffer.lines.count);
+
+    const from = buffer.getIndex(first_line, 1);
+    const to = buffer.getIndex(second_line, null);
+    return buffer.lines.sliceOfContent()[from .. to + 1];
+}
+
+fn getNewline(string: []const u8, start_index: usize, index: usize) ?usize {
+    var count: u32 = 0;
+    var i: usize = 0;
+    while (i + start_index < string.len) : (i += 1) {
+        const c = string[i + start_index];
+        if (c == '\n') {
+            count += 1;
+            if (count == index)
+                return i + start_index;
+        }
+    }
+
+    return i + start_index;
+}
+
+fn getIndex(buffer: *Buffer, row: u32, col: ?u32) usize {
+    assert(row <= buffer.lines.count);
+
+    if (buffer.lines.length() == 1) return 0;
+
+    const nl_num = buffer.lines.count;
+    var sections = buffer.sections;
+
+    var lines_per_section = @floor(@intToFloat(f32, nl_num) / NUM_OF_SECTIONS);
+    if (lines_per_section == 0) lines_per_section = 1;
+    var section = @floatToInt(u32, @ceil(@intToFloat(f32, row) / lines_per_section) - 1.0);
+    section = min(section, NUM_OF_SECTIONS - 1);
+
+    const start_of_section = if (section == 0) 0 else sections[section] + 1;
+    var line_offset_in_section = row - (section * @floatToInt(u32, lines_per_section));
+    const first_line_in_section = row == (section * @floatToInt(u32, lines_per_section) + 1);
+
+    var index: usize = 0;
+    if (first_line_in_section) {
+        index = start_of_section;
+    } else {
+        index = getNewline(buffer.lines.sliceOfContent(), start_of_section, line_offset_in_section - 1).? + 1;
+    }
+
+    const buffer_len = buffer.lines.length();
+    index = min(index, if (buffer_len == 0) 0 else buffer_len - 1);
+    if (col) |c|
+        index += utf8.firstByteOfCodeUnitUpToNewline(buffer.lines.sliceOfContent()[index..], c)
+    else
+        index += getNewline(buffer.lines.sliceOfContent()[index..], 0, 1).?;
+
+    return index;
+}
+
+fn adjustSections(buffer: *Buffer, row: u32, num_of_newlines: u32, substring_len: isize, old_nl_count: u32) void {
+    var sections = &buffer.sections;
+
+    var new_lines_per_section = @floor(@intToFloat(f32, buffer.lines.count) / NUM_OF_SECTIONS);
+    if (new_lines_per_section == 0) new_lines_per_section = 1;
+
+    var lines_per_section = @floor(@intToFloat(f32, old_nl_count) / NUM_OF_SECTIONS);
+    if (lines_per_section == 0) lines_per_section = 1;
+    var first_modified_section = @floatToInt(u32, @ceil(@intToFloat(f32, row) / lines_per_section) - 1.0);
+    first_modified_section = min(first_modified_section, NUM_OF_SECTIONS - 1);
+
+    if (first_modified_section >= NUM_OF_SECTIONS - 1) return;
+
+    if (num_of_newlines == 0) {
+        var i = if (first_modified_section == 0) 1 else first_modified_section + 1;
+        while (i < sections.len) : (i += 1) {
+            var new_index = @intCast(isize, sections[i]) + substring_len;
+            new_index = max(0, new_index);
+            sections[i] = @intCast(usize, new_index);
+        }
+    } else if (new_lines_per_section != lines_per_section) {
+        buffer.updateSections(1, 0);
+    } else {
+        // TODO: update affected sections instead of all of them
+        buffer.updateSections(1, 0);
+    }
+}
+
+fn printSection(buffer: *Buffer, row: u32) void {
+    var lines_per_section = @floor(@intToFloat(f32, buffer.lines.count) / NUM_OF_SECTIONS);
+    if (lines_per_section == 0) lines_per_section = 1;
+    var section = @floatToInt(u32, @ceil(@intToFloat(f32, row) / lines_per_section) - 1.0);
+    section = min(section, NUM_OF_SECTIONS - 1);
+
+    print("{}\n", .{section});
+}
+
+fn updateSections(buffer: *Buffer, start_section: usize, start_index: usize) void {
+    if (buffer.lines.length() == 0) return;
+    var lines_per_section = @floatToInt(u32, @floor(@intToFloat(f32, buffer.lines.count) / NUM_OF_SECTIONS));
+    if (lines_per_section == 0) lines_per_section = 1;
+
+    var sections = &buffer.sections;
+    sections[0] = 0;
+
+    var index: usize = if (start_section == 0) 1 else start_section;
+    var nl_count: u32 = 0;
+    var nl: u32 = lines_per_section;
+    const start_i = min(buffer.lines.length() - 1, start_index);
+    const slice = buffer.lines.sliceOfContent()[start_i..];
+    @setRuntimeSafety(false);
+    // TODO: skip utf8 continuation bytes
+    for (slice) |b, i| {
+        if (b == '\n') {
+            nl_count += 1;
+            if (nl_count == nl) {
+                nl += lines_per_section;
+                sections[index] = i;
+                index += 1;
+            }
+            if (index >= NUM_OF_SECTIONS) break;
+        }
+    }
+
+    if (lines_per_section == 1 and buffer.lines.count < NUM_OF_SECTIONS) {
+        var i: usize = buffer.lines.count;
+        while (i < sections.len) : (i += 1)
+            sections[i] = sections[buffer.lines.count];
+    }
 }

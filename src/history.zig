@@ -19,12 +19,16 @@ pub const HistoryBufferState = struct {
     content: []const u8,
     index: usize,
     type_of_change: TypeOfChange,
+    sections: [Buffer.NUM_OF_SECTIONS]usize,
+    lines_count: u32,
 };
 
 pub const HistoryBufferStateResizeable = struct {
     content: GapBuffer,
     index: usize,
     type_of_change: TypeOfChange,
+    sections: [Buffer.NUM_OF_SECTIONS]usize,
+    lines_count: u32,
 };
 
 pub const History = struct {
@@ -150,6 +154,8 @@ pub fn updateRelatedHistoryChanges(buffer: *Buffer) !void {
         .content = try pc.content.copy(),
         .index = pc.index,
         .type_of_change = pc.type_of_change,
+        .sections = buffer.sections,
+        .lines_count = buffer.lines.count,
     });
     pc.content.replaceAllWith("") catch unreachable;
     pc.index = 0;
