@@ -293,11 +293,12 @@ pub const Text = struct {
         window.start_row = std.math.max(1, window.start_row);
         window.start_col = std.math.max(1, window.start_col);
         window.num_of_rows = std.math.max(1, window.num_of_rows);
-
-        var end_row = std.math.min(window.buffer.lines.count, window.start_row + window.num_of_rows - 1);
-        var visible_lines = window.buffer.getLines(window.start_row, end_row);
-
         var window_p = WindowPixels.convert(window.*);
+
+        const fs = text.font_size;
+        var end_row = @floatToInt(u32, window_p.height / @intToFloat(f32, fs)) + window.start_row - 1;
+        end_row = std.math.min(window.buffer.lines.count, end_row);
+        var visible_lines = window.buffer.getLines(window.start_row, end_row);
 
         var y = window_p.y;
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');

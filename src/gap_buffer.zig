@@ -1,5 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
+const assert = std.debug.assert;
+const max = std.math.max;
 
 const stdout = std.io.getStdOut();
 
@@ -16,9 +18,10 @@ count: u32,
 allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator, input: ?[]const u8) !GapBuffer {
-    const gap_size: u32 = 16;
-    const gap_pos = 0;
     const size = if (input) |in| in.len else 0;
+    const gap_pos = 0;
+    const gap_size: u32 = @floatToInt(u32, max(16, @intToFloat(f32, size) * 0.01));
+
     var content = try allocator.alloc(u8, size + gap_size);
     var nl_count: u32 = 0;
 
@@ -144,9 +147,24 @@ pub fn copy(gbuffer: *GapBuffer) ![]u8 {
 /// Returns a slice containing the content.
 /// DOES NOT CREATE A COPY.
 /// If the gap moves It **WILL** modify the content of the slice.
-pub fn sliceOfContent(gbuffer: *GapBuffer) []u8 {
-    gbuffer.moveGapPosAbsolute(gbuffer.length());
-    return gbuffer.content[0..gbuffer.gap_pos];
+pub fn slice(gbuffer: *GapBuffer, from: usize, to: usize) []const u8 {
+    assert(from <= to);
+    assert(to <= gbuffer.length());
+
+    if (to <= gbuffer.gap_pos)
+        return gbuffer.content[from..to];
+
+    // calculate the smallest distance that the gap needs to move
+    const left = @intCast(i64, gbuffer.gap_pos) - @intCast(i64, from);
+    const right = @intCast(i64, to - gbuffer.gap_pos);
+
+    if (left < right) {
+        gbuffer.moveGapPosRelative(-left);
+        return gbuffer.content[from + gbuffer.gap_size .. to + gbuffer.gap_size];
+    } else {
+        gbuffer.moveGapPosRelative(right);
+        return gbuffer.content[from..to];
+    }
 }
 
 /// returns the ith byte

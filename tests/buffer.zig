@@ -39,7 +39,7 @@ test "deleteRange()" {
     // print("\n{any}\n", .{buffer.sections});
 
     try buffer.deleteRange(2, 2, 3, 22);
-    try expectEqualStrings(string_after_change, buffer.lines.sliceOfContent());
+    try expectEqualStrings(string_after_change, buffer.lines.slice(0, buffer.lines.length()));
 }
 
 test "deleteRows()" {
@@ -82,23 +82,23 @@ test "deleteRows()" {
     defer buffer.deinitNoTrash();
 
     try buffer.deleteRows(1, 5);
-    try std.testing.expectEqualStrings(begin_to_end, lines.sliceOfContent());
+    try std.testing.expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
 
     try buffer.replaceAllWith(original_text);
     try buffer.deleteRows(1, 3);
-    try std.testing.expectEqualStrings(begin_to_mid, lines.sliceOfContent());
+    try std.testing.expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
 
     try buffer.replaceAllWith(original_text);
     try buffer.deleteRows(2, 4);
-    try std.testing.expectEqualStrings(mid_to_mid, lines.sliceOfContent());
+    try std.testing.expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
 
     try buffer.replaceAllWith(original_text);
     try buffer.deleteRows(2, 5);
-    try std.testing.expectEqualStrings(mid_to_end, lines.sliceOfContent());
+    try std.testing.expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
 
     try buffer.replaceAllWith(original_text);
     try buffer.deleteRows(1, 1);
-    try std.testing.expectEqualStrings(same_line, lines.sliceOfContent());
+    try std.testing.expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
 }
 
 test "undo and redo delete()" {
@@ -126,26 +126,26 @@ test "undo and redo delete()" {
 
     {
         try buffer.delete(2, 1, 999);
-        try expectEqualStrings(deleted_whole_line, buffer.lines.sliceOfContent());
+        try expectEqualStrings(deleted_whole_line, buffer.lines.slice(0, buffer.lines.length()));
 
         try history.undo(buffer);
-        try expectEqualStrings(original_text, buffer.lines.sliceOfContent());
+        try expectEqualStrings(original_text, buffer.lines.slice(0, buffer.lines.length()));
 
         try history.redo(buffer);
-        try expectEqualStrings(deleted_whole_line, buffer.lines.sliceOfContent());
+        try expectEqualStrings(deleted_whole_line, buffer.lines.slice(0, buffer.lines.length()));
     }
 
     try buffer.lines.replaceAllWith(original_text);
 
     {
         try buffer.delete(2, 7, 26);
-        try expectEqualStrings(deleted_within_line, buffer.lines.sliceOfContent());
+        try expectEqualStrings(deleted_within_line, buffer.lines.slice(0, buffer.lines.length()));
 
         try history.undo(buffer);
-        try expectEqualStrings(original_text, buffer.lines.sliceOfContent());
+        try expectEqualStrings(original_text, buffer.lines.slice(0, buffer.lines.length()));
 
         try history.redo(buffer);
-        try expectEqualStrings(deleted_within_line, buffer.lines.sliceOfContent());
+        try expectEqualStrings(deleted_within_line, buffer.lines.slice(0, buffer.lines.length()));
     }
 
     buffer.deinitNoTrash();
@@ -192,11 +192,11 @@ test "undo and redo deleteRows()" {
         defer buffer.deinitNoTrash();
 
         try buffer.deleteRows(1, 5);
-        try expectEqualStrings(begin_to_end, lines.sliceOfContent());
+        try expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
         try history.undo(buffer);
-        try expectEqualStrings(original_text, lines.sliceOfContent());
+        try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
         try history.redo(buffer);
-        try expectEqualStrings(begin_to_end, lines.sliceOfContent());
+        try expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
     }
 
     {
@@ -205,11 +205,11 @@ test "undo and redo deleteRows()" {
         defer buffer.deinitNoTrash();
 
         try buffer.deleteRows(1, 3);
-        try expectEqualStrings(begin_to_mid, lines.sliceOfContent());
+        try expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
         try history.undo(buffer);
-        try expectEqualStrings(original_text, lines.sliceOfContent());
+        try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
         try history.redo(buffer);
-        try expectEqualStrings(begin_to_mid, lines.sliceOfContent());
+        try expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
     }
 
     {
@@ -218,11 +218,11 @@ test "undo and redo deleteRows()" {
         defer buffer.deinitNoTrash();
 
         try buffer.deleteRows(2, 4);
-        try expectEqualStrings(mid_to_mid, lines.sliceOfContent());
+        try expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
         try history.undo(buffer);
-        try expectEqualStrings(original_text, lines.sliceOfContent());
+        try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
         try history.redo(buffer);
-        try expectEqualStrings(mid_to_mid, lines.sliceOfContent());
+        try expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
     }
 
     {
@@ -231,11 +231,11 @@ test "undo and redo deleteRows()" {
         defer buffer.deinitNoTrash();
 
         try buffer.deleteRows(2, 5);
-        try expectEqualStrings(mid_to_end, lines.sliceOfContent());
+        try expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
         try history.undo(buffer);
-        try expectEqualStrings(original_text, lines.sliceOfContent());
+        try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
         try history.redo(buffer);
-        try expectEqualStrings(mid_to_end, lines.sliceOfContent());
+        try expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
     }
 
     {
@@ -244,11 +244,11 @@ test "undo and redo deleteRows()" {
         defer buffer.deinitNoTrash();
 
         try buffer.deleteRows(1, 1);
-        try expectEqualStrings(same_line, lines.sliceOfContent());
+        try expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
         try history.undo(buffer);
-        try expectEqualStrings(original_text, lines.sliceOfContent());
+        try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
         try history.redo(buffer);
-        try expectEqualStrings(same_line, lines.sliceOfContent());
+        try expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
     }
 }
 
@@ -266,7 +266,7 @@ test "insert" {
     // print("\n{any}\n", .{buffer.sections});
     try buffer.insert(2, 1, "KENOBI\n");
 
-    try expectEqualStrings(string, buffer.lines.sliceOfContent());
+    try expectEqualStrings(string, buffer.lines.slice(0, buffer.lines.length()));
 
     buffer.deinitNoTrash();
 }

@@ -78,7 +78,7 @@ pub fn runCommand() void {
     var command_str: [4096]u8 = undefined;
     var len = global.command_line_buffer.lines.length();
 
-    for (global.command_line_buffer.lines.sliceOfContent()) |b, i|
+    for (global.command_line_buffer.lines.slice(0, len)) |b, i|
         command_str[i] = b;
 
     closeCommandLine();

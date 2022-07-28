@@ -188,7 +188,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     buffer.adjustSections(row, num_of_newlines, -@intCast(isize, substring.len), old_nl_count);
 
     // make sure the cursor.row is never on a row that doesn't exists
-    if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
+    if (utils.getNewline(buffer.lines.slice(0, buffer.lines.length()), buffer.cursor.row) == null)
         Cursor.moveRelative(buffer, -1, 0);
 }
 
@@ -200,14 +200,14 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     var to: usize = 0;
     if (end_row < buffer.lines.count) {
         to = utils.getNewline(
-            buffer.lines.sliceOfContent()[index..],
+            buffer.lines.slice(index, buffer.lines.length()),
             end_row - start_row + 1,
         ).? + index + 1;
     } else {
         to = buffer.lines.length();
     }
 
-    const substring = buffer.lines.sliceOfContent()[index..to];
+    const substring = buffer.lines.slice(index, to);
 
     buffer.history.emptyRedoStack();
     try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
@@ -231,7 +231,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     try insureLastByteIsNewline(buffer);
 
     // make sure the cursor.row is never on a row that doesn't exists
-    if (utils.getNewline(buffer.lines.sliceOfContent(), buffer.cursor.row) == null)
+    if (utils.getNewline(buffer.lines.slice(0, buffer.lines.length()), buffer.cursor.row) == null)
         Cursor.moveAbsolute(buffer, start_row - 1, 1);
 }
 
@@ -245,14 +245,14 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
         try delete(buffer, start_row, start_col, end_col + 1);
     } else if (start_row == end_row - 1) {
         try delete(buffer, end_row, 1, end_col + 1);
-        var line = utils.getLine(buffer.lines.sliceOfContent(), start_row);
+        var line = buffer.getLine(start_row);
         try delete(buffer, start_row, start_col, @intCast(u32, line.len + 1));
     } else {
         try delete(buffer, end_row, 1, end_col + 1);
 
         try deleteRows(buffer, start_row + 1, end_row - 1);
 
-        var line = utils.getLine(buffer.lines.sliceOfContent(), start_row);
+        var line = buffer.getLine(start_row);
         try delete(buffer, start_row, start_col, @intCast(u32, line.len) + 1);
     }
 
@@ -279,14 +279,9 @@ pub fn copyOfRows(buffer: *Buffer, start_row: usize, end_row: usize) ![]u8 {
     return buffer.lines.copy();
 }
 
-// FIXME: Implement this correctly
 pub fn countCodePointsAtRow(buffer: *Buffer, row: u32) usize {
-    if (buffer.lines.isEmpty()) return 0;
-    if (row > utils.countChar(buffer.lines.sliceOfContent(), '\n')) {
-        unreachable;
-    }
-
-    const slice = utils.getLine(buffer.lines.sliceOfContent(), row);
+    assert(row <= buffer.lines.count);
+    const slice = buffer.getLine(row);
     return unicode.utf8CountCodepoints(slice) catch unreachable;
 }
 
@@ -415,7 +410,7 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
 
 pub fn clear(buffer: *Buffer) !void {
     try history.updateRelatedHistoryChanges(buffer);
-    try buffer.previous_change.content.replaceAllWith(buffer.lines.sliceOfContent());
+    try buffer.previous_change.content.replaceAllWith(buffer.lines.slice(0, buffer.lines.length()));
     buffer.previous_change.index = 1;
     buffer.previous_change.type_of_change = TypeOfChange.deletion;
 
@@ -426,8 +421,8 @@ pub fn clear(buffer: *Buffer) !void {
 pub fn getLine(buffer: *Buffer, row: u32) []const u8 {
     assert(row <= buffer.lines.count);
     const from = buffer.getIndex(row, 1);
-    const to = utils.getNewline(buffer.lines.sliceOfContent()[from..], 1).? + from + 1;
-    return buffer.lines.sliceOfContent()[from..to];
+    const to = utils.getNewline(buffer.lines.slice(from, buffer.lines.length()), 1).? + from + 1;
+    return buffer.lines.slice(from, to);
 }
 
 pub fn getLines(buffer: *Buffer, first_line: u32, second_line: u32) []const u8 {
@@ -436,7 +431,7 @@ pub fn getLines(buffer: *Buffer, first_line: u32, second_line: u32) []const u8 {
 
     const from = buffer.getIndex(first_line, 1);
     const to = buffer.getIndex(second_line, null);
-    return buffer.lines.sliceOfContent()[from .. to + 1];
+    return buffer.lines.slice(from, to + 1);
 }
 
 fn getNewline(string: []const u8, start_index: usize, index: usize) ?usize {
@@ -475,15 +470,15 @@ fn getIndex(buffer: *Buffer, row: u32, col: ?u32) usize {
     if (first_line_in_section) {
         index = start_of_section;
     } else {
-        index = getNewline(buffer.lines.sliceOfContent(), start_of_section, line_offset_in_section - 1).? + 1;
+        index = getNewline(buffer.lines.slice(0, buffer.lines.length()), start_of_section, line_offset_in_section - 1).? + 1;
     }
 
     const buffer_len = buffer.lines.length();
     index = min(index, if (buffer_len == 0) 0 else buffer_len - 1);
     if (col) |c|
-        index += utf8.firstByteOfCodeUnitUpToNewline(buffer.lines.sliceOfContent()[index..], c)
+        index += utf8.firstByteOfCodeUnitUpToNewline(buffer.lines.slice(index, buffer.lines.length()), c)
     else
-        index += getNewline(buffer.lines.sliceOfContent()[index..], 0, 1).?;
+        index += getNewline(buffer.lines.slice(index, buffer.lines.length()), 0, 1).?;
 
     return index;
 }
@@ -537,7 +532,7 @@ fn updateSections(buffer: *Buffer, start_section: usize, start_index: usize) voi
     var nl_count: u32 = 0;
     var nl: u32 = lines_per_section;
     const start_i = min(buffer.lines.length() - 1, start_index);
-    const slice = buffer.lines.sliceOfContent()[start_i..];
+    const slice = buffer.lines.slice(start_i, buffer.lines.length());
     @setRuntimeSafety(false);
     // TODO: skip utf8 continuation bytes
     for (slice) |b, i| {
