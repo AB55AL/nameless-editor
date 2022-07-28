@@ -1,6 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 const unicode = std.unicode;
+const assert = std.debug.assert;
 
 /// Given a valid UTF-8 sequence returns a slice
 /// containing the bytes of the ith character up to and including the jth character (1-based)
@@ -27,17 +28,56 @@ pub fn sliceOfUTF8Char(utf8_string: []const u8, index: usize) ![]const u8 {
 }
 
 /// Returns the index (0-based) of the first byte of the ith character (1-based) in a UTF-8 encoded array
-pub fn firstByteOfCodeUnit(utf8_string: []const u8, index: usize) usize {
-    var i: usize = 0;
+pub fn firstByteOfCodeUnit(utf8_seq: []const u8, index: usize) usize {
+    assert(utf8_seq.len > 0);
+
+    var byte_index: usize = 0;
     var char_count: usize = 0;
-    for (utf8_string) |byte, byte_index| {
+    var i: usize = 0;
+    while (i < utf8_seq.len) {
         if (char_count >= index) break;
-        if (byte & 0b11_000000 != 0b10_000000 or byte & 0b10000000 == 0) {
+
+        const byte = utf8_seq[i];
+        const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+        if (byte_seq_len > 0) {
             char_count += 1;
-            i = byte_index;
+            byte_index = i;
+            i += byte_seq_len;
+        } else { // Continuation byte
+            i += 1;
         }
     }
-    return i;
+
+    return byte_index;
+}
+
+/// Returns the index (0-based) of the first byte of the ith character (1-based) in a UTF-8 encoded array.
+/// If the function encounters a newline byte it will return it's index
+/// Asserts *utf8_seq.len* > 0
+pub fn firstByteOfCodeUnitUpToNewline(utf8_seq: []const u8, index: usize) usize {
+    if (utf8_seq.len == 0) return 0;
+
+    var byte_index: usize = 0;
+    var char_count: usize = 0;
+    var i: usize = 0;
+    while (i < utf8_seq.len) {
+        if (char_count >= index) break;
+
+        const byte = utf8_seq[i];
+        const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+        if (byte == '\n') {
+            byte_index = i;
+            break;
+        } else if (byte_seq_len > 0) {
+            char_count += 1;
+            byte_index = i;
+            i += byte_seq_len;
+        } else { // Continuation byte
+            i += 1;
+        }
+    }
+
+    return byte_index;
 }
 
 /// Returns the index (0-based) of the last byte of the ith character (1-based) in a UTF-8 encoded array
