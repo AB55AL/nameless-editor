@@ -23,31 +23,31 @@ pub fn setDefaultCommands() !void {
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBuffer(null, file_path) catch |err| {
+    buffer_ops.openBuffer(null, file_path, .here) catch |err| {
         print("open command: err={}\n", .{err});
     };
 }
 fn openRight(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferRight(null, file_path) catch |err| {
+    buffer_ops.openBuffer(null, file_path, .right) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
 fn openLeft(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferLeft(null, file_path) catch |err| {
+    buffer_ops.openBuffer(null, file_path, .left) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
 fn openAbove(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferAbove(null, file_path) catch |err| {
+    buffer_ops.openBuffer(null, file_path, .above) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
 fn openBelow(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferBelow(null, file_path) catch |err| {
+    buffer_ops.openBuffer(null, file_path, .below) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }

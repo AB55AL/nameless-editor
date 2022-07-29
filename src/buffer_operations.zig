@@ -9,9 +9,18 @@ const file_io = @import("file_io.zig");
 const global_types = @import("global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
+const Windows = @import("ui/window.zig").Windows;
 
 extern var global: Global;
 extern var internal: GlobalInternal;
+
+pub const Direction = enum(u3) {
+    here,
+    right,
+    left,
+    above,
+    below,
+};
 
 /// Returns a pointer to a buffer.
 /// If a buffer with the given file_path already exists
@@ -33,7 +42,6 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const bytes = try file_io.fullFilePath(file_path, &out_buffer);
     const full_file_path = out_buffer[0..bytes];
-    print("{s}\n", .{full_file_path});
 
     const file = try fs.cwd().openFile(full_file_path, .{});
     defer file.close();
@@ -69,72 +77,34 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
     return null;
 }
 
-pub fn openBuffer(index: ?u32, file_path: ?[]const u8) !void {
+pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: Direction) !void {
     var buffer = try getBuffer(index, file_path);
+    const createWindow = switch (direction) {
+        .here => Windows.createNew,
+        .right => Windows.createRight,
+        .left => Windows.createLeft,
+        .above => Windows.createAbove,
+        .below => Windows.createBelow,
+    };
+    var windows = &internal.windows;
     if (buffer) |buf| {
-        try internal.windows.createNew(buf);
+        try createWindow(windows, buf);
         global.focused_buffer = buf;
     } else if (file_path) |fp| {
         global.focused_buffer = try createBuffer(fp);
+
         if (internal.windows.wins.items.len == 0) {
             try internal.windows.createNew(global.focused_buffer);
             internal.windows.focusedWindow().buffer = global.focused_buffer;
-        } else {
+        } else if (direction == Direction.here) {
             internal.windows.focusedWindow().buffer = global.focused_buffer;
+        } else {
+            try createWindow(windows, global.focused_buffer);
         }
     } else {
         return error.CannotFindBuffer;
     }
 }
-pub fn openBufferRight(index: ?u32, file_path: ?[]const u8) !void {
-    var buffer = try getBuffer(index, file_path);
-    if (buffer) |buf| {
-        try internal.windows.createRight(buf);
-        global.focused_buffer = buf;
-    } else if (file_path) |fp| {
-        global.focused_buffer = try createBuffer(fp);
-        try internal.windows.createRight(global.focused_buffer);
-    } else {
-        return error.CannotFindBuffer;
-    }
-}
-pub fn openBufferLeft(index: ?u32, file_path: ?[]const u8) !void {
-    var buffer = try getBuffer(index, file_path);
-    if (buffer) |buf| {
-        try internal.windows.createLeft(buf);
-        global.focused_buffer = buf;
-    } else if (file_path) |fp| {
-        global.focused_buffer = try createBuffer(fp);
-        try internal.windows.createLeft(global.focused_buffer);
-    } else {
-        return error.CannotFindBuffer;
-    }
-}
-pub fn openBufferAbove(index: ?u32, file_path: ?[]const u8) !void {
-    var buffer = try getBuffer(index, file_path);
-    if (buffer) |buf| {
-        try internal.windows.createAbove(buf);
-        global.focused_buffer = buf;
-    } else if (file_path) |fp| {
-        global.focused_buffer = try createBuffer(fp);
-        try internal.windows.createAbove(global.focused_buffer);
-    } else {
-        return error.CannotFindBuffer;
-    }
-}
-pub fn openBufferBelow(index: ?u32, file_path: ?[]const u8) !void {
-    var buffer = try getBuffer(index, file_path);
-    if (buffer) |buf| {
-        try internal.windows.createBelow(buf);
-        global.focused_buffer = buf;
-    } else if (file_path) |fp| {
-        global.focused_buffer = try createBuffer(fp);
-        try internal.windows.createBelow(global.focused_buffer);
-    } else {
-        return error.CannotFindBuffer;
-    }
-}
-
 pub fn saveBuffer(buffer: *Buffer) !void {
     if (buffer.file_path.len == 0) {
         print("can't save nameless buffer. use saveAs\n", .{});

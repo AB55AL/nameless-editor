@@ -1,12 +1,14 @@
 const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
+const assert = std.debug.assert;
 
 const Buffer = @import("../buffer.zig");
 const VCursor = @import("vcursor.zig").VCursor;
 const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
+const Allocator = std.mem.Allocator;
 
 extern var global: Global;
 extern var internal: GlobalInternal;
@@ -60,16 +62,22 @@ pub const Windows = struct {
     wins: ArrayList(Window),
 
     pub fn focusedWindow(windows: *Windows) *Window {
+        assert(windows.wins.items.len > 0);
+        var wins = windows.wins.items;
+        return &wins[windows.focusedWindowIndex().?];
+    }
+
+    pub fn focusedWindowIndex(windows: *Windows) ?usize {
         var wins = windows.wins.items;
         var i: usize = 0;
         while (i < wins.len) : (i += 1)
             if (wins[i].buffer.index.? == global.focused_buffer.index.?)
-                return &wins[i];
+                return i;
 
-        return &wins[0];
+        return 0;
     }
 
-    pub fn createNew(windows: *Windows, buffer: *Buffer) !void {
+    pub fn createNew(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len != 0) return;
 
         try windows.wins.append(Window{
@@ -82,7 +90,7 @@ pub const Windows = struct {
             .start_row = 1,
         });
     }
-    pub fn createRight(windows: *Windows, buffer: *Buffer) !void {
+    pub fn createRight(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
             try windows.createNew(buffer);
             return;
@@ -100,7 +108,7 @@ pub const Windows = struct {
 
         focused.width /= 2;
     }
-    pub fn createLeft(windows: *Windows, buffer: *Buffer) !void {
+    pub fn createLeft(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
             try windows.createNew(buffer);
             return;
@@ -119,7 +127,7 @@ pub const Windows = struct {
         focused.width /= 2;
         focused.x += focused.width;
     }
-    pub fn createAbove(windows: *Windows, buffer: *Buffer) !void {
+    pub fn createAbove(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
             try windows.createNew(buffer);
             return;
@@ -138,7 +146,7 @@ pub const Windows = struct {
         focused.height /= 2;
         focused.y += focused.height;
     }
-    pub fn createBelow(windows: *Windows, buffer: *Buffer) !void {
+    pub fn createBelow(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
             try windows.createNew(buffer);
             return;
@@ -155,5 +163,24 @@ pub const Windows = struct {
         });
 
         focused.height /= 2;
+    }
+
+    pub fn closeWindow(windows: *Windows, index: usize) void {
+        if (windows.wins.items.len == 0) return;
+        _ = internal.windows.wins.orderedRemove(index);
+    }
+
+    pub fn closeFocusedWindow(windows: *Windows) void {
+        if (windows.wins.items.len == 0) return;
+        const index = windows.focusedWindowIndex().?;
+        windows.closeWindow(index);
+        // windows.resize();
+    }
+
+    pub fn resize(windows: *Windows, index: usize) void {
+        _ = index;
+        _ = windows;
+        // if (windows.wins.items.len == 1)
+        //     windows.wins[0]
     }
 };
