@@ -77,6 +77,13 @@ pub const Windows = struct {
         return 0;
     }
 
+    pub fn changeCurrentWindow(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
+        if (windows.wins.items.len == 0)
+            try windows.createNew(buffer)
+        else
+            windows.focusedWindow().buffer = buffer;
+    }
+
     pub fn createNew(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len != 0) return;
 

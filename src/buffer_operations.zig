@@ -80,7 +80,7 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
 pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: Direction) !void {
     var buffer = try getBuffer(index, file_path);
     const createWindow = switch (direction) {
-        .here => Windows.createNew,
+        .here => Windows.changeCurrentWindow,
         .right => Windows.createRight,
         .left => Windows.createLeft,
         .above => Windows.createAbove,
@@ -91,16 +91,16 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: Direction) !vo
         try createWindow(windows, buf);
         global.focused_buffer = buf;
     } else if (file_path) |fp| {
-        global.focused_buffer = try createBuffer(fp);
+        var buf = try createBuffer(fp);
 
         if (internal.windows.wins.items.len == 0) {
-            try internal.windows.createNew(global.focused_buffer);
-            internal.windows.focusedWindow().buffer = global.focused_buffer;
-        } else if (direction == Direction.here) {
-            internal.windows.focusedWindow().buffer = global.focused_buffer;
+            try internal.windows.createNew(buf);
+            internal.windows.focusedWindow().buffer = buf;
         } else {
-            try createWindow(windows, global.focused_buffer);
+            try createWindow(windows, buf);
         }
+
+        global.focused_buffer = buf;
     } else {
         return error.CannotFindBuffer;
     }
