@@ -59,13 +59,13 @@ pub fn deinit() void {
     command_function_lut.deinit();
 }
 
-pub fn openCommandLine() void {
+pub fn open() void {
     global.command_line_is_open = true;
     previous_buffer = global.focused_buffer;
     global.focused_buffer = global.command_line_buffer;
 }
 
-pub fn closeCommandLine() void {
+pub fn close() void {
     global.command_line_is_open = false;
     global.focused_buffer = previous_buffer;
     global.command_line_buffer.clear() catch |err| {
@@ -74,18 +74,18 @@ pub fn closeCommandLine() void {
     Cursor.moveAbsolute(global.command_line_buffer, 1, 1);
 }
 
-pub fn runCommand() void {
+pub fn run() void {
     var command_str: [4096]u8 = undefined;
     var len = global.command_line_buffer.lines.length();
 
     for (global.command_line_buffer.lines.slice(0, len)) |b, i|
         command_str[i] = b;
 
-    closeCommandLine();
-    run(command_str[0 .. len - 1]);
+    close();
+    runCommand(command_str[0 .. len - 1]);
 }
 
-pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) !void {
+pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
@@ -102,7 +102,7 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype) !void 
     try command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy);
 }
 
-fn run(command_string: []const u8) void {
+fn runCommand(command_string: []const u8) void {
     var arena = std.heap.ArenaAllocator.init(internal.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
@@ -127,8 +127,7 @@ fn run(command_string: []const u8) void {
 
         call(command, values[0..pv_num]);
     } else {
-        var pv = PossibleValues{ .string = "" };
-        call(command, &[_]PossibleValues{pv});
+        call(command, &[_]PossibleValues{});
     }
 }
 
@@ -276,7 +275,7 @@ fn beholdMyFunctionInator(comptime fn_ptr: anytype) type {
 
     return struct {
         fn funcy(args: []PossibleValues) CommandRunError!void {
-            if (args.len > fn_info.args.len) {
+            if (args.len > fn_info.args.len and args.len != 0) {
                 print("Command args are greater than the functions args", .{});
                 return;
             }

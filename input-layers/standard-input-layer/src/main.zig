@@ -122,14 +122,14 @@ fn moveDown() void {
 
 fn toggleCommandLine() void {
     if (global.command_line_is_open)
-        core.closeCommandLine()
+        core.command_line.close()
     else
-        core.openCommandLine();
+        core.command_line.open();
 }
 
 fn enterKey() void {
     if (global.command_line_is_open)
-        core.runCommand()
+        core.command_line.run()
     else
         insertNewLineAtCursor();
 }

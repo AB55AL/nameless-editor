@@ -7,18 +7,21 @@ const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const buffer_ops = @import("buffer_operations.zig");
 const command_line = @import("command_line.zig");
-const addCommand = command_line.addCommand;
+const add = command_line.add;
 
 extern var internal: GlobalInternal;
 extern var global: Global;
 
 pub fn setDefaultCommands() !void {
-    try addCommand("open", open);
-    try addCommand("openRight", openRight);
-    try addCommand("openLeft", openLeft);
-    try addCommand("openAbove", openAbove);
-    try addCommand("openBelow", openBelow);
-    try addCommand("save", save);
+    try add("open", open);
+    try add("openRight", openRight);
+    try add("openLeft", openLeft);
+    try add("openAbove", openAbove);
+    try add("openBelow", openBelow);
+
+    try add("closeWindow", closeWindow);
+
+    try add("save", save);
 }
 
 fn open(file_path: []const u8) void {
@@ -52,8 +55,10 @@ fn openBelow(file_path: []const u8) void {
     };
 }
 
-// FIXME: after fixing the command line change this to not take any args
-fn save(ignore: []const u8) void {
-    _ = ignore;
+fn closeWindow() void {
+    internal.windows.closeFocusedWindow();
+}
+
+fn save() void {
     buffer_ops.saveBuffer(global.focused_buffer) catch unreachable;
 }
