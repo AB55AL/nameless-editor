@@ -38,20 +38,18 @@ pub fn writeToFile(buffer: *Buffer) !void {
     try file_dir.deleteFile(original_tmp_file_path);
 }
 
-pub fn fullFilePath(file_path: []const u8) ![]const u8 {
-    var full_file_path: []u8 = undefined;
-
+pub fn fullFilePath(file_path: []const u8, out_buffer: []u8) !u16 {
     if (fs.path.isAbsolute(file_path)) {
-        full_file_path = try internal.allocator.alloc(u8, file_path.len);
-        std.mem.copy(u8, full_file_path, file_path);
+        std.mem.copy(u8, out_buffer, file_path);
+        return @intCast(u16, file_path.len);
     } else {
-        var buf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-        var cwd_path = try std.os.getcwd(&buf);
-        full_file_path = try fs.path.join(internal.allocator, &[_][]const u8{
-            cwd_path,
-            file_path,
-        });
-    }
+        const sep = fs.path.sep;
+        var cwd_path = try std.os.getcwd(out_buffer);
+        out_buffer[cwd_path.len] = sep;
+        var out = out_buffer[cwd_path.len + 1 ..];
+        for (file_path) |c, i|
+            out[i] = c;
 
-    return full_file_path;
+        return @intCast(u16, cwd_path.len + file_path.len + 1);
+    }
 }
