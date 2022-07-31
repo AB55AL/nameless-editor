@@ -11,6 +11,7 @@ const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 const utils = @import("../utils.zig");
 const vectors = @import("vectors.zig");
+const window_ops = @import("../window_operations.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;
@@ -207,6 +208,30 @@ pub const Windows = struct {
         focused.height /= 2;
     }
 
+    pub fn focusWindow(windows: *Windows, dir: window_ops.Direction) void {
+        if (windows.wins.items.len <= 1) return;
+        switch (dir) {
+            .right => {
+                var neighbor = windows.closestRightNeighbor(windows.focusedWindow()) orelse return;
+                global.focused_buffer = neighbor.buffer;
+            },
+            .left => {
+                var neighbor = windows.closestLeftNeighbor(windows.focusedWindow()) orelse return;
+                global.focused_buffer = neighbor.buffer;
+            },
+            .above => {
+                var neighbor = windows.closestAboveNeighbor(windows.focusedWindow()) orelse return;
+                global.focused_buffer = neighbor.buffer;
+            },
+
+            .below => {
+                var neighbor = windows.closestBelowNeighbor(windows.focusedWindow()) orelse return;
+                global.focused_buffer = neighbor.buffer;
+            },
+            else => return,
+        }
+    }
+
     pub fn closeWindow(windows: *Windows, index: usize) void {
         if (windows.wins.items.len == 0) return;
         _ = internal.windows.wins.orderedRemove(index);
@@ -230,6 +255,19 @@ pub const Windows = struct {
             var wins_vertical_to_resize = windows.findBottomNeighbors(focused) orelse
                 windows.findTopNeighbors(focused);
 
+            var wins_horizontal_to_resize = windows.findRightNeighbors(focused) orelse
+                windows.findLeftNeighbors(focused);
+
+            // Make sure that a window doesn't resize vertically and draw over other window
+            if (wins_horizontal_to_resize != null and wins_vertical_to_resize != null) {
+                for (wins_vertical_to_resize.?) |win| {
+                    if (!utils.inRange(f32, win.x + win.width, focused.x, focused.x + focused.width)) {
+                        internal.allocator.free(wins_vertical_to_resize.?);
+                        wins_vertical_to_resize = null;
+                    }
+                }
+            }
+
             if (wins_vertical_to_resize) |wins| {
                 defer internal.allocator.free(wins_vertical_to_resize.?);
                 for (wins) |win| {
@@ -242,9 +280,6 @@ pub const Windows = struct {
                 }
                 return;
             }
-
-            var wins_horizontal_to_resize = windows.findRightNeighbors(focused) orelse
-                windows.findLeftNeighbors(focused);
 
             if (wins_horizontal_to_resize) |wins| {
                 defer internal.allocator.free(wins_horizontal_to_resize.?);
@@ -271,12 +306,6 @@ pub const Windows = struct {
             if (!utils.inRange(
                 f32,
                 win.x,
-                current_window.x,
-                current_window.x + current_window.width,
-            )) continue;
-            if (!utils.inRange(
-                f32,
-                win.x + win.width,
                 current_window.x,
                 current_window.x + current_window.width,
             )) continue;
@@ -307,12 +336,6 @@ pub const Windows = struct {
             if (!utils.inRange(
                 f32,
                 win.x,
-                current_window.x,
-                current_window.x + current_window.width,
-            )) continue;
-            if (!utils.inRange(
-                f32,
-                win.x + win.width,
                 current_window.x,
                 current_window.x + current_window.width,
             )) continue;
@@ -391,5 +414,62 @@ pub const Windows = struct {
         }
 
         return neighbors.toOwnedSlice();
+    }
+
+    fn closestRightNeighbor(windows: *Windows, target_window: *Window) ?*Window {
+        var neighbor: ?*Window = null;
+
+        for (windows.wins.items) |*win| {
+            if (win.x == target_window.x + target_window.width) {
+                if (neighbor == null)
+                    neighbor = win
+                else if (win.x <= neighbor.?.x)
+                    neighbor = win;
+            }
+        }
+
+        return neighbor;
+    }
+    fn closestLeftNeighbor(windows: *Windows, target_window: *Window) ?*Window {
+        var neighbor: ?*Window = null;
+
+        for (windows.wins.items) |*win| {
+            if (win.x + win.width == target_window.x) {
+                if (neighbor == null)
+                    neighbor = win
+                else if (win.x >= neighbor.?.x)
+                    neighbor = win;
+            }
+        }
+
+        return neighbor;
+    }
+    fn closestAboveNeighbor(windows: *Windows, target_window: *Window) ?*Window {
+        var neighbor: ?*Window = null;
+
+        for (windows.wins.items) |*win| {
+            if (win.y + win.height == target_window.y) {
+                if (neighbor == null)
+                    neighbor = win
+                else if (win.y >= neighbor.?.y)
+                    neighbor = win;
+            }
+        }
+
+        return neighbor;
+    }
+    fn closestBelowNeighbor(windows: *Windows, target_window: *Window) ?*Window {
+        var neighbor: ?*Window = null;
+
+        for (windows.wins.items) |*win| {
+            if (win.y == target_window.y + target_window.height) {
+                if (neighbor == null)
+                    neighbor = win
+                else if (win.y <= neighbor.?.y)
+                    neighbor = win;
+            }
+        }
+
+        return neighbor;
     }
 };

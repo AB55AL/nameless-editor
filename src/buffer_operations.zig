@@ -10,17 +10,10 @@ const global_types = @import("global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 const Windows = @import("ui/window.zig").Windows;
+const window_ops = @import("window_operations.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;
-
-pub const Direction = enum(u3) {
-    here,
-    right,
-    left,
-    above,
-    below,
-};
 
 /// Returns a pointer to a buffer.
 /// If a buffer with the given file_path already exists
@@ -77,7 +70,7 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
     return null;
 }
 
-pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: Direction) !void {
+pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Direction) !void {
     var buffer = try getBuffer(index, file_path);
     const createWindow = switch (direction) {
         .here => Windows.changeCurrentWindow,

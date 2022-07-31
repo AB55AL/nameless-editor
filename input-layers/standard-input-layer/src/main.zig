@@ -61,6 +61,11 @@ fn setDefaultMappnigs() void {
     map("<UP>", moveUp);
     map("<DOWN>", moveDown);
 
+    map("C_<RIGHT>", focusRightWindow);
+    map("C_<LEFT>", focusLeftWindow);
+    map("C_<UP>", focusAboveWindow);
+    map("C_<DOWN>", focusBelowWindow);
+
     map("<ENTER>", enterKey);
     map("C_c", toggleCommandLine);
 }
@@ -107,6 +112,19 @@ fn moveUp() void {
 }
 fn moveDown() void {
     Cursor.moveRelative(global.focused_buffer, 1, 0);
+}
+
+fn focusRightWindow() void {
+    core.focusWindow(.right);
+}
+fn focusLeftWindow() void {
+    core.focusWindow(.left);
+}
+fn focusAboveWindow() void {
+    core.focusWindow(.above);
+}
+fn focusBelowWindow() void {
+    core.focusWindow(.below);
 }
 
 fn toggleCommandLine() void {
