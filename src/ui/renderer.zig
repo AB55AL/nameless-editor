@@ -71,8 +71,13 @@ pub fn render() !void {
     while (i < wins.len) : (i += 1) {
         var window = &internal.windows.wins.items[i];
 
-        renderer_rect.renderFraction(window.*, .{ .x = 0.4, .y = 0.4, .z = 0.4 });
-        try renderer_text.render(window, .{ .x = 1.0, .y = 0.5, .z = 1.0 });
+        const bg_color = if (window.buffer.index.? == global.focused_buffer.index.?)
+            vectors.vec3{ .x = 0, .y = 0, .z = 0 }
+        else
+            window.background_color;
+
+        renderer_rect.renderFraction(window.*, bg_color);
+        try renderer_text.render(window, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
     }
     if (global.command_line_is_open) {
         renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });

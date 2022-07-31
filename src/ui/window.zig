@@ -47,6 +47,8 @@ pub const Window = struct {
     width: f32,
     height: f32,
 
+    background_color: vectors.vec3 = .{ .x = 0, .y = 0, .z = 0 },
+
     buffer: *Buffer,
     start_col: u32 = 1,
     start_row: u32 = 1,
@@ -71,9 +73,8 @@ pub const Windows = struct {
 
     pub fn focusedWindowIndex(windows: *Windows) ?usize {
         var wins = windows.wins.items;
-        var i: usize = 0;
-        while (i < wins.len) : (i += 1)
-            if (wins[i].buffer.index.? == global.focused_buffer.index.?)
+        for (wins) |win, i|
+            if (win.buffer.index.? == global.focused_buffer.index.?)
                 return i;
 
         return 0;
@@ -89,6 +90,10 @@ pub const Windows = struct {
     pub fn createNew(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len != 0) return;
 
+        var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+
         try windows.wins.append(Window{
             .x = 0,
             .y = 0,
@@ -97,6 +102,7 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
+            .background_color = .{ .x = r, .y = g, .z = b },
         });
     }
     pub fn createRight(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
@@ -104,6 +110,11 @@ pub const Windows = struct {
             try windows.createNew(buffer);
             return;
         }
+
+        var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
             .x = focused.x + focused.width / 2,
@@ -113,6 +124,7 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
+            .background_color = .{ .x = r, .y = g, .z = b },
         });
 
         focused.width /= 2;
@@ -122,6 +134,11 @@ pub const Windows = struct {
             try windows.createNew(buffer);
             return;
         }
+
+        var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
             .x = focused.x,
@@ -131,6 +148,7 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
+            .background_color = .{ .x = r, .y = g, .z = b },
         });
 
         focused.width /= 2;
@@ -141,6 +159,14 @@ pub const Windows = struct {
             try windows.createNew(buffer);
             return;
         }
+
+        var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        print("{d}\n", .{r});
+        print("{d}\n", .{g});
+        print("{d}\n", .{b});
+
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
             .x = focused.x,
@@ -150,6 +176,7 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
+            .background_color = .{ .x = r, .y = g, .z = b },
         });
 
         focused.height /= 2;
@@ -160,6 +187,11 @@ pub const Windows = struct {
             try windows.createNew(buffer);
             return;
         }
+
+        var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+        var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
+
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
             .x = focused.x,
@@ -169,6 +201,7 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
+            .background_color = .{ .x = r, .y = g, .z = b },
         });
 
         focused.height /= 2;
