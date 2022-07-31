@@ -6,6 +6,7 @@ const Global = @import("global_types.zig").Global;
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const buffer_ops = @import("buffer_operations.zig");
+const window_ops = @import("window_operations.zig");
 const command_line = @import("command_line.zig");
 const add = command_line.add;
 
@@ -19,7 +20,7 @@ pub fn setDefaultCommands() !void {
     try add("openAbove", openAbove);
     try add("openBelow", openBelow);
 
-    try add("closeWindow", closeWindow);
+    try add("closeWindow", window_ops.closeFocusedWindow);
 
     try add("save", save);
 }
@@ -53,10 +54,6 @@ fn openBelow(file_path: []const u8) void {
     buffer_ops.openBuffer(null, file_path, .below) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
-}
-
-fn closeWindow() void {
-    internal.windows.closeFocusedWindow();
 }
 
 fn save() void {

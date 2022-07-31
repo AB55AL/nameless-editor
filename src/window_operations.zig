@@ -16,3 +16,7 @@ pub fn cycleThroughWindows() void {
     if (static.i >= internal.windows.wins.items.len) static.i = 0;
     global.focused_buffer = internal.windows.wins.items[static.i].buffer;
 }
+
+pub fn closeFocusedWindow() void {
+    internal.windows.closeFocusedWindow();
+}
