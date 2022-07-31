@@ -95,6 +95,7 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: Direction) !vo
 
         if (internal.windows.wins.items.len == 0) {
             try internal.windows.createNew(buf);
+            global.focused_buffer = buf;
             internal.windows.focusedWindow().buffer = buf;
         } else {
             try createWindow(windows, buf);
