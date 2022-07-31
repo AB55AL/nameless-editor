@@ -281,40 +281,45 @@ fn beholdMyFunctionInator(comptime fn_ptr: anytype) type {
             }
             switch (fn_info.args.len) {
                 0 => fn_ptr(),
-                1 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                ),
-                2 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                    try argHandler(fn_info, args[1], 1),
-                ),
-                3 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                    try argHandler(fn_info, args[1], 1),
-                    try argHandler(fn_info, args[2], 2),
-                ),
-                4 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                    try argHandler(fn_info, args[1], 1),
-                    try argHandler(fn_info, args[2], 2),
-                    try argHandler(fn_info, args[3], 3),
-                ),
-                5 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                    try argHandler(fn_info, args[1], 1),
-                    try argHandler(fn_info, args[2], 2),
-                    try argHandler(fn_info, args[3], 3),
-                    try argHandler(fn_info, args[4], 4),
-                ),
-                6 => fn_ptr(
-                    try argHandler(fn_info, args[0], 0),
-                    try argHandler(fn_info, args[1], 1),
-                    try argHandler(fn_info, args[2], 2),
-                    try argHandler(fn_info, args[3], 3),
-                    try argHandler(fn_info, args[4], 4),
-                    try argHandler(fn_info, args[5], 5),
-                ),
-                else => unreachable,
+                else => {
+                    if (args.len == 0) return;
+                    switch (fn_info.args.len) {
+                        1 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                        ),
+                        2 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                            try argHandler(fn_info, args[1], 1),
+                        ),
+                        3 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                            try argHandler(fn_info, args[1], 1),
+                            try argHandler(fn_info, args[2], 2),
+                        ),
+                        4 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                            try argHandler(fn_info, args[1], 1),
+                            try argHandler(fn_info, args[2], 2),
+                            try argHandler(fn_info, args[3], 3),
+                        ),
+                        5 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                            try argHandler(fn_info, args[1], 1),
+                            try argHandler(fn_info, args[2], 2),
+                            try argHandler(fn_info, args[3], 3),
+                            try argHandler(fn_info, args[4], 4),
+                        ),
+                        6 => fn_ptr(
+                            try argHandler(fn_info, args[0], 0),
+                            try argHandler(fn_info, args[1], 1),
+                            try argHandler(fn_info, args[2], 2),
+                            try argHandler(fn_info, args[3], 3),
+                            try argHandler(fn_info, args[4], 4),
+                            try argHandler(fn_info, args[5], 5),
+                        ),
+                        else => unreachable,
+                    }
+                },
             }
         }
     };
