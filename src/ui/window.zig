@@ -164,9 +164,6 @@ pub const Windows = struct {
         var r = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
         var g = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
         var b = @mod(std.crypto.random.float(f32), 0.5) + 0.2;
-        print("{d}\n", .{r});
-        print("{d}\n", .{g});
-        print("{d}\n", .{b});
 
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
