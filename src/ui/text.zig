@@ -15,6 +15,7 @@ const WindowPixels = @import("window.zig").WindowPixels;
 const Buffer = @import("../buffer.zig");
 const GlobalInternal = @import("../global_types.zig").GlobalInternal;
 const utf8 = @import("../utf8.zig");
+const syntax = @import("syntax-highlight.zig");
 
 const vectors = @import("vectors.zig");
 const c = @import("../c.zig");
@@ -291,15 +292,10 @@ pub const Text = struct {
         return characters;
     }
 
-    pub fn render(text: *Text, window: *Window, color: vectors.vec3) !void {
+    pub fn render(text: *Text, window: *Window) !void {
         c.glEnable(c.GL_CULL_FACE);
         c.glEnable(c.GL_BLEND);
         c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
-
-        text.shader.use();
-        c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
-        c.glActiveTexture(c.GL_TEXTURE0);
-        c.glBindVertexArray(text.VAO);
 
         window.start_row = std.math.max(1, window.start_row);
         window.start_col = std.math.max(1, window.start_col);
@@ -334,6 +330,10 @@ pub const Text = struct {
 
             var x = window_p.x;
 
+            text.shader.use();
+            c.glActiveTexture(c.GL_TEXTURE0);
+            c.glBindVertexArray(text.VAO);
+
             var iter = splitByLanguage(visible_line);
             while (iter.next()) |text_segment| {
                 if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
@@ -341,6 +341,9 @@ pub const Text = struct {
                 }
 
                 if (text_segment.is_ascii) {
+                    var color = syntax.getColor(text_segment.utf8_seq);
+
+                    c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
                     for (text_segment.utf8_seq) |byte| {
                         var character = text.ascii_textures[byte];
                         text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;

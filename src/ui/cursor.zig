@@ -82,9 +82,11 @@ fn getX(renderer_text: *Text, window: *Window, vcursor: *VCursor, line: []const 
     var it = text.splitByLanguage(visible_line);
     while (it.next()) |text_segment| {
         if (text_segment.is_ascii) {
-            var character = renderer_text.ascii_textures[text_segment.utf8_seq[0]];
-            wrapOrStop(renderer_text, window, vcursor, &x, &y, character) catch break;
-            x += @intToFloat(f32, character.Advance >> 6);
+            for (text_segment.utf8_seq) |byte| {
+                var character = renderer_text.ascii_textures[byte];
+                wrapOrStop(renderer_text, window, vcursor, &x, &y, character) catch break;
+                x += @intToFloat(f32, character.Advance >> 6);
+            }
         } else {
             var characters = renderer_text.unicode_textures.get(text_segment.utf8_seq) orelse continue;
             for (characters) |character| {

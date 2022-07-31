@@ -26,6 +26,7 @@ const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 const VCursor = @import("vcursor.zig").VCursor;
 const Cursor = @import("../cursor.zig");
+const syntax = @import("syntax-highlight.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;
@@ -72,20 +73,20 @@ pub fn render() !void {
         var window = &internal.windows.wins.items[i];
 
         const bg_color = if (window.buffer.index.? == global.focused_buffer.index.?)
-            vectors.vec3{ .x = 0, .y = 0, .z = 0 }
+            syntax.hexToColorVector(0x272822)
         else
             window.background_color;
 
         renderer_rect.renderFraction(window.*, bg_color);
-        try renderer_text.render(window, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        try renderer_text.render(window);
     }
     if (global.command_line_is_open) {
         renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
-        try renderer_text.render(&internal.command_line_window, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        try renderer_text.render(&internal.command_line_window);
         cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
     } else {
         if (internal.windows.wins.items.len > 0)
-            cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow(), .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+            cursor.render(renderer_rect, renderer_text, internal.windows.focusedWindow(), .{ .x = 1.0, .y = 1.0, .z = 1.0 });
     }
 
     try glfw_window.swapBuffers();
