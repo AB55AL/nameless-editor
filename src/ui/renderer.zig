@@ -7,17 +7,14 @@ const freetype = @import("freetype");
 const harfbuzz = @import("harfbuzz");
 const c_ft_hb = @import("c_ft_hb");
 
-const c = @import("../c.zig");
+const c = @import("c.zig");
 const Shader = @import("shaders.zig");
-const vectors = @import("vectors.zig");
 const matrices = @import("matrices.zig");
 const Rect = @import("rect.zig");
 const text = @import("text.zig");
 const Text = text.Text;
-const Buffer = @import("../buffer.zig");
-const GapBuffer = @import("../gap_buffer.zig").GapBuffer;
-const utils = @import("../utils.zig");
-const utf8 = @import("../utf8.zig");
+const utils = @import("../editor/utils.zig");
+const utf8 = @import("../editor/utf8.zig");
 const Window = @import("window.zig").Window;
 const Windows = @import("window.zig").Windows;
 const cursor = @import("cursor.zig");
@@ -25,7 +22,6 @@ const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 const VCursor = @import("vcursor.zig").VCursor;
-const Cursor = @import("../cursor.zig");
 const syntax = @import("syntax-highlight.zig");
 
 extern var global: Global;

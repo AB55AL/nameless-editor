@@ -2,16 +2,16 @@ const std = @import("std");
 const print = std.debug.print;
 const unicode = std.unicode;
 
-const utils = @import("../utils.zig");
-const utf8 = @import("../utf8.zig");
+const utils = @import("../editor/utils.zig");
+const utf8 = @import("../editor/utf8.zig");
 const Window = @import("window.zig").Window;
 const Rect = @import("rect.zig");
 const vectors = @import("vectors.zig");
 const text = @import("text.zig");
 const Text = text.Text;
-const Cursor = @import("../cursor.zig");
+const Cursor = @import("../editor/cursor.zig");
 const Character = text.Character;
-const Buffer = @import("../buffer.zig");
+const Buffer = @import("../editor/buffer.zig");
 const WindowPixels = @import("window.zig").WindowPixels;
 const VCursor = @import("vcursor.zig").VCursor;
 

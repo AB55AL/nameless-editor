@@ -1,7 +1,7 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 
-const Buffer = @import("buffer.zig");
+const Buffer = @import("editor/buffer.zig");
 const Window = @import("ui/window.zig").Window;
 const Windows = @import("ui/window.zig").Windows;
 const OSWindow = @import("ui/window.zig").OSWindow;

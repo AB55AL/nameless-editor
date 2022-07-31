@@ -1,6 +1,6 @@
 const std = @import("std");
 const fs = std.fs;
-const c = @import("../c.zig");
+const c = @import("c.zig");
 
 pub const Shader = @This();
 

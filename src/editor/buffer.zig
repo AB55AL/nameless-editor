@@ -12,7 +12,7 @@ const min = std.math.min;
 const Cursor = @import("cursor.zig").Cursor;
 const GapBuffer = @import("gap_buffer.zig");
 const utf8 = @import("utf8.zig");
-const global_types = @import("global_types.zig");
+const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 

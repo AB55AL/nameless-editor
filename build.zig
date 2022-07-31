@@ -52,6 +52,6 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
 }
 
 pub fn build(bob: *Builder) void {
-    const standard_input_layer_path = comptime thisDir() ++ "/input-layers/standard-input-layer";
+    const standard_input_layer_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer";
     buildEditor(bob, standard_input_layer_path);
 }

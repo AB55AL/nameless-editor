@@ -1,6 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
-const Cursor = @import("../cursor.zig");
+const Cursor = @import("../editor/cursor.zig");
 const Window = @import("window.zig").Window;
 
 pub const VCursor = struct {

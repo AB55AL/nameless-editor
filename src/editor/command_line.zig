@@ -6,8 +6,8 @@ const fmt = std.fmt;
 const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
 const ascii = std.ascii;
 
-const GlobalInternal = @import("global_types.zig").GlobalInternal;
-const Global = @import("global_types.zig").Global;
+const GlobalInternal = @import("../global_types.zig").GlobalInternal;
+const Global = @import("../global_types.zig").Global;
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const default_commands = @import("default_commands.zig");

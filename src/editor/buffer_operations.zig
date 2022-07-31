@@ -6,10 +6,10 @@ const eql = std.mem.eql;
 
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
-const global_types = @import("global_types.zig");
+const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
-const Windows = @import("ui/window.zig").Windows;
+const Windows = @import("../ui/window.zig").Windows;
 const window_ops = @import("window_operations.zig");
 
 extern var global: Global;

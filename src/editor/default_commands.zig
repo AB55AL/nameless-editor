@@ -1,8 +1,8 @@
 const std = @import("std");
 const print = @import("std").debug.print;
 
-const GlobalInternal = @import("global_types.zig").GlobalInternal;
-const Global = @import("global_types.zig").Global;
+const GlobalInternal = @import("../global_types.zig").GlobalInternal;
+const Global = @import("../global_types.zig").Global;
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const buffer_ops = @import("buffer_operations.zig");

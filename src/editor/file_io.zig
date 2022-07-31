@@ -2,7 +2,7 @@ const std = @import("std");
 const print = std.debug.print;
 const fs = std.fs;
 
-const GlobalInternal = @import("global_types.zig").GlobalInternal;
+const GlobalInternal = @import("../global_types.zig").GlobalInternal;
 extern var internal: GlobalInternal;
 
 const Buffer = @import("buffer.zig");

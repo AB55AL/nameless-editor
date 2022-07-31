@@ -4,14 +4,14 @@ const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-const Buffer = @import("../buffer.zig");
+const Buffer = @import("../editor/buffer.zig");
 const VCursor = @import("vcursor.zig").VCursor;
 const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
-const utils = @import("../utils.zig");
+const utils = @import("../editor/utils.zig");
 const vectors = @import("vectors.zig");
-const window_ops = @import("../window_operations.zig");
+const window_ops = @import("../editor/window_operations.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;

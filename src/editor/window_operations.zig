@@ -1,4 +1,4 @@
-const global_types = @import("global_types.zig");
+const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
 const command_line = @import("command_line.zig");

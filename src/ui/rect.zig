@@ -1,7 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 
-const c = @import("../c.zig");
+const c = @import("c.zig");
 const Shader = @import("shaders.zig").Shader;
 const vectors = @import("vectors.zig");
 const matrices = @import("matrices.zig");

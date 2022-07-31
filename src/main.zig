@@ -4,13 +4,12 @@ const time = std.time;
 const ArrayList = std.ArrayList;
 
 const glfw = @import("glfw");
-const c = @import("c.zig");
-const Buffer = @import("buffer.zig");
+const Buffer = @import("editor/buffer.zig");
 const renderer = @import("ui/renderer.zig");
 const Window = @import("ui/window.zig").Window;
-const command_line = @import("command_line.zig");
-const glfw_window = @import("glfw.zig");
-const buffer_ops = @import("buffer_operations.zig");
+const command_line = @import("editor/command_line.zig");
+const glfw_window = @import("ui/glfw.zig");
+const buffer_ops = @import("editor/buffer_operations.zig");
 const global_types = @import("global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
@@ -82,11 +81,16 @@ pub fn main() !void {
     try command_line.init();
     defer command_line.deinit();
 
+    try buffer_ops.openBuffer(null, "build.zig", .here);
+    try buffer_ops.openBuffer(null, "src/editor/buffer_operations.zig", .right);
+    try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
+    try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
+
     if (global.buffers.items.len == 0) {
         var buffer = try internal.allocator.create(Buffer);
         buffer.* = try Buffer.init("", "");
         try global.buffers.append(buffer);
-        try buffer_ops.openBuffer(1, null);
+        try buffer_ops.openBuffer(1, null, .here);
     }
 
     while (!window.shouldClose()) {

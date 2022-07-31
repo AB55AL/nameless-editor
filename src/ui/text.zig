@@ -9,16 +9,16 @@ const harfbuzz = @import("harfbuzz");
 const c_ft_hb = @import("c_ft_hb");
 const Shader = @import("shaders.zig").Shader;
 const Face = freetype.Face;
-const utils = @import("../utils.zig");
+const utils = @import("../editor/utils.zig");
 const Window = @import("window.zig").Window;
 const WindowPixels = @import("window.zig").WindowPixels;
-const Buffer = @import("../buffer.zig");
+const Buffer = @import("../editor/buffer.zig");
 const GlobalInternal = @import("../global_types.zig").GlobalInternal;
-const utf8 = @import("../utf8.zig");
+const utf8 = @import("../editor/utf8.zig");
 const syntax = @import("syntax-highlight.zig");
 
 const vectors = @import("vectors.zig");
-const c = @import("../c.zig");
+const c = @import("c.zig");
 
 extern var internal: GlobalInternal;
 
