@@ -2,13 +2,15 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
 
 const Buffer = @import("../buffer.zig");
 const VCursor = @import("vcursor.zig").VCursor;
 const global_types = @import("../global_types.zig");
 const Global = global_types.Global;
 const GlobalInternal = global_types.GlobalInternal;
-const Allocator = std.mem.Allocator;
+const utils = @import("../utils.zig");
+const vectors = @import("vectors.zig");
 
 extern var global: Global;
 extern var internal: GlobalInternal;
@@ -180,14 +182,181 @@ pub const Windows = struct {
     pub fn closeFocusedWindow(windows: *Windows) void {
         if (windows.wins.items.len == 0) return;
         const index = windows.focusedWindowIndex().?;
+        windows.resize();
         windows.closeWindow(index);
-        // windows.resize();
     }
 
-    pub fn resize(windows: *Windows, index: usize) void {
-        _ = index;
-        _ = windows;
-        // if (windows.wins.items.len == 1)
-        //     windows.wins[0]
+    pub fn resize(windows: *Windows) void {
+        var focused = windows.focusedWindow();
+        if (windows.wins.items.len == 1) {
+            focused.x = 0;
+            focused.y = 0;
+            focused.width = 1;
+            focused.height = 1;
+        } else {
+            var wins_vertical_to_resize = windows.findBottomNeighbors(focused) orelse
+                windows.findTopNeighbors(focused);
+
+            if (wins_vertical_to_resize) |wins| {
+                defer internal.allocator.free(wins_vertical_to_resize.?);
+                for (wins) |win| {
+                    if (win.y > focused.y) {
+                        win.y = focused.y;
+                        win.height = focused.height + win.height;
+                    } else {
+                        win.height = focused.height + win.height;
+                    }
+                }
+                return;
+            }
+
+            var wins_horizontal_to_resize = windows.findRightNeighbors(focused) orelse
+                windows.findLeftNeighbors(focused);
+
+            if (wins_horizontal_to_resize) |wins| {
+                defer internal.allocator.free(wins_horizontal_to_resize.?);
+                for (wins) |win| {
+                    if (win.x > focused.x) {
+                        win.x = focused.x;
+                        win.width = focused.width + win.width;
+                    } else {
+                        win.width = focused.width + win.width;
+                    }
+                }
+                return;
+            }
+        }
+    }
+
+    fn findBottomNeighbors(windows: *Windows, current_window: *Window) ?[]*Window {
+        var neighbors = ArrayList(*Window).initCapacity(internal.allocator, internal.windows.wins.items.len) catch |err| {
+            print("findBottomNeighbors(): err={}\n", .{err});
+            return null;
+        };
+
+        for (windows.wins.items) |*win| {
+            if (!utils.inRange(
+                f32,
+                win.x,
+                current_window.x,
+                current_window.x + current_window.width,
+            )) continue;
+            if (!utils.inRange(
+                f32,
+                win.x + win.width,
+                current_window.x,
+                current_window.x + current_window.width,
+            )) continue;
+
+            if (win.y == current_window.y + current_window.height)
+                neighbors.append(win) catch |err| {
+                    print("findBottomNeighbors(): err={}\n", .{err});
+                    neighbors.deinit();
+                    return null;
+                };
+        }
+
+        if (neighbors.items.len == 0) {
+            neighbors.deinit();
+            return null;
+        }
+
+        return neighbors.toOwnedSlice();
+    }
+
+    fn findTopNeighbors(windows: *Windows, current_window: *Window) ?[]*Window {
+        var neighbors = ArrayList(*Window).initCapacity(internal.allocator, internal.windows.wins.items.len) catch |err| {
+            print("findTopNeighbors(): err={}\n", .{err});
+            return null;
+        };
+
+        for (windows.wins.items) |*win| {
+            if (!utils.inRange(
+                f32,
+                win.x,
+                current_window.x,
+                current_window.x + current_window.width,
+            )) continue;
+            if (!utils.inRange(
+                f32,
+                win.x + win.width,
+                current_window.x,
+                current_window.x + current_window.width,
+            )) continue;
+
+            if (win.y + win.height == current_window.y)
+                neighbors.append(win) catch |err| {
+                    print("findTopNeighbors(): err={}\n", .{err});
+                    neighbors.deinit();
+                    return null;
+                };
+        }
+
+        if (neighbors.items.len == 0) {
+            neighbors.deinit();
+            return null;
+        }
+
+        return neighbors.toOwnedSlice();
+    }
+
+    fn findRightNeighbors(windows: *Windows, current_window: *Window) ?[]*Window {
+        var neighbors = ArrayList(*Window).initCapacity(internal.allocator, internal.windows.wins.items.len) catch |err| {
+            print("findRightNeighbors(): err={}\n", .{err});
+            return null;
+        };
+
+        for (windows.wins.items) |*win| {
+            if (!utils.inRange(
+                f32,
+                win.y,
+                current_window.y,
+                current_window.y + current_window.height,
+            )) continue;
+
+            if (win.x == current_window.x + current_window.width)
+                neighbors.append(win) catch |err| {
+                    print("findRightNeighbors(): err={}\n", .{err});
+                    neighbors.deinit();
+                    return null;
+                };
+        }
+
+        if (neighbors.items.len == 0) {
+            neighbors.deinit();
+            return null;
+        }
+
+        return neighbors.toOwnedSlice();
+    }
+
+    fn findLeftNeighbors(windows: *Windows, current_window: *Window) ?[]*Window {
+        var neighbors = ArrayList(*Window).initCapacity(internal.allocator, internal.windows.wins.items.len) catch |err| {
+            print("findLeftNeighbors(): err={}\n", .{err});
+            return null;
+        };
+
+        for (windows.wins.items) |*win| {
+            if (!utils.inRange(
+                f32,
+                win.y,
+                current_window.y,
+                current_window.y + current_window.height,
+            )) continue;
+
+            if (win.x + win.width == current_window.x)
+                neighbors.append(win) catch |err| {
+                    print("findLeftNeighbors(): err={}\n", .{err});
+                    neighbors.deinit();
+                    return null;
+                };
+        }
+
+        if (neighbors.items.len == 0) {
+            neighbors.deinit();
+            return null;
+        }
+
+        return neighbors.toOwnedSlice();
     }
 };
