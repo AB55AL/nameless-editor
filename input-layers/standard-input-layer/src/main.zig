@@ -51,7 +51,7 @@ fn setDefaultMappnigs() void {
     map("C_y", redo);
     map("<F1>", commitHistoryChanges);
     map("<F2>", insertAlot);
-    map("<F3>", cycleThroughBuffers);
+    map("<F3>", core.cycleThroughWindows);
 
     map("<BACKSPACE>", deleteBackward);
     map("<DELETE>", deleteForward);
@@ -63,17 +63,6 @@ fn setDefaultMappnigs() void {
 
     map("<ENTER>", enterKey);
     map("C_c", toggleCommandLine);
-}
-
-fn cycleThroughBuffers() void {
-    if (global.buffers.items.len == 0) return;
-    const static = struct {
-        var i: usize = 0;
-    };
-    static.i += 1;
-    if (static.i >= global.buffers.items.len) static.i = 0;
-    global.focused_buffer = global.buffers.items[static.i];
-    print("cycle\n", .{});
 }
 
 fn undo() void {
