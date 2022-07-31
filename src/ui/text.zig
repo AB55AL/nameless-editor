@@ -58,11 +58,11 @@ pub fn splitByLanguageIterator() type {
                 var byte = self.buffer[i];
                 var next_byte = self.buffer[std.math.min(self.buffer.len - 1, i + 1)];
 
-                if (isAsciiByte(byte)) {
+                if (isAsciiSymbol(byte)) {
                     self.end_index += 1;
                     self.start_index = self.end_index;
                     return TextSegment{ .utf8_seq = self.buffer[s..e], .is_ascii = Self.isAsciiString(self.buffer[s..e]) };
-                } else if (isAsciiByte(next_byte) or i + 1 == self.buffer.len) {
+                } else if (isAsciiSymbol(next_byte) or i + 1 == self.buffer.len) {
                     self.end_index += 1;
                     self.start_index = self.end_index;
                     return TextSegment{ .utf8_seq = self.buffer[s..e], .is_ascii = Self.isAsciiString(self.buffer[s..e]) };
@@ -72,6 +72,17 @@ pub fn splitByLanguageIterator() type {
                 }
             }
             return null;
+        }
+
+        fn isAsciiSymbol(byte: u8) bool {
+            if (byte > 127) return false;
+
+            if (byte <= 64 or
+                (byte >= 91 and byte <= 96) or
+                (byte >= 123))
+                return true
+            else
+                return false;
         }
 
         fn isAsciiString(utf8_seq: []const u8) bool {
@@ -330,11 +341,13 @@ pub const Text = struct {
                 }
 
                 if (text_segment.is_ascii) {
-                    var character = text.ascii_textures[text_segment.utf8_seq[0]];
-                    text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
-                    text.renderGlyph(character, &x, &y);
-                    if (window.buffer.cursor.row == row)
-                        window.visible_cols_at_buffer_row += 1;
+                    for (text_segment.utf8_seq) |byte| {
+                        var character = text.ascii_textures[byte];
+                        text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
+                        text.renderGlyph(character, &x, &y);
+                        if (window.buffer.cursor.row == row)
+                            window.visible_cols_at_buffer_row += 1;
+                    }
                 } else {
                     var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
                         var utf8_seq = try internal.allocator.alloc(u8, text_segment.utf8_seq.len);
