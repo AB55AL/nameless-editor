@@ -1,11 +1,9 @@
-const global_types = @import("../global_types.zig");
-const Global = global_types.Global;
-const GlobalInternal = global_types.GlobalInternal;
+const globals = @import("../globals.zig");
 const command_line = @import("command_line.zig");
 const Windows = @import("command_line.zig");
 
-extern var global: Global;
-extern var internal: GlobalInternal;
+const global = globals.global;
+const internal = globals.internal;
 
 pub const Direction = enum(u3) {
     here,

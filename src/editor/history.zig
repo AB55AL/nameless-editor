@@ -7,8 +7,8 @@ const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const GapBuffer = @import("gap_buffer.zig");
 
-const GlobalInternal = @import("../global_types.zig").GlobalInternal;
-extern var internal: GlobalInternal;
+const globals = @import("../globals.zig");
+const internal = globals.internal;
 
 pub const TypeOfChange = enum(u1) {
     insertion,

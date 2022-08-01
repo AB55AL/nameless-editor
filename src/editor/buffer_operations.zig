@@ -6,14 +6,12 @@ const eql = std.mem.eql;
 
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
-const global_types = @import("../global_types.zig");
-const Global = global_types.Global;
-const GlobalInternal = global_types.GlobalInternal;
+const globals = @import("../globals.zig");
 const Windows = @import("../ui/window.zig").Windows;
 const window_ops = @import("window_operations.zig");
 
-extern var global: Global;
-extern var internal: GlobalInternal;
+const global = globals.global;
+const internal = globals.internal;
 
 /// Returns a pointer to a buffer.
 /// If a buffer with the given file_path already exists

@@ -1,8 +1,7 @@
 const std = @import("std");
 const print = @import("std").debug.print;
 
-const GlobalInternal = @import("../global_types.zig").GlobalInternal;
-const Global = @import("../global_types.zig").Global;
+const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const buffer_ops = @import("buffer_operations.zig");
@@ -10,8 +9,8 @@ const window_ops = @import("window_operations.zig");
 const command_line = @import("command_line.zig");
 const add = command_line.add;
 
-extern var internal: GlobalInternal;
-extern var global: Global;
+const global = globals.global;
+const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
     try add("open", open);

@@ -18,14 +18,12 @@ const utf8 = @import("../editor/utf8.zig");
 const Window = @import("window.zig").Window;
 const Windows = @import("window.zig").Windows;
 const cursor = @import("cursor.zig");
-const global_types = @import("../global_types.zig");
-const Global = global_types.Global;
-const GlobalInternal = global_types.GlobalInternal;
+const globals = @import("../globals.zig");
 const VCursor = @import("vcursor.zig").VCursor;
 const syntax = @import("syntax-highlight.zig");
 
-extern var global: Global;
-extern var internal: GlobalInternal;
+const global = globals.global;
+const internal = globals.internal;
 
 // Variables
 var renderer_rect: Rect = undefined;

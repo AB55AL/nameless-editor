@@ -5,4 +5,7 @@ pub const command_line = @import("editor/command_line.zig");
 pub usingnamespace @import("editor/buffer_operations.zig");
 pub usingnamespace @import("editor/window_operations.zig");
 
-pub const Global = @import("global_types.zig").Global;
+const globals = @import("globals.zig");
+pub const Global = @import("globals.zig").Global;
+
+pub const global = globals.global;

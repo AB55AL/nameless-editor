@@ -10,27 +10,11 @@ const Window = @import("ui/window.zig").Window;
 const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
 const buffer_ops = @import("editor/buffer_operations.zig");
-const global_types = @import("global_types.zig");
-const Global = global_types.Global;
-const GlobalInternal = global_types.GlobalInternal;
+const globals = @import("globals.zig");
 
 const input_layer = @import("input_layer");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
-export var global = Global{
-    .focused_buffer = undefined,
-    .buffers = undefined,
-    .command_line_buffer = undefined,
-};
-
-export var internal = GlobalInternal{
-    .allocator = undefined,
-    .buffers_trashcan = undefined,
-    .windows = undefined,
-    .os_window = undefined,
-    .command_line_window = undefined,
-};
 
 pub fn main() !void {
     defer _ = gpa.deinit();
@@ -38,36 +22,8 @@ pub fn main() !void {
     const window_width: u32 = 800;
     const window_height: u32 = 600;
 
-    internal.allocator = gpa.allocator();
-
-    global.command_line_buffer = try internal.allocator.create(Buffer);
-    global.command_line_buffer.* = try Buffer.init("", "");
-
-    internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
-    internal.windows.wins = ArrayList(Window).init(internal.allocator);
-    internal.os_window = .{ .width = window_width, .height = window_height };
-    internal.command_line_window = .{
-        .x = 0,
-        .y = 0.95,
-        .width = 1,
-        .height = 0.1,
-        .buffer = global.command_line_buffer,
-    };
-
-    global.buffers = ArrayList(*Buffer).init(internal.allocator);
-
-    defer {
-        for (global.buffers.items) |buffer|
-            buffer.deinitAndDestroy();
-        global.buffers.deinit();
-
-        for (internal.buffers_trashcan.items) |buffer|
-            internal.allocator.destroy(buffer);
-        internal.buffers_trashcan.deinit();
-
-        internal.windows.wins.deinit();
-        global.command_line_buffer.deinitAndDestroy();
-    }
+    try globals.initGlobals(gpa.allocator(), window_width, window_height);
+    defer globals.deinitGlobals();
 
     var window = try glfw_window.init(window_width, window_height);
     defer glfw_window.deinit(&window);
@@ -86,15 +42,15 @@ pub fn main() !void {
     try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
     try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
 
-    if (global.buffers.items.len == 0) {
-        var buffer = try internal.allocator.create(Buffer);
+    if (globals.global.buffers.items.len == 0) {
+        var buffer = try globals.internal.allocator.create(Buffer);
         buffer.* = try Buffer.init("", "");
-        try global.buffers.append(buffer);
+        try globals.global.buffers.append(buffer);
         try buffer_ops.openBuffer(1, null, .here);
     }
 
     while (!window.shouldClose()) {
-        if (global.buffers.items.len == 0) window.setShouldClose(true);
+        if (globals.global.buffers.items.len == 0) window.setShouldClose(true);
         try renderer.render();
         try glfw.pollEvents();
     }

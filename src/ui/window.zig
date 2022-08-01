@@ -6,15 +6,13 @@ const Allocator = std.mem.Allocator;
 
 const Buffer = @import("../editor/buffer.zig");
 const VCursor = @import("vcursor.zig").VCursor;
-const global_types = @import("../global_types.zig");
-const Global = global_types.Global;
-const GlobalInternal = global_types.GlobalInternal;
+const globals = @import("../globals.zig");
 const utils = @import("../editor/utils.zig");
 const vectors = @import("vectors.zig");
 const window_ops = @import("../editor/window_operations.zig");
 
-extern var global: Global;
-extern var internal: GlobalInternal;
+const global = globals.global;
+const internal = globals.internal;
 
 pub const WindowOptions = struct {
     wrap_text: bool = false,

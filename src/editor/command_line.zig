@@ -6,16 +6,15 @@ const fmt = std.fmt;
 const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
 const ascii = std.ascii;
 
-const GlobalInternal = @import("../global_types.zig").GlobalInternal;
-const Global = @import("../global_types.zig").Global;
+const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const default_commands = @import("default_commands.zig");
 
 const FuncType = fn ([]PossibleValues) CommandRunError!void;
 
-extern var internal: GlobalInternal;
-extern var global: Global;
+const global = globals.global;
+const internal = globals.internal;
 
 var command_function_lut: std.StringHashMap(FuncType) = undefined;
 var previous_buffer: *Buffer = undefined;

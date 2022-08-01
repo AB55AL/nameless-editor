@@ -6,7 +6,7 @@ const core = @import("core");
 const Cursor = core.Cursor;
 const history = core.history;
 
-extern var global: core.Global;
+const global = core.global;
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;

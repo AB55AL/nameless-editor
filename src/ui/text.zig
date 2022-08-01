@@ -13,14 +13,14 @@ const utils = @import("../editor/utils.zig");
 const Window = @import("window.zig").Window;
 const WindowPixels = @import("window.zig").WindowPixels;
 const Buffer = @import("../editor/buffer.zig");
-const GlobalInternal = @import("../global_types.zig").GlobalInternal;
+const globals = @import("../globals.zig");
 const utf8 = @import("../editor/utf8.zig");
 const syntax = @import("syntax-highlight.zig");
 
 const vectors = @import("vectors.zig");
 const c = @import("c.zig");
 
-extern var internal: GlobalInternal;
+const internal = globals.internal;
 
 pub const Character = struct {
     texture_id: u32, // ID handle of the glyph texture
