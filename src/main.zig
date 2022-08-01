@@ -44,7 +44,7 @@ pub fn main() !void {
 
     if (globals.global.buffers.items.len == 0) {
         var buffer = try globals.internal.allocator.create(Buffer);
-        buffer.* = try Buffer.init("", "");
+        buffer.* = try Buffer.init(globals.internal.allocator, "", "");
         try globals.global.buffers.append(buffer);
         try buffer_ops.openBuffer(1, null, .here);
     }

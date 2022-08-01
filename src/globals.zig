@@ -1,4 +1,5 @@
 const std = @import("std");
+const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
 const Buffer = @import("editor/buffer.zig");
@@ -33,7 +34,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
     internal.allocator = allocator;
 
     global.command_line_buffer = try internal.allocator.create(Buffer);
-    global.command_line_buffer.* = try Buffer.init("", "");
+    global.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
 
     internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
     internal.windows.wins = ArrayList(Window).init(internal.allocator);
@@ -51,7 +52,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
 
 pub fn deinitGlobals() void {
     for (global.buffers.items) |buffer|
-        buffer.deinitAndDestroy();
+        buffer.deinitAndDestroy(internal.allocator);
     global.buffers.deinit();
 
     for (internal.buffers_trashcan.items) |buffer|
@@ -59,5 +60,5 @@ pub fn deinitGlobals() void {
     internal.buffers_trashcan.deinit();
 
     internal.windows.wins.deinit();
-    global.command_line_buffer.deinitAndDestroy();
+    global.command_line_buffer.deinitAndDestroy(internal.allocator);
 }

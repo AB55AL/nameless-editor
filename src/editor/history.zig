@@ -7,9 +7,6 @@ const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const GapBuffer = @import("gap_buffer.zig");
 
-const globals = @import("../globals.zig");
-const internal = globals.internal;
-
 pub const TypeOfChange = enum(u1) {
     insertion,
     deletion,
@@ -35,15 +32,15 @@ pub const History = struct {
     stack: Stack([]const HistoryBufferState),
     redo_stack: Stack([]const HistoryBufferState),
 
-    pub fn init() History {
+    pub fn init(allocator: std.mem.Allocator) History {
         return History{
-            .stack = Stack([]const HistoryBufferState).init(internal.allocator),
-            .redo_stack = Stack([]const HistoryBufferState).init(internal.allocator),
+            .stack = Stack([]const HistoryBufferState).init(allocator),
+            .redo_stack = Stack([]const HistoryBufferState).init(allocator),
         };
     }
 
     pub fn deinit(history: *History) void {
-        const free = internal.allocator.free;
+        const free = history.stack.allocator.free;
 
         while (history.stack.popOrNull()) |buffer_states| {
             for (buffer_states) |state|
@@ -62,7 +59,7 @@ pub const History = struct {
     }
 
     pub fn emptyRedoStack(history: *History) void {
-        const free = internal.allocator.free;
+        const free = history.stack.allocator.free;
         while (history.redo_stack.popOrNull()) |buffer_states|
             for (buffer_states) |state|
                 free(state.content);

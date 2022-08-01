@@ -43,21 +43,21 @@ history: History,
 related_history_changes: Stack(HistoryBufferState),
 previous_change: HistoryBufferStateResizeable,
 
-pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
+pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
         var index: u32 = 0;
     };
     defer static.index += 1;
-    var fp = try internal.allocator.alloc(u8, file_path.len);
+    var fp = try allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
     var buffer = Buffer{
         .index = static.index,
         .file_path = fp,
         .cursor = .{ .row = 1, .col = 1 },
-        .lines = try GapBuffer.init(internal.allocator, buf),
-        .history = History.init(),
-        .related_history_changes = Stack(HistoryBufferState).init(internal.allocator),
+        .lines = try GapBuffer.init(allocator, buf),
+        .history = History.init(allocator),
+        .related_history_changes = Stack(HistoryBufferState).init(allocator),
         .previous_change = undefined,
         .sections = undefined,
     };
@@ -66,7 +66,7 @@ pub fn init(file_path: []const u8, buf: []const u8) !Buffer {
     buffer.updateSections(1, 0);
 
     buffer.previous_change = .{
-        .content = try GapBuffer.init(internal.allocator, null),
+        .content = try GapBuffer.init(allocator, null),
         .index = 0,
         .type_of_change = TypeOfChange.insertion,
         .sections = buffer.sections,
@@ -103,24 +103,24 @@ pub fn deinitAndTrash(buffer: *Buffer) void {
 /// program.
 /// Does **NOT** Place the buffer into the internal.buffers_trashcan.
 /// Does **NOT** set the index to `null`
-pub fn deinitNoTrash(buffer: *Buffer) void {
+pub fn deinitNoTrash(buffer: *Buffer, allocator: std.mem.Allocator) void {
     buffer.lines.deinit();
 
     buffer.previous_change.content.deinit();
     while (buffer.related_history_changes.popOrNull()) |item|
-        internal.allocator.free(item.content);
+        allocator.free(item.content);
 
     buffer.related_history_changes.deinit();
     buffer.history.deinit();
 
-    internal.allocator.free(buffer.file_path);
+    allocator.free(buffer.file_path);
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
 /// Pointers to this buffer are all invalidated
-pub fn deinitAndDestroy(buffer: *Buffer) void {
-    buffer.deinitNoTrash();
-    internal.allocator.destroy(buffer);
+pub fn deinitAndDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
+    buffer.deinitNoTrash(internal.allocator);
+    allocator.destroy(buffer);
 }
 
 /// Inserts the given string at the given row and column. (1-based)

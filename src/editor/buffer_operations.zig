@@ -42,7 +42,7 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     defer internal.allocator.free(buf);
 
     var buffer = try internal.allocator.create(Buffer);
-    buffer.* = try Buffer.init(full_file_path, buf);
+    buffer.* = try Buffer.init(internal.allocator, full_file_path, buf);
 
     return buffer;
 }
