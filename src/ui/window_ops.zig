@@ -2,9 +2,9 @@ const std = @import("std");
 const print = @import("std").debug.print;
 
 const globals = @import("../globals.zig");
-const command_line = @import("command_line.zig");
-const Windows = @import("../ui/window.zig");
-const Buffer = @import("buffer.zig");
+const command_line = @import("../editor/command_line.zig");
+const Windows = @import("window.zig");
+const Buffer = @import("../editor/buffer.zig");
 
 const global = globals.global;
 const internal = globals.internal;

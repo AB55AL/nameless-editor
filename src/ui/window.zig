@@ -9,7 +9,7 @@ const VCursor = @import("vcursor.zig").VCursor;
 const globals = @import("../globals.zig");
 const utils = @import("../editor/utils.zig");
 const vectors = @import("vectors.zig");
-const window_ops = @import("../editor/window_operations.zig");
+const window_ops = @import("window_ops.zig");
 
 const global = globals.global;
 const internal = globals.internal;

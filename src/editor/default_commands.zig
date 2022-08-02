@@ -4,8 +4,8 @@ const print = @import("std").debug.print;
 const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
-const buffer_ops = @import("buffer_operations.zig");
-const window_ops = @import("window_operations.zig");
+const buffer_ops = @import("buffer_ops.zig");
+const window_ops = @import("../ui/window_ops.zig");
 const command_line = @import("command_line.zig");
 const add = command_line.add;
 

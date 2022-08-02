@@ -9,7 +9,7 @@ const renderer = @import("ui/renderer.zig");
 const Window = @import("ui/window.zig").Window;
 const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
-const buffer_ops = @import("editor/buffer_operations.zig");
+const buffer_ops = @import("editor/buffer_ops.zig");
 const globals = @import("globals.zig");
 
 const input_layer = @import("input_layer");
@@ -38,7 +38,7 @@ pub fn main() !void {
     defer command_line.deinit();
 
     try buffer_ops.openBuffer(null, "build.zig", .here);
-    try buffer_ops.openBuffer(null, "src/editor/buffer_operations.zig", .right);
+    try buffer_ops.openBuffer(null, "src/editor/buffer_ops.zig", .right);
     try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
     try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
 
