@@ -112,11 +112,13 @@ pub fn saveBuffer(buffer: *Buffer) !void {
         return error.SavingNullBuffer;
 
     try file_io.writeToFile(buffer);
+    buffer.metadata.is_dirty = false;
 }
 
 /// Deinits the buffer and closes it's window.
 /// To only deinit use `Buffer.deinitAndTrash()`
 pub fn killBuffer(buffer: *Buffer) !void {
+    // TODO: Ask the user for confirmation to kill a dirty buffer
     if (buffer.index == null)
         return error.KillingNullBuffer;
 
