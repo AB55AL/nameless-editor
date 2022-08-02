@@ -29,8 +29,14 @@ pub const NUM_OF_SECTIONS = 32;
 
 const Buffer = @This();
 
+pub const MetaData = struct {
+    file_path: []u8,
+    file_load_timestamp: i64,
+    is_dirty: bool,
+};
+
+metadata: MetaData,
 index: ?u32,
-file_path: []u8,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: GapBuffer,
@@ -51,9 +57,15 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var fp = try allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
+    var metadata = MetaData{
+        .file_path = fp,
+        .file_load_timestamp = std.time.timestamp(),
+        .is_dirty = false,
+    };
+
     var buffer = Buffer{
         .index = static.index,
-        .file_path = fp,
+        .metadata = metadata,
         .cursor = .{ .row = 1, .col = 1 },
         .lines = try GapBuffer.init(allocator, buf),
         .history = History.init(allocator),
@@ -115,7 +127,7 @@ pub fn deinitNoTrash(buffer: *Buffer, allocator: std.mem.Allocator) void {
     buffer.related_history_changes.deinit();
     buffer.history.deinit();
 
-    allocator.free(buffer.file_path);
+    allocator.free(buffer.metadata.file_path);
 }
 
 /// Deinits the members of the buffer and destroys the buffer.

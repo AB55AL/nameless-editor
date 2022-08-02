@@ -67,7 +67,7 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
             var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
             const bytes = try file_io.fullFilePath(fp, &out_buffer);
             const full_fp = out_buffer[0..bytes];
-            if (eql(u8, full_fp, buffer.file_path)) {
+            if (eql(u8, full_fp, buffer.metadata.file_path)) {
                 return buffer;
             }
         }
@@ -106,7 +106,7 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Dir
 }
 
 pub fn saveBuffer(buffer: *Buffer) !void {
-    if (buffer.file_path.len == 0)
+    if (buffer.metadata.file_path.len == 0)
         return error.SavingPathlessBuffer;
     if (buffer.index == null)
         return error.SavingNullBuffer;

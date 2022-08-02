@@ -12,13 +12,13 @@ pub fn writeToFile(buffer: *Buffer) !void {
     const original_file_suffix = ".editor-original";
 
     const new_file_path = try std.mem.concat(internal.allocator, u8, &[_][]const u8{
-        buffer.file_path,
+        buffer.metadata.file_path,
         new_file_suffix,
     });
     defer internal.allocator.free(new_file_path);
 
     const original_tmp_file_path = try std.mem.concat(internal.allocator, u8, &[_][]const u8{
-        buffer.file_path,
+        buffer.metadata.file_path,
         original_file_suffix,
     });
     defer internal.allocator.free(original_tmp_file_path);
@@ -26,15 +26,15 @@ pub fn writeToFile(buffer: *Buffer) !void {
     const content_of_buffer = try buffer.lines.copy();
     defer internal.allocator.free(content_of_buffer);
 
-    const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.file_path).?, .{}));
+    const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{}));
     defer file_dir.close();
 
     const new_file = try fs.createFileAbsolute(new_file_path, .{});
     defer new_file.close();
 
     try new_file.writeAll(content_of_buffer);
-    try std.os.rename(buffer.file_path, original_tmp_file_path);
-    try std.os.rename(new_file_path, buffer.file_path);
+    try std.os.rename(buffer.metadata.file_path, original_tmp_file_path);
+    try std.os.rename(new_file_path, buffer.metadata.file_path);
     try file_dir.deleteFile(original_tmp_file_path);
 }
 
