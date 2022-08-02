@@ -7,7 +7,11 @@ const internal = globals.internal;
 
 const Buffer = @import("buffer.zig");
 
-pub fn writeToFile(buffer: *Buffer) !void {
+pub const Error = error{
+    DifferentModTimes,
+};
+
+pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     const new_file_suffix = ".editor-new";
     const original_file_suffix = ".editor-original";
 
@@ -23,14 +27,20 @@ pub fn writeToFile(buffer: *Buffer) !void {
     });
     defer internal.allocator.free(original_tmp_file_path);
 
-    const content_of_buffer = try buffer.lines.copy();
-    defer internal.allocator.free(content_of_buffer);
-
     const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{}));
     defer file_dir.close();
 
+    if (!force_write) {
+        var stat = try file_dir.statFile(buffer.metadata.file_path);
+        if (stat.mtime != buffer.metadata.file_last_mod_time)
+            return error.DifferentModTimes;
+    }
+
     const new_file = try fs.createFileAbsolute(new_file_path, .{});
     defer new_file.close();
+
+    const content_of_buffer = try buffer.lines.copy();
+    defer internal.allocator.free(content_of_buffer);
 
     try new_file.writeAll(content_of_buffer);
     try std.os.rename(buffer.metadata.file_path, original_tmp_file_path);

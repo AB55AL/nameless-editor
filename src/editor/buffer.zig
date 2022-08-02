@@ -31,7 +31,7 @@ const Buffer = @This();
 
 pub const MetaData = struct {
     file_path: []u8,
-    file_load_timestamp: i64,
+    file_last_mod_time: i128,
     is_dirty: bool,
 };
 
@@ -59,7 +59,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 
     var metadata = MetaData{
         .file_path = fp,
-        .file_load_timestamp = std.time.timestamp(),
+        .file_last_mod_time = 0,
         .is_dirty = false,
     };
 

@@ -51,6 +51,7 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
 
     var buffer = try internal.allocator.create(Buffer);
     buffer.* = try Buffer.init(internal.allocator, full_file_path, buf);
+    buffer.metadata.file_last_mod_time = metadata.modified();
 
     return buffer;
 }
@@ -106,13 +107,13 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Dir
     }
 }
 
-pub fn saveBuffer(buffer: *Buffer) !void {
+pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
     if (buffer.metadata.file_path.len == 0)
         return error.SavingPathlessBuffer;
     if (buffer.index == null)
         return error.SavingNullBuffer;
 
-    try file_io.writeToFile(buffer);
+    try file_io.writeToFile(buffer, force_write);
     buffer.metadata.is_dirty = false;
 }
 
@@ -138,7 +139,7 @@ pub fn forceKillBuffer(buffer: *Buffer) !void {
         global.focused_buffer = global.buffers.items[0];
 }
 
-pub fn saveAndQuit(buffer: *Buffer) !void {
-    try saveBuffer(buffer);
+pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
+    try saveBuffer(buffer, force_write);
     try killBuffer(buffer);
 }

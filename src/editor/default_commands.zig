@@ -7,6 +7,7 @@ const Cursor = @import("cursor.zig");
 const buffer_ops = @import("buffer_ops.zig");
 const window_ops = @import("../ui/window_ops.zig");
 const command_line = @import("command_line.zig");
+const file_io = @import("file_io.zig");
 const add = command_line.add;
 
 const global = globals.global;
@@ -22,9 +23,11 @@ pub fn setDefaultCommands() !void {
     try add("closeWindow", window_ops.closeFocusedWindow);
 
     try add("save", saveFocused);
+    try add("forceSave", forceSaveFocused);
     try add("kill", killFocused);
     try add("forceKill", forceKillFocused);
     try add("saveAndQuit", saveAndQuitFocused);
+    try add("forceSaveAndQuit", forceSaveAndQuitFocused);
 }
 
 fn open(file_path: []const u8) void {
@@ -59,7 +62,18 @@ fn openBelow(file_path: []const u8) void {
 }
 
 fn saveFocused() void {
-    buffer_ops.saveBuffer(global.focused_buffer) catch |err|
+    buffer_ops.saveBuffer(global.focused_buffer, false) catch |err| {
+        if (err == file_io.Error.DifferentModTimes) {
+            print("The file's contents might've changed since last load\n", .{});
+            print("To force saving use forceSave", .{});
+        } else {
+            print("{}\nerr={}\n", .{ @src(), err });
+        }
+    };
+}
+
+fn forceSaveFocused() void {
+    buffer_ops.saveBuffer(global.focused_buffer, true) catch |err|
         print("{}\nerr={}\n", .{ @src(), err });
 }
 
@@ -79,6 +93,17 @@ fn forceKillFocused() void {
 }
 
 fn saveAndQuitFocused() void {
-    buffer_ops.saveAndQuit(global.focused_buffer) catch |err|
+    buffer_ops.saveAndQuit(global.focused_buffer, false) catch |err| {
+        if (err == file_io.Error.DifferentModTimes) {
+            print("The file's contents might've changed since last load\n", .{});
+            print("To force saving use forceSaveAndQuit", .{});
+        } else {
+            print("{}\nerr={}\n", .{ @src(), err });
+        }
+    };
+}
+
+fn forceSaveAndQuitFocused() void {
+    buffer_ops.saveAndQuit(global.focused_buffer, true) catch |err|
         print("{}\nerr={}\n", .{ @src(), err });
 }
