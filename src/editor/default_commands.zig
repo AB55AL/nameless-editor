@@ -23,6 +23,7 @@ pub fn setDefaultCommands() !void {
 
     try add("save", saveFocused);
     try add("kill", killFocused);
+    try add("forceKill", forceKillFocused);
     try add("saveAndQuit", saveAndQuitFocused);
 }
 
@@ -63,7 +64,17 @@ fn saveFocused() void {
 }
 
 fn killFocused() void {
-    buffer_ops.killBuffer(global.focused_buffer) catch |err|
+    buffer_ops.killBuffer(global.focused_buffer) catch |err| {
+        if (err == buffer_ops.Error.KillingDirtyBuffer) {
+            print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
+        } else {
+            print("{}\nerr={}\n", .{ @src(), err });
+        }
+    };
+}
+
+fn forceKillFocused() void {
+    buffer_ops.forceKillBuffer(global.focused_buffer) catch |err|
         print("{}\nerr={}\n", .{ @src(), err });
 }
 
