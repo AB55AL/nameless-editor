@@ -21,7 +21,9 @@ pub fn setDefaultCommands() !void {
 
     try add("closeWindow", window_ops.closeFocusedWindow);
 
-    try add("save", save);
+    try add("save", saveFocused);
+    try add("kill", killFocused);
+    try add("saveAndQuit", saveAndQuitFocused);
 }
 
 fn open(file_path: []const u8) void {
@@ -55,6 +57,17 @@ fn openBelow(file_path: []const u8) void {
     };
 }
 
-fn save() void {
-    buffer_ops.saveBuffer(global.focused_buffer) catch unreachable;
+fn saveFocused() void {
+    buffer_ops.saveBuffer(global.focused_buffer) catch |err|
+        print("{}\nerr={}\n", .{ @src(), err });
+}
+
+fn killFocused() void {
+    buffer_ops.killBuffer(global.focused_buffer) catch |err|
+        print("{}\nerr={}\n", .{ @src(), err });
+}
+
+fn saveAndQuitFocused() void {
+    buffer_ops.saveAndQuit(global.focused_buffer) catch |err|
+        print("{}\nerr={}\n", .{ @src(), err });
 }

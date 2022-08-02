@@ -13,6 +13,12 @@ const window_ops = @import("window_operations.zig");
 const global = globals.global;
 const internal = globals.internal;
 
+pub const Error = error{
+    SavingPathlessBuffer,
+    SavingNullBuffer,
+    KillingNullBuffer,
+};
+
 /// Returns a pointer to a buffer.
 /// If a buffer with the given file_path already exists
 /// returns a pointer to that buffer otherwise
@@ -29,6 +35,7 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
 
 /// Opens a file and returns a pointer to a buffer.
 /// Does not add the buffer to the global.buffers array
+/// Always creates a new buffer
 pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const bytes = try file_io.fullFilePath(file_path, &out_buffer);
@@ -97,10 +104,29 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Dir
         return error.CannotFindBuffer;
     }
 }
+
 pub fn saveBuffer(buffer: *Buffer) !void {
-    if (buffer.file_path.len == 0) {
-        print("can't save nameless buffer. use saveAs\n", .{});
-        return;
-    }
+    if (buffer.file_path.len == 0)
+        return error.SavingPathlessBuffer;
+    if (buffer.index == null)
+        return error.SavingNullBuffer;
+
     try file_io.writeToFile(buffer);
+}
+
+/// Deinits the buffer and closes it's window.
+/// To only deinit use `Buffer.deinitAndTrash()`
+pub fn killBuffer(buffer: *Buffer) !void {
+    if (buffer.index == null)
+        return error.KillingNullBuffer;
+
+    window_ops.closeBufferWindow(buffer);
+    buffer.deinitAndTrash();
+    if (global.buffers.items.len > 0)
+        global.focused_buffer = global.buffers.items[0];
+}
+
+pub fn saveAndQuit(buffer: *Buffer) !void {
+    try saveBuffer(buffer);
+    try killBuffer(buffer);
 }

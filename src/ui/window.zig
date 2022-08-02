@@ -203,34 +203,34 @@ pub const Windows = struct {
 
     pub fn closeWindow(windows: *Windows, index: usize) void {
         if (windows.wins.items.len == 0) return;
-        _ = internal.windows.wins.orderedRemove(index);
+        var removed = internal.windows.wins.orderedRemove(index);
+        windows.resize(&removed);
     }
 
     pub fn closeFocusedWindow(windows: *Windows) void {
         if (windows.wins.items.len == 0) return;
         const index = windows.focusedWindowIndex().?;
-        windows.resize();
+        windows.resize(windows.focusedWindow());
         windows.closeWindow(index);
     }
 
-    pub fn resize(windows: *Windows) void {
-        var focused = windows.focusedWindow();
+    pub fn resize(windows: *Windows, target: *Window) void {
         if (windows.wins.items.len == 1) {
-            focused.x = 0;
-            focused.y = 0;
-            focused.width = 1;
-            focused.height = 1;
+            target.x = 0;
+            target.y = 0;
+            target.width = 1;
+            target.height = 1;
         } else {
-            var wins_vertical_to_resize = windows.findBottomNeighbors(focused) orelse
-                windows.findTopNeighbors(focused);
+            var wins_vertical_to_resize = windows.findBottomNeighbors(target) orelse
+                windows.findTopNeighbors(target);
 
-            var wins_horizontal_to_resize = windows.findRightNeighbors(focused) orelse
-                windows.findLeftNeighbors(focused);
+            var wins_horizontal_to_resize = windows.findRightNeighbors(target) orelse
+                windows.findLeftNeighbors(target);
 
             // Make sure that a window doesn't resize vertically and draw over other window
             if (wins_horizontal_to_resize != null and wins_vertical_to_resize != null) {
                 for (wins_vertical_to_resize.?) |win| {
-                    if (!utils.inRange(f32, win.x + win.width, focused.x, focused.x + focused.width)) {
+                    if (!utils.inRange(f32, win.x + win.width, target.x, target.x + target.width)) {
                         internal.allocator.free(wins_vertical_to_resize.?);
                         wins_vertical_to_resize = null;
                     }
@@ -240,11 +240,11 @@ pub const Windows = struct {
             if (wins_vertical_to_resize) |wins| {
                 defer internal.allocator.free(wins_vertical_to_resize.?);
                 for (wins) |win| {
-                    if (win.y > focused.y) {
-                        win.y = focused.y;
-                        win.height = focused.height + win.height;
+                    if (win.y > target.y) {
+                        win.y = target.y;
+                        win.height = target.height + win.height;
                     } else {
-                        win.height = focused.height + win.height;
+                        win.height = target.height + win.height;
                     }
                 }
                 return;
@@ -253,11 +253,11 @@ pub const Windows = struct {
             if (wins_horizontal_to_resize) |wins| {
                 defer internal.allocator.free(wins_horizontal_to_resize.?);
                 for (wins) |win| {
-                    if (win.x > focused.x) {
-                        win.x = focused.x;
-                        win.width = focused.width + win.width;
+                    if (win.x > target.x) {
+                        win.x = target.x;
+                        win.width = target.width + win.width;
                     } else {
-                        win.width = focused.width + win.width;
+                        win.width = target.width + win.width;
                     }
                 }
                 return;

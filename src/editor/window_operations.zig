@@ -1,6 +1,10 @@
+const std = @import("std");
+const print = @import("std").debug.print;
+
 const globals = @import("../globals.zig");
 const command_line = @import("command_line.zig");
-const Windows = @import("command_line.zig");
+const Windows = @import("../ui/window.zig");
+const Buffer = @import("buffer.zig");
 
 const global = globals.global;
 const internal = globals.internal;
@@ -30,4 +34,13 @@ pub fn closeFocusedWindow() void {
 
 pub fn focusWindow(dir: Direction) void {
     internal.windows.focusWindow(dir);
+}
+
+pub fn closeBufferWindow(buffer: *Buffer) void {
+    for (internal.windows.wins.items) |*win, i| {
+        if (buffer.index.? == win.buffer.index.?) {
+            internal.windows.closeWindow(i);
+            return;
+        }
+    }
 }

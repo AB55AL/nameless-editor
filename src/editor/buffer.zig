@@ -84,12 +84,14 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 /// The index of the buffer is set to `null` to signify that the buffer members
 /// have been deinitialized
 pub fn deinitAndTrash(buffer: *Buffer) void {
-    buffer.deinitNoTrash();
+    buffer.deinitNoTrash(internal.allocator);
 
     var index_in_global_array: usize = 0;
     for (global.buffers.items) |b, i| {
-        if (b.index.? == buffer.index.?)
+        if (b.index.? == buffer.index.?) {
             index_in_global_array = i;
+            break;
+        }
     }
     var removed_buffer = global.buffers.swapRemove(index_in_global_array);
     removed_buffer.index = null;
