@@ -32,7 +32,7 @@ const Buffer = @This();
 pub const MetaData = struct {
     file_path: []u8,
     file_last_mod_time: i128,
-    is_dirty: bool,
+    dirty: bool,
 };
 
 metadata: MetaData,
@@ -60,7 +60,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var metadata = MetaData{
         .file_path = fp,
         .file_last_mod_time = 0,
-        .is_dirty = false,
+        .dirty = false,
     };
 
     var buffer = Buffer{
@@ -166,7 +166,7 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
     buffer.lines.count += num_of_newlines;
 
     buffer.adjustSections(row, num_of_newlines, @intCast(isize, string.len), old_nl_count);
-    buffer.metadata.is_dirty = true;
+    buffer.metadata.dirty = true;
 }
 
 /// deletes the string at the given row from start_column to end_column (exclusive). (1-based)
@@ -199,7 +199,7 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     buffer.lines.count -= num_of_newlines;
     try insureLastByteIsNewline(buffer);
     buffer.adjustSections(row, num_of_newlines, -@intCast(isize, substring.len), old_nl_count);
-    buffer.metadata.is_dirty = true;
+    buffer.metadata.dirty = true;
 
     // make sure the cursor.row is never on a row that doesn't exists
     if (utils.getNewline(buffer.lines.slice(0, buffer.lines.length()), buffer.cursor.row) == null)

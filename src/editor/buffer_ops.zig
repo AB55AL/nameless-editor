@@ -114,7 +114,7 @@ pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
         return error.SavingNullBuffer;
 
     try file_io.writeToFile(buffer, force_write);
-    buffer.metadata.is_dirty = false;
+    buffer.metadata.dirty = false;
 }
 
 /// Deinits the buffer and closes it's window.
@@ -123,7 +123,7 @@ pub fn killBuffer(buffer: *Buffer) !void {
     if (buffer.index == null)
         return error.KillingNullBuffer;
 
-    if (buffer.metadata.is_dirty)
+    if (buffer.metadata.dirty)
         return error.KillingDirtyBuffer;
 
     try forceKillBuffer(buffer);
