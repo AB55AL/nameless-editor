@@ -62,6 +62,12 @@ pub const Window = struct {
     visible_cols_at_buffer_row: u32 = 0,
 
     options: WindowOptions = .{},
+
+    pub fn newIndex() u32 {
+        const index = next_window_index;
+        next_window_index += 1;
+        return index;
+    }
 };
 
 pub const Windows = struct {
@@ -97,8 +103,8 @@ pub const Windows = struct {
     pub fn createNew(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len != 0) return;
 
-        try windows.wins.append(Window{
-            .index = next_window_index,
+        const window = Window{
+            .index = Window.newIndex(),
             .x = 0,
             .y = 0,
             .width = 1,
@@ -106,9 +112,9 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-        });
-        windows.focused_window_index = next_window_index;
-        next_window_index += 1;
+        };
+        windows.focused_window_index = window.index;
+        try windows.wins.append(window);
     }
     pub fn createRight(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
@@ -117,8 +123,8 @@ pub const Windows = struct {
         }
 
         var focused = windows.focusedWindow();
-        try windows.wins.append(Window{
-            .index = next_window_index,
+        const window = Window{
+            .index = Window.newIndex(),
             .x = focused.x + focused.width / 2,
             .y = focused.y,
             .width = focused.width / 2,
@@ -126,9 +132,9 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-        });
-        windows.focused_window_index = next_window_index;
-        next_window_index += 1;
+        };
+        windows.focused_window_index = window.index;
+        try windows.wins.append(window);
 
         focused.width /= 2;
     }
@@ -139,8 +145,8 @@ pub const Windows = struct {
         }
 
         var focused = windows.focusedWindow();
-        try windows.wins.append(Window{
-            .index = next_window_index,
+        const window = Window{
+            .index = Window.newIndex(),
             .x = focused.x,
             .y = focused.y,
             .width = focused.width / 2,
@@ -148,9 +154,9 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-        });
-        windows.focused_window_index = next_window_index;
-        next_window_index += 1;
+        };
+        windows.focused_window_index = window.index;
+        try windows.wins.append(window);
 
         focused.width /= 2;
         focused.x += focused.width;
@@ -162,8 +168,8 @@ pub const Windows = struct {
         }
 
         var focused = windows.focusedWindow();
-        try windows.wins.append(Window{
-            .index = next_window_index,
+        const window = Window{
+            .index = Window.newIndex(),
             .x = focused.x,
             .y = focused.y,
             .width = focused.width,
@@ -171,9 +177,9 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-        });
-        windows.focused_window_index = next_window_index;
-        next_window_index += 1;
+        };
+        windows.focused_window_index = window.index;
+        try windows.wins.append(window);
 
         focused.height /= 2;
         focused.y += focused.height;
@@ -184,7 +190,7 @@ pub const Windows = struct {
             return;
         }
         var focused = windows.focusedWindow();
-        try windows.wins.append(Window{
+        const window = Window{
             .index = next_window_index,
             .x = focused.x,
             .y = focused.y + focused.height / 2,
@@ -193,9 +199,9 @@ pub const Windows = struct {
             .buffer = buffer,
             .start_col = 1,
             .start_row = 1,
-        });
-        windows.focused_window_index = next_window_index;
-        next_window_index += 1;
+        };
+        windows.focused_window_index = window.index;
+        try windows.wins.append(window);
 
         focused.height /= 2;
     }
