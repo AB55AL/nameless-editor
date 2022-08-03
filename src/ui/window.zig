@@ -70,9 +70,34 @@ pub const Window = struct {
     }
 };
 
+pub const Layout = struct {
+    openWindow: fn (*Windows, window_ops.Direction) *Window,
+    closeWindow: fn (*Windows, u32) void,
+    resize: fn (*Windows, u32, f32, window_ops.Direction) void,
+    equalize: fn (*Windows) void,
+    changeFocusedWindow: fn (*Windows, u32, window_ops.Direction) void,
+
+    pub fn init(
+        openWindowFn: fn (*Windows, window_ops.Direction) *Window,
+        closeWindowFn: fn (*Windows, u32) void,
+        resizeFn: fn (*Windows, u32, f32, window_ops.Direction) void,
+        equalizeFn: fn (*Windows) void,
+        changeFocusedWindowFn: fn (*Windows, u32, window_ops.Direction) void,
+    ) Layout {
+        return .{
+            .openWindow = openWindowFn,
+            .closeWindow = closeWindowFn,
+            .resize = resizeFn,
+            .equalize = equalizeFn,
+            .changeFocusedWindow = changeFocusedWindowFn,
+        };
+    }
+};
+
 pub const Windows = struct {
     wins: ArrayList(Window),
     focused_window_index: u32,
+    active_layout: Layout,
 
     pub fn focusedWindow(windows: *Windows) *Window {
         assert(windows.wins.items.len > 0);
