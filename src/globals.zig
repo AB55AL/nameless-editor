@@ -40,6 +40,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
     internal.windows.wins = ArrayList(Window).init(internal.allocator);
     internal.os_window = .{ .width = @intToFloat(f32, window_width), .height = @intToFloat(f32, window_height) };
     internal.command_line_window = .{
+        .index = 0,
         .x = 0,
         .y = 0.95,
         .width = 1,

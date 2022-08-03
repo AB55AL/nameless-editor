@@ -14,6 +14,8 @@ const window_ops = @import("window_ops.zig");
 const global = globals.global;
 const internal = globals.internal;
 
+var next_window_index: u32 = 0;
+
 pub const WindowOptions = struct {
     wrap_text: bool = false,
 };
@@ -41,6 +43,7 @@ pub const WindowPixels = struct {
 };
 
 pub const Window = struct {
+    index: u32,
     x: f32,
     y: f32,
     width: f32,
@@ -63,18 +66,23 @@ pub const Window = struct {
 
 pub const Windows = struct {
     wins: ArrayList(Window),
+    focused_window_index: u32,
 
     pub fn focusedWindow(windows: *Windows) *Window {
         assert(windows.wins.items.len > 0);
+
         var wins = windows.wins.items;
-        return &wins[windows.focusedWindowIndex().?];
+        for (wins) |*win|
+            if (win.index == windows.focused_window_index) return win;
+
+        return &wins[0];
     }
 
-    pub fn focusedWindowIndex(windows: *Windows) ?usize {
+    pub fn focusedWindowArrayIndex(windows: *Windows) ?usize {
         var wins = windows.wins.items;
+        if (wins.len == 0) return null;
         for (wins) |win, i|
-            if (win.buffer.index.? == global.focused_buffer.index.?)
-                return i;
+            if (win.index == windows.focused_window_index) return i;
 
         return 0;
     }
@@ -90,6 +98,7 @@ pub const Windows = struct {
         if (windows.wins.items.len != 0) return;
 
         try windows.wins.append(Window{
+            .index = next_window_index,
             .x = 0,
             .y = 0,
             .width = 1,
@@ -98,6 +107,8 @@ pub const Windows = struct {
             .start_col = 1,
             .start_row = 1,
         });
+        windows.focused_window_index = next_window_index;
+        next_window_index += 1;
     }
     pub fn createRight(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
         if (windows.wins.items.len == 0) {
@@ -107,6 +118,7 @@ pub const Windows = struct {
 
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
+            .index = next_window_index,
             .x = focused.x + focused.width / 2,
             .y = focused.y,
             .width = focused.width / 2,
@@ -115,6 +127,8 @@ pub const Windows = struct {
             .start_col = 1,
             .start_row = 1,
         });
+        windows.focused_window_index = next_window_index;
+        next_window_index += 1;
 
         focused.width /= 2;
     }
@@ -126,6 +140,7 @@ pub const Windows = struct {
 
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
+            .index = next_window_index,
             .x = focused.x,
             .y = focused.y,
             .width = focused.width / 2,
@@ -134,6 +149,8 @@ pub const Windows = struct {
             .start_col = 1,
             .start_row = 1,
         });
+        windows.focused_window_index = next_window_index;
+        next_window_index += 1;
 
         focused.width /= 2;
         focused.x += focused.width;
@@ -146,6 +163,7 @@ pub const Windows = struct {
 
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
+            .index = next_window_index,
             .x = focused.x,
             .y = focused.y,
             .width = focused.width,
@@ -154,6 +172,8 @@ pub const Windows = struct {
             .start_col = 1,
             .start_row = 1,
         });
+        windows.focused_window_index = next_window_index;
+        next_window_index += 1;
 
         focused.height /= 2;
         focused.y += focused.height;
@@ -165,6 +185,7 @@ pub const Windows = struct {
         }
         var focused = windows.focusedWindow();
         try windows.wins.append(Window{
+            .index = next_window_index,
             .x = focused.x,
             .y = focused.y + focused.height / 2,
             .width = focused.width,
@@ -173,6 +194,8 @@ pub const Windows = struct {
             .start_col = 1,
             .start_row = 1,
         });
+        windows.focused_window_index = next_window_index;
+        next_window_index += 1;
 
         focused.height /= 2;
     }
@@ -183,19 +206,23 @@ pub const Windows = struct {
             .right => {
                 var neighbor = windows.closestRightNeighbor(windows.focusedWindow()) orelse return;
                 global.focused_buffer = neighbor.buffer;
+                windows.focused_window_index = neighbor.index;
             },
             .left => {
                 var neighbor = windows.closestLeftNeighbor(windows.focusedWindow()) orelse return;
                 global.focused_buffer = neighbor.buffer;
+                windows.focused_window_index = neighbor.index;
             },
             .above => {
                 var neighbor = windows.closestAboveNeighbor(windows.focusedWindow()) orelse return;
                 global.focused_buffer = neighbor.buffer;
+                windows.focused_window_index = neighbor.index;
             },
 
             .below => {
                 var neighbor = windows.closestBelowNeighbor(windows.focusedWindow()) orelse return;
                 global.focused_buffer = neighbor.buffer;
+                windows.focused_window_index = neighbor.index;
             },
             else => return,
         }
@@ -203,15 +230,18 @@ pub const Windows = struct {
 
     pub fn closeWindow(windows: *Windows, index: usize) void {
         if (windows.wins.items.len == 0) return;
-        var removed = internal.windows.wins.orderedRemove(index);
-        windows.resize(&removed);
+        for (windows.wins.items) |win, i| {
+            if (win.index == index) {
+                var removed = internal.windows.wins.orderedRemove(i);
+                windows.resize(&removed);
+            }
+        }
     }
 
     pub fn closeFocusedWindow(windows: *Windows) void {
         if (windows.wins.items.len == 0) return;
-        const index = windows.focusedWindowIndex().?;
         windows.resize(windows.focusedWindow());
-        windows.closeWindow(index);
+        windows.closeWindow(windows.focusedWindow().index);
     }
 
     pub fn resize(windows: *Windows, target: *Window) void {
