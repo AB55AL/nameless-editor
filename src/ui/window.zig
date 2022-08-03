@@ -71,18 +71,18 @@ pub const Window = struct {
 };
 
 pub const Layout = struct {
-    openWindow: fn (*Windows, window_ops.Direction) *Window,
-    closeWindow: fn (*Windows, u32) void,
-    resize: fn (*Windows, u32, f32, window_ops.Direction) void,
-    equalize: fn (*Windows) void,
-    changeFocusedWindow: fn (*Windows, u32, window_ops.Direction) void,
+    openWindow: fn (windows: *Windows, dir: window_ops.Direction) *Window,
+    closeWindow: fn (windows: *Windows, window_index: u32) void,
+    resize: fn (windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+    equalize: fn (windows: *Windows) void,
+    changeFocusedWindow: fn (windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
 
     pub fn init(
-        openWindowFn: fn (*Windows, window_ops.Direction) *Window,
-        closeWindowFn: fn (*Windows, u32) void,
-        resizeFn: fn (*Windows, u32, f32, window_ops.Direction) void,
-        equalizeFn: fn (*Windows) void,
-        changeFocusedWindowFn: fn (*Windows, u32, window_ops.Direction) void,
+        openWindowFn: fn (windows: *Windows, dir: window_ops.Direction) *Window,
+        closeWindowFn: fn (windows: *Windows, window_index: u32) void,
+        resizeFn: fn (windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+        equalizeFn: fn (windows: *Windows) void,
+        changeFocusedWindowFn: fn (windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
     ) Layout {
         return .{
             .openWindow = openWindowFn,
