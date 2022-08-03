@@ -51,7 +51,7 @@ pub const Window = struct {
 
     background_color: vectors.vec3 = .{ .x = 0.1, .y = 0.1, .z = 0.1 },
 
-    buffer: *Buffer,
+    buffer: *Buffer = undefined,
     start_col: u32 = 1,
     start_row: u32 = 1,
     /// Number of rows to render
