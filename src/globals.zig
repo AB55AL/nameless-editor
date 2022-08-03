@@ -19,6 +19,8 @@ pub const global = struct {
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
     pub var layouts: StringArrayHashMap(window.LayoutInterface) = undefined;
+    /// An ArrayList holding every visible window
+    pub var windows: Windows = undefined;
 };
 
 pub const internal = struct {
@@ -26,8 +28,6 @@ pub const internal = struct {
     pub var allocator: std.mem.Allocator = undefined;
     /// When a buffer is removed from global.buffers it is placed here
     pub var buffers_trashcan: ArrayList(*Buffer) = undefined;
-    /// An ArrayList holding every visible window
-    pub var windows: Windows = undefined;
     /// The window of the command_line
     pub var command_line_window: Window = undefined;
     /// The width and height of the window system window
@@ -41,7 +41,6 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
     global.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
 
     internal.buffers_trashcan = ArrayList(*Buffer).init(internal.allocator);
-    internal.windows.wins = ArrayList(Window).init(internal.allocator);
     internal.os_window = .{ .width = @intToFloat(f32, window_width), .height = @intToFloat(f32, window_height) };
     internal.command_line_window = .{
         .index = 0,
@@ -52,6 +51,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
         .buffer = global.command_line_buffer,
     };
 
+    global.windows.wins = ArrayList(Window).init(internal.allocator);
     global.buffers = ArrayList(*Buffer).init(internal.allocator);
     global.layouts = StringArrayHashMap(window.LayoutInterface).init(internal.allocator);
 }
