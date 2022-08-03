@@ -18,7 +18,7 @@ pub const global = struct {
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
-    pub var layouts: StringArrayHashMap(window.LayoutInterface) = undefined;
+    pub var layouts: StringArrayHashMap(window.Layout) = undefined;
     /// An ArrayList holding every visible window
     pub var windows: Windows = undefined;
 };
@@ -53,7 +53,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
 
     global.windows.wins = ArrayList(Window).init(internal.allocator);
     global.buffers = ArrayList(*Buffer).init(internal.allocator);
-    global.layouts = StringArrayHashMap(window.LayoutInterface).init(internal.allocator);
+    global.layouts = StringArrayHashMap(window.Layout).init(internal.allocator);
 }
 
 pub fn deinitGlobals() void {
