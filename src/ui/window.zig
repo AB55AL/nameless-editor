@@ -110,8 +110,6 @@ pub const Windows = struct {
             .width = 1,
             .height = 1,
             .buffer = buffer,
-            .start_col = 1,
-            .start_row = 1,
         };
         windows.focused_window_index = window.index;
         try windows.wins.append(window);
@@ -130,8 +128,6 @@ pub const Windows = struct {
             .width = focused.width / 2,
             .height = focused.height,
             .buffer = buffer,
-            .start_col = 1,
-            .start_row = 1,
         };
         windows.focused_window_index = window.index;
         try windows.wins.append(window);
@@ -152,8 +148,6 @@ pub const Windows = struct {
             .width = focused.width / 2,
             .height = focused.height,
             .buffer = buffer,
-            .start_col = 1,
-            .start_row = 1,
         };
         windows.focused_window_index = window.index;
         try windows.wins.append(window);
@@ -175,8 +169,6 @@ pub const Windows = struct {
             .width = focused.width,
             .height = focused.height / 2,
             .buffer = buffer,
-            .start_col = 1,
-            .start_row = 1,
         };
         windows.focused_window_index = window.index;
         try windows.wins.append(window);
@@ -191,14 +183,12 @@ pub const Windows = struct {
         }
         var focused = windows.focusedWindow();
         const window = Window{
-            .index = next_window_index,
+            .index = Window.newIndex(),
             .x = focused.x,
             .y = focused.y + focused.height / 2,
             .width = focused.width,
             .height = focused.height / 2,
             .buffer = buffer,
-            .start_col = 1,
-            .start_row = 1,
         };
         windows.focused_window_index = window.index;
         try windows.wins.append(window);
