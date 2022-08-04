@@ -11,6 +11,14 @@ pub fn countChar(string: []const u8, char: u8) u32 {
     return count;
 }
 
+pub fn typeToString(buf: []u8, T: anytype) ![]const u8 {
+    return std.fmt.bufPrint(buf, "{}", .{T});
+}
+
+pub fn typeToStringAlloc(allocator: std.mem.Allocator, T: anytype) ![]const u8 {
+    return std.fmt.allocPrint(allocator, "{}", .{T});
+}
+
 /// Returns the index (0-based) of the ith (1-based) newline character in a string or
 /// 0 if index is 0 or null if it doesn't find it
 pub fn getNewline(string: []const u8, index: usize) ?usize {

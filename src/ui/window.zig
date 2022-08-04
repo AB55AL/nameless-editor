@@ -3,6 +3,7 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
+const eql = std.mem.eql;
 
 const Buffer = @import("../editor/buffer.zig");
 const VCursor = @import("vcursor.zig").VCursor;
@@ -70,21 +71,69 @@ pub const Window = struct {
     }
 };
 
+pub const Layouts = struct {
+    layouts: ArrayList(Layout),
+
+    pub fn init(allocator: Allocator) Layouts {
+        return .{
+            .layouts = ArrayList(Layout).init(allocator),
+        };
+    }
+
+    pub fn deinit(layouts: *Layouts) void {
+        for (layouts.layouts.items) |layout|
+            layouts.layouts.allocator.free(layout.type_name);
+
+        layouts.layouts.deinit();
+    }
+
+    pub fn remove(layouts: *Layouts, layout_name: []const u8) void {
+        if (layouts.layouts.items.len == 1) {
+            print("Can't remove layout when only one is left\n", .{});
+            return;
+        }
+
+        for (layouts.layouts.items) |layout, i| {
+            if (eql(layout.name, layout_name)) {
+                var l = layouts.layouts.swapRemove(i);
+                internal.allocator.free(l.name);
+            }
+        }
+    }
+    pub fn add(layouts: *Layouts, iface: LayoutInterface, impl_struct: anytype) !void {
+        var type_name = try utils.typeToStringAlloc(internal.allocator, @TypeOf(impl_struct));
+        var layout = Layout{
+            .layout = iface,
+            .type_name = type_name,
+        };
+        try layouts.layouts.append(layout);
+    }
+};
+
 pub const Layout = struct {
-    openWindow: fn (windows: *Windows, dir: window_ops.Direction) *Window,
-    closeWindow: fn (windows: *Windows, window_index: u32) void,
-    resize: fn (windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
-    equalize: fn (windows: *Windows) void,
-    changeFocusedWindow: fn (windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
+    layout: LayoutInterface,
+    type_name: []const u8,
+};
+
+pub const LayoutInterface = struct {
+    impl_struct: *anyopaque,
+
+    openWindow: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
+    closeWindow: fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
+    resize: fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+    equalize: fn (iface: *anyopaque, windows: *Windows) void,
+    changeFocusedWindow: fn (iface: *anyopaque, windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
 
     pub fn init(
-        openWindowFn: fn (windows: *Windows, dir: window_ops.Direction) *Window,
-        closeWindowFn: fn (windows: *Windows, window_index: u32) void,
-        resizeFn: fn (windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
-        equalizeFn: fn (windows: *Windows) void,
-        changeFocusedWindowFn: fn (windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
-    ) Layout {
+        impl_struct: *anyopaque,
+        openWindowFn: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
+        closeWindowFn: fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
+        resizeFn: fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+        equalizeFn: fn (iface: *anyopaque, windows: *Windows) void,
+        changeFocusedWindowFn: fn (iface: *anyopaque, windows: *Windows, window_index: u32, dir: window_ops.Direction) void,
+    ) LayoutInterface {
         return .{
+            .impl_struct = impl_struct,
             .openWindow = openWindowFn,
             .closeWindow = closeWindowFn,
             .resize = resizeFn,

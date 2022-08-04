@@ -3,6 +3,7 @@ const print = std.debug.print;
 const fs = std.fs;
 const ArrayList = std.ArrayList;
 const eql = std.mem.eql;
+const assert = std.debug.assert;
 
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
@@ -77,33 +78,29 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
     return null;
 }
 
+pub fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
+    var buffer = (try getBuffer(index, file_path)) orelse
+        try createBuffer(file_path);
+
+    return buffer;
+}
+
 pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Direction) !void {
-    var buffer = try getBuffer(index, file_path);
-    const createWindow = switch (direction) {
-        .here => Windows.changeCurrentWindow,
-        .right => Windows.createRight,
-        .left => Windows.createLeft,
-        .above => Windows.createAbove,
-        .below => Windows.createBelow,
-    };
-    var windows = &internal.windows;
-    if (buffer) |buf| {
-        try createWindow(windows, buf);
-        global.focused_buffer = buf;
-    } else if (file_path) |fp| {
-        var buf = try createBuffer(fp);
+    assert(index != null or file_path != null);
 
-        if (internal.windows.wins.items.len == 0) {
-            try internal.windows.createNew(buf);
-            global.focused_buffer = buf;
-            internal.windows.focusedWindow().buffer = buf;
-        } else {
-            try createWindow(windows, buf);
-        }
+    var buffer: *Buffer = if (file_path != null)
+        try getOrCreateBuffer(index, file_path.?)
+    else
+        try getOrCreateBuffer(index, "");
 
-        global.focused_buffer = buf;
+    if (direction == .here) {
+        global.windows.focusedWindow().buffer = buffer;
+        global.focused_buffer = buffer;
     } else {
-        return error.CannotFindBuffer;
+        var al = global.windows.active_layout.layout;
+        var window = try al.openWindow(al.impl_struct, &global.windows, direction);
+        window.buffer = buffer;
+        global.focused_buffer = buffer;
     }
 }
 

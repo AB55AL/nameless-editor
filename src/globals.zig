@@ -1,7 +1,6 @@
 const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
-const StringArrayHashMap = std.StringArrayHashMap;
 
 const Buffer = @import("editor/buffer.zig");
 const window_ops = @import("ui/window_ops.zig");
@@ -18,7 +17,7 @@ pub const global = struct {
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
-    pub var layouts: StringArrayHashMap(window.Layout) = undefined;
+    pub var layouts: window.Layouts = undefined;
     /// An ArrayList holding every visible window
     pub var windows: Windows = undefined;
 };
@@ -53,7 +52,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
 
     global.windows.wins = ArrayList(Window).init(internal.allocator);
     global.buffers = ArrayList(*Buffer).init(internal.allocator);
-    global.layouts = StringArrayHashMap(window.Layout).init(internal.allocator);
+    global.layouts = window.Layouts.init(internal.allocator);
 }
 
 pub fn deinitGlobals() void {
@@ -65,7 +64,7 @@ pub fn deinitGlobals() void {
         internal.allocator.destroy(buffer);
     internal.buffers_trashcan.deinit();
 
-    internal.windows.wins.deinit();
+    global.windows.wins.deinit();
     global.command_line_buffer.deinitAndDestroy(internal.allocator);
     global.layouts.deinit();
 }
