@@ -117,8 +117,8 @@ pub const Text = struct {
     pub fn init(shader: Shader) !*Text {
         var text = try internal.allocator.create(Text);
         text.ft_lib = try freetype.Library.init();
-        text.ft_face = try text.ft_lib.newFace("assets/Amiri-Regular.ttf", 0);
-        // text.ft_face = try text.ft_lib.newFace("assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
+        text.ft_face = try text.ft_lib.createFace("assets/Amiri-Regular.ttf", 0);
+        // text.ft_face = try text.ft_lib.createFace("assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
 
         const font_size: i32 = 18;
         try text.ft_face.setCharSize(64 * font_size, 0, 0, 0);
