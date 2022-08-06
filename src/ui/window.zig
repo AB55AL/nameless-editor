@@ -54,7 +54,8 @@ pub const Window = struct {
     width: f32,
     height: f32,
 
-    background_color: vectors.vec3 = .{ .x = 0.1, .y = 0.1, .z = 0.1 },
+    /// color in hex
+    background_color: u24 = 0x11_11_11,
 
     buffer: *Buffer = undefined,
     start_col: u32 = 1,
@@ -90,13 +91,27 @@ pub const Windows = struct {
         return &wins[0];
     }
 
-    pub fn focusedWindowArrayIndex(windows: *Windows) ?usize {
-        var wins = windows.wins.items;
-        if (wins.len == 0) return null;
-        for (wins) |win, i|
+    pub fn focusedWindowArrayIndex(windows: *Windows) usize {
+        assert(windows.wins.items.len > 0);
+        for (windows.wins.items) |win, i|
             if (win.index == windows.focused_window_index) return i;
 
         return 0;
+    }
+
+    pub fn windowArrayIndex(windows: *Windows, window_index: u32) usize {
+        assert(windows.wins.items.len > 0);
+        for (windows.wins.items) |win, i|
+            if (win.index == window_index)
+                return i;
+
+        return 0;
+    }
+
+    pub fn changeFocusedWindow(windows: *Windows, dir: window_ops.Direction) void {
+        var layout = windows.active_layout.layout;
+        layout.changeFocusedWindow(layout.impl_struct, windows, dir);
+        global.focused_buffer = windows.focusedWindow().buffer;
     }
 
     pub fn changeCurrentWindow(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
@@ -106,12 +121,53 @@ pub const Windows = struct {
             windows.focusedWindow().buffer = buffer;
     }
 
-    pub fn closeFocusedWindow(windows: *Windows) void {
-        if (windows.wins.items.len == 0) return;
-        // global.resize(windows.focusedWindow());
-        // global.closeWindow(windows.focusedWindow().index);
+    pub fn openWindow(windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window {
+        return try windows.active_layout.layout.openWindow(
+            windows.active_layout.layout.impl_struct,
+            windows,
+            dir,
+        );
+    }
+    pub fn closeWindow(windows: *Windows, window_index: u32) void {
+        windows.active_layout.layout.closeWindow(
+            windows.active_layout.layout.impl_struct,
+            windows,
+            window_index,
+        );
+    }
+    pub fn resize(windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void {
+        windows.active_layout.layout.resize(
+            windows.active_layout.layout.impl_struct,
+            windows,
+            window_index,
+            resize_value,
+            dir,
+        );
+    }
+    pub fn equalize(windows: *Windows) void {
+        windows.active_layout.layout.equalize(
+            windows.active_layout.layout.impl_struct,
+            windows,
+        );
     }
 
+    pub fn cycleThroughWindows(windows: *Windows, dir: window_ops.Direction) void {
+        windows.active_layout.layout.cycleThroughWindows(
+            windows.active_layout.layout.impl_struct,
+            windows,
+            dir,
+        );
+
+        global.focused_buffer = windows.focusedWindow().buffer;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // Finding neighbors
+    //
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     fn findBottomNeighbors(windows: *Windows, current_window: *Window) ?[]*Window {
         var neighbors = ArrayList(*Window).initCapacity(internal.allocator, internal.windows.wins.items.len) catch |err| {
             print("findBottomNeighbors(): err={}\n", .{err});

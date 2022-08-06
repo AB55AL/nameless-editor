@@ -28,6 +28,10 @@ pub fn setDefaultCommands() !void {
     try add("forceKill", forceKillFocused);
     try add("saveAndQuit", saveAndQuitFocused);
     try add("forceSaveAndQuit", forceSaveAndQuitFocused);
+
+    try add("hResize", hResizeFocusedDown);
+    try add("vResize", vResizeFocused);
+    try add("eql", equalize);
 }
 
 fn open(file_path: []const u8) void {
@@ -106,4 +110,18 @@ fn saveAndQuitFocused() void {
 fn forceSaveAndQuitFocused() void {
     buffer_ops.saveAndQuit(global.focused_buffer, true) catch |err|
         print("{}\nerr={}\n", .{ @src(), err });
+}
+
+fn vResizeFocused(resize_value: f32) void {
+    var win = global.windows.focusedWindow();
+    global.windows.resize(win.index, resize_value, .right);
+}
+
+fn hResizeFocusedDown(resize_value: f32) void {
+    var win = global.windows.focusedWindow();
+    global.windows.resize(win.index, resize_value, .above);
+}
+
+fn equalize() void {
+    global.windows.equalize();
 }

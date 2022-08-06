@@ -163,3 +163,7 @@ pub fn SplitAfterIterator(comptime T: type) type {
 pub fn inRange(comptime T: type, a: T, b: T, c: T) bool {
     return a >= b and a <= c;
 }
+
+pub fn abs(val: f32) f32 {
+    return if (val < 0) -val else val;
+}

@@ -67,19 +67,22 @@ pub fn render() !void {
         var window = &global.windows.wins.items[i];
 
         const bg_color = if (window.index == global.windows.focused_window_index)
-            syntax.hexToColorVector(0x272822)
+            0x272822
         else
             window.background_color;
 
-        renderer_rect.renderFraction(window.*, bg_color);
-        try renderer_text.render(window);
+        renderer_rect.renderFraction(window.*, syntax.hexToColorVector(bg_color));
+        if (window.buffer.index != null)
+            try renderer_text.render(window);
     }
     if (global.command_line_is_open) {
         renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
         try renderer_text.render(&internal.command_line_window);
         cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
     } else if (global.windows.wins.items.len > 0) {
-        cursor.render(renderer_rect, renderer_text, global.windows.focusedWindow(), .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        if (global.windows.focusedWindow().buffer.index != null) {
+            cursor.render(renderer_rect, renderer_text, global.windows.focusedWindow(), .{ .x = 1.0, .y = 1.0, .z = 1.0 });
+        }
     }
 
     try glfw_window.swapBuffers();

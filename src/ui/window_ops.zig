@@ -15,32 +15,19 @@ pub const Direction = enum(u3) {
     left,
     above,
     below,
+    next,
+    prev,
 };
 
-pub fn cycleThroughWindows() void {
-    if (internal.windows.wins.items.len == 0) return;
-    if (global.command_line_is_open) command_line.close();
-    const static = struct {
-        var i: usize = 0;
-    };
-    static.i += 1;
-    if (static.i >= internal.windows.wins.items.len) static.i = 0;
-    global.focused_buffer = internal.windows.wins.items[static.i].buffer;
-}
-
 pub fn closeFocusedWindow() void {
-    internal.windows.closeFocusedWindow();
-}
-
-pub fn focusWindow(dir: Direction) void {
-    internal.windows.focusWindow(dir);
+    var windows = &global.windows;
+    if (windows.wins.items.len == 0) return;
+    var window_index = windows.focusedWindow().index;
+    windows.closeWindow(window_index);
 }
 
 pub fn closeBufferWindow(buffer: *Buffer) void {
-    for (internal.windows.wins.items) |*win, i| {
-        if (buffer.index.? == win.buffer.index.?) {
-            internal.windows.closeWindow(i);
-            return;
-        }
-    }
+    for (global.windows.wins.items) |*win|
+        if (buffer.index.? == win.buffer.index.?)
+            global.windows.closeWindow(win.index);
 }

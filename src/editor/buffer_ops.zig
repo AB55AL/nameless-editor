@@ -97,8 +97,7 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Dir
         global.windows.focusedWindow().buffer = buffer;
         global.focused_buffer = buffer;
     } else {
-        var al = global.windows.active_layout.layout;
-        var window = try al.openWindow(al.impl_struct, &global.windows, direction);
+        var window = try global.windows.openWindow(direction);
         window.buffer = buffer;
         global.focused_buffer = buffer;
     }

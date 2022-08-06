@@ -11,6 +11,7 @@ const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
 const buffer_ops = @import("editor/buffer_ops.zig");
 const globals = @import("globals.zig");
+const layouts = @import("ui/layouts.zig");
 
 const input_layer = @import("input_layer");
 
@@ -37,8 +38,14 @@ pub fn main() !void {
     try command_line.init();
     defer command_line.deinit();
 
-    try buffer_ops.openBuffer(null, "build.zig", .here);
+    var tr = layouts.TileRight.init(1);
+    try globals.global.layouts.add(tr.interface(), tr);
+    globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
+
+    // FIXME: opening with Direction.here causes unreachable code to be reached
+    // try buffer_ops.openBuffer(null, "build.zig", .here);
     try buffer_ops.openBuffer(null, "src/editor/buffer_ops.zig", .right);
+    try buffer_ops.openBuffer(null, "src/core.zig", .right);
     try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
     try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
 
