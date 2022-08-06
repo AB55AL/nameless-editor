@@ -20,7 +20,7 @@ pub const Direction = enum(u3) {
 };
 
 pub fn closeFocusedWindow() void {
-    var windows = &global.windows;
+    var windows = global.windows;
     if (windows.wins.items.len == 0) return;
     var window_index = windows.focusedWindow().index;
     windows.closeWindow(window_index);

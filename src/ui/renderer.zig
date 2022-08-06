@@ -75,7 +75,7 @@ pub fn render() !void {
         if (window.buffer.index != null)
             try renderer_text.render(window);
     }
-    if (global.command_line_is_open) {
+    if (global.command_line_is_open.*) {
         renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
         try renderer_text.render(&internal.command_line_window);
         cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
@@ -94,7 +94,7 @@ pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) voi
         return;
     };
 
-    internal.os_window = .{ .width = @intToFloat(f32, width), .height = @intToFloat(f32, height) };
+    internal.os_window.* = .{ .width = @intToFloat(f32, width), .height = @intToFloat(f32, height) };
     c.glViewport(0, 0, @intCast(c_int, width), @intCast(c_int, height));
 
     var projection = matrices.createOrthoMatrix(0, @intToFloat(f32, width), @intToFloat(f32, height), 0, -1, 1);

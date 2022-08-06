@@ -59,13 +59,13 @@ pub fn deinit() void {
 }
 
 pub fn open() void {
-    global.command_line_is_open = true;
+    global.command_line_is_open.* = true;
     previous_buffer = global.focused_buffer;
     global.focused_buffer = global.command_line_buffer;
 }
 
 pub fn close() void {
-    global.command_line_is_open = false;
+    global.command_line_is_open.* = false;
     global.focused_buffer = previous_buffer;
     global.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});

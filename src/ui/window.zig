@@ -109,6 +109,7 @@ pub const Windows = struct {
     }
 
     pub fn changeFocusedWindow(windows: *Windows, dir: window_ops.Direction) void {
+        if (global.command_line_is_open.*) return;
         var layout = windows.active_layout.layout;
         layout.changeFocusedWindow(layout.impl_struct, windows, dir);
         global.focused_buffer = windows.focusedWindow().buffer;
@@ -152,6 +153,7 @@ pub const Windows = struct {
     }
 
     pub fn cycleThroughWindows(windows: *Windows, dir: window_ops.Direction) void {
+        if (global.command_line_is_open.*) return;
         windows.active_layout.layout.cycleThroughWindows(
             windows.active_layout.layout.impl_struct,
             windows,
