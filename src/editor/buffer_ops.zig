@@ -9,6 +9,7 @@ const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 const globals = @import("../globals.zig");
 const Windows = @import("../ui/window.zig").Windows;
+const Window = @import("../ui/window.zig").Window;
 const window_ops = @import("../ui/window_ops.zig");
 
 const global = globals.global;
@@ -93,11 +94,11 @@ pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Dir
     else
         try getOrCreateBuffer(index, "");
 
-    if (direction == .here) {
+    if (direction == .here and global.windows.wins.items.len > 0) {
         global.windows.focusedWindow().buffer = buffer;
         global.focused_buffer = buffer;
     } else {
-        var window = try global.windows.openWindow(direction);
+        var window = try global.windows.openWindow(if (direction == .here) .next else direction);
         window.buffer = buffer;
         global.focused_buffer = buffer;
     }

@@ -42,8 +42,7 @@ pub fn main() !void {
     try globals.global.layouts.add(tr.interface(), tr);
     globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
 
-    // FIXME: opening with Direction.here causes unreachable code to be reached
-    // try buffer_ops.openBuffer(null, "build.zig", .here);
+    try buffer_ops.openBuffer(null, "build.zig", .here);
     try buffer_ops.openBuffer(null, "src/editor/buffer_ops.zig", .right);
     try buffer_ops.openBuffer(null, "src/core.zig", .right);
     try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
