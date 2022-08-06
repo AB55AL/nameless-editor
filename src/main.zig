@@ -4,16 +4,16 @@ const time = std.time;
 const ArrayList = std.ArrayList;
 
 const glfw = @import("glfw");
-const Buffer = @import("editor/buffer.zig");
-const renderer = @import("ui/renderer.zig");
-const Window = @import("ui/window.zig").Window;
-const command_line = @import("editor/command_line.zig");
+// const Buffer = @import("editor/buffer.zig");
+// const renderer = @import("ui/renderer.zig");
+// const Window = @import("ui/window.zig").Window;
+// const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
-const buffer_ops = @import("editor/buffer_ops.zig");
+// const buffer_ops = @import("editor/buffer_ops.zig");
 const globals = @import("globals.zig");
-const layouts = @import("ui/layouts.zig");
+// const layouts = @import("ui/layouts.zig");
 
-const input_layer = @import("input_layer");
+// const input_layer = @import("input_layer");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
@@ -29,36 +29,13 @@ pub fn main() !void {
     var window = try glfw_window.init(window_width, window_height);
     defer glfw_window.deinit(&window);
 
-    try renderer.init(&window, window_width, window_height);
-    defer renderer.deinit();
+    // var lib = try std.DynLib.open("zig-out/lib/libmain2.so");
+    // _ = lib;
+    // const main2 = lib.lookup(*anyopaque, "main2");
+    // _ = main2;
 
-    input_layer.inputLayerInit();
-    defer input_layer.inputLayerDeinit();
-
-    try command_line.init();
-    defer command_line.deinit();
-
-    var tr = layouts.TileRight.init(1);
-    try globals.global.layouts.add(tr.interface(), tr);
-    globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
-
-    // FIXME: opening with Direction.here causes unreachable code to be reached
-    // try buffer_ops.openBuffer(null, "build.zig", .here);
-    try buffer_ops.openBuffer(null, "src/editor/buffer_ops.zig", .right);
-    try buffer_ops.openBuffer(null, "src/core.zig", .right);
-    try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
-    try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
-
-    if (globals.global.buffers.items.len == 0) {
-        var buffer = try globals.internal.allocator.create(Buffer);
-        buffer.* = try Buffer.init(globals.internal.allocator, "", "");
-        try globals.global.buffers.append(buffer);
-        try buffer_ops.openBuffer(1, null, .here);
-    }
-
-    while (!window.shouldClose()) {
-        if (globals.global.buffers.items.len == 0) window.setShouldClose(true);
-        try renderer.render();
-        try glfw.pollEvents();
-    }
+    // if (main2) |void_func| {
+    //     const f = @ptrCast(fn (*bool) void, void_func);
+    //     f(globals.global.command_line_is_open);
+    // }
 }

@@ -15,11 +15,34 @@ pub const core_pkg = std.build.Pkg{
 };
 
 pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
+    const main2 = bob.addSharedLibrary("main2", comptime thisDir() ++ "/src/main2.zig", .unversioned);
+    main2.setBuildMode(std.builtin.Mode.Debug);
+    main2.force_pic = true;
+    main2.linkLibC();
+    main2.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
+    main2.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{"-fPIC"});
+
+    main2.addPackage(glfw.pkg);
+    main2.addPackage(freetype.pkg);
+    main2.addPackage(freetype.harfbuzz_pkg);
+
+    main2.addPackagePath("c_ft_hb", "libs/mach-freetype/src/c.zig");
+    main2.addPackage(.{
+        .name = "input_layer",
+        .source = .{ .path = input_layer_path ++ "/src/main.zig" },
+        .dependencies = &.{core_pkg},
+    });
+
+    glfw.link(bob, main2, .{});
+    freetype.link(bob, main2, .{ .harfbuzz = .{} });
+    main2.install();
+
     const exe = bob.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
     exe.setBuildMode(std.builtin.Mode.Debug);
+    exe.force_pic = true;
     exe.linkLibC();
     exe.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
-    exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{});
+    exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{"-fPIC"});
 
     exe.addPackage(glfw.pkg);
     exe.addPackage(freetype.pkg);

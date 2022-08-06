@@ -130,14 +130,14 @@ fn focusBelowWindow() void {
 }
 
 fn toggleCommandLine() void {
-    if (global.command_line_is_open)
+    if (global.command_line_is_open.*)
         core.command_line.close()
     else
         core.command_line.open();
 }
 
 fn enterKey() void {
-    if (global.command_line_is_open)
+    if (global.command_line_is_open.*)
         core.command_line.run()
     else
         insertNewLineAtCursor();
