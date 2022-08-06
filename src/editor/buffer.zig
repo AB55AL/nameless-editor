@@ -243,7 +243,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     buffer.adjustSections(start_row, num_of_newlines, -@intCast(isize, substring.len), old_nl_count);
 
     try insureLastByteIsNewline(buffer);
-    buffer.metadata.is_dirty = true;
+    buffer.metadata.dirty = true;
 
     // make sure the cursor.row is never on a row that doesn't exists
     if (utils.getNewline(buffer.lines.slice(0, buffer.lines.length()), buffer.cursor.row) == null)
@@ -272,7 +272,7 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     }
 
     try insureLastByteIsNewline(buffer);
-    buffer.metadata.is_dirty = true;
+    buffer.metadata.dirty = true;
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
@@ -281,7 +281,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     buffer.lines.moveGapPosAbsolute(0);
     buffer.lines.delete(1);
     try buffer.insert(1, 1, string);
-    buffer.metadata.is_dirty = true;
+    buffer.metadata.dirty = true;
 }
 
 // TODO: this
