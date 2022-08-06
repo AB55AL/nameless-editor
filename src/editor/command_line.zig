@@ -244,7 +244,7 @@ fn stringToTokens(args_str: [][]const u8, out_buffer: []Token) u16 {
 fn isFloat(str: []const u8) bool {
     if (count(u8, str, ".") != 1) return false;
     for (str) |c| {
-        if (ascii.isDigit(c) or c == '.')
+        if (ascii.isDigit(c) or c == '.' or c == '-')
             continue
         else
             return false;
@@ -255,7 +255,7 @@ fn isFloat(str: []const u8) bool {
 
 fn isInt(str: []const u8) bool {
     for (str) |c| {
-        if (ascii.isDigit(c))
+        if (ascii.isDigit(c) or c == '-')
             continue
         else
             return false;
