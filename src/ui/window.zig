@@ -115,13 +115,6 @@ pub const Windows = struct {
         global.focused_buffer = windows.focusedWindow().buffer;
     }
 
-    pub fn changeCurrentWindow(windows: *Windows, buffer: *Buffer) Allocator.Error!void {
-        if (windows.wins.items.len == 0)
-            try windows.createNew(buffer)
-        else
-            windows.focusedWindow().buffer = buffer;
-    }
-
     pub fn openWindow(windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window {
         return try windows.active_layout.layout.openWindow(
             windows.active_layout.layout.impl_struct,
@@ -135,6 +128,10 @@ pub const Windows = struct {
             windows,
             window_index,
         );
+
+        if (windows.wins.items.len == 0) return;
+        // TODO: change this to be the top of the window history stack. When implemented
+        windows.focused_window_index = windows.wins.items[0].index;
     }
     pub fn resize(windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void {
         windows.active_layout.layout.resize(
@@ -154,6 +151,7 @@ pub const Windows = struct {
 
     pub fn cycleThroughWindows(windows: *Windows, dir: window_ops.Direction) void {
         if (global.command_line_is_open.*) return;
+
         windows.active_layout.layout.cycleThroughWindows(
             windows.active_layout.layout.impl_struct,
             windows,
