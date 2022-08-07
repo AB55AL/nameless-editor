@@ -176,7 +176,7 @@ fn parse(allocator: std.mem.Allocator, string: []const u8) ![][]const u8 {
                 return ParseError.DoubleQuoteInvalidPosition;
             }
 
-            var content = try std.mem.concat(allocator, u8, &[_][]const u8{
+            var content = try std.mem.concat(allocator, u8, &.{
                 array.pop(),
                 " ",
                 s,

@@ -15,13 +15,13 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     const new_file_suffix = ".editor-new";
     const original_file_suffix = ".editor-original";
 
-    const new_file_path = try std.mem.concat(internal.allocator, u8, &[_][]const u8{
+    const new_file_path = try std.mem.concat(internal.allocator, u8, &.{
         buffer.metadata.file_path,
         new_file_suffix,
     });
     defer internal.allocator.free(new_file_path);
 
-    const original_tmp_file_path = try std.mem.concat(internal.allocator, u8, &[_][]const u8{
+    const original_tmp_file_path = try std.mem.concat(internal.allocator, u8, &.{
         buffer.metadata.file_path,
         original_file_suffix,
     });

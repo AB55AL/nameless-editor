@@ -16,7 +16,7 @@ pub fn hexToColorVector(hex: u24) vectors.vec3 {
 }
 
 fn isKeyWord(string: []const u8) bool {
-    return manyEql(string, &[_][]const u8{
+    return manyEql(string, &.{
         "var",
         "const",
         "if",

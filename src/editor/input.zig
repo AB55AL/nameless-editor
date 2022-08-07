@@ -34,12 +34,12 @@ pub fn keyInputCallback(window: glfw.Window, key: glfw.Key, scancode: i32, actio
         const key_name = (key.getName(scancode) catch unreachable);
 
         if (key_name != null and key_name.?.len == 1) {
-            key_value = std.mem.concat(fixed_allocator, u8, &[_][]const u8{
+            key_value = std.mem.concat(fixed_allocator, u8, &.{
                 modifierToStringNoShift(mod),
                 &[_]u8{shiftASCII(key, mod).?},
             }) catch unreachable;
         } else if (functionKeyToString(key)) |function_key| {
-            key_value = std.mem.concat(fixed_allocator, u8, &[_][]const u8{
+            key_value = std.mem.concat(fixed_allocator, u8, &.{
                 modifierToString(mod),
                 function_key,
             }) catch unreachable;
