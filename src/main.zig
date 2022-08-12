@@ -32,7 +32,7 @@ pub fn main() !void {
     try renderer.init(&window, window_width, window_height);
     defer renderer.deinit();
 
-    input_layer.inputLayerInit();
+    try input_layer.inputLayerInit();
     defer input_layer.inputLayerDeinit();
 
     try command_line.init();
