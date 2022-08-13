@@ -41,8 +41,7 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
 /// Always creates a new buffer
 pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
-    const bytes = try file_io.fullFilePath(file_path, &out_buffer);
-    const full_file_path = out_buffer[0..bytes];
+    const full_file_path = try file_io.fullFilePath(file_path, &out_buffer);
 
     const file = try fs.cwd().openFile(full_file_path, .{});
     defer file.close();
@@ -69,8 +68,7 @@ pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
 
         if (file_path) |fp| {
             var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
-            const bytes = try file_io.fullFilePath(fp, &out_buffer);
-            const full_fp = out_buffer[0..bytes];
+            const full_fp = try file_io.fullFilePath(fp, &out_buffer);
             if (eql(u8, full_fp, buffer.metadata.file_path)) {
                 return buffer;
             }

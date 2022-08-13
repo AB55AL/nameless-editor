@@ -48,18 +48,6 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     try file_dir.deleteFile(original_tmp_file_path);
 }
 
-pub fn fullFilePath(file_path: []const u8, out_buffer: []u8) !u16 {
-    if (fs.path.isAbsolute(file_path)) {
-        std.mem.copy(u8, out_buffer, file_path);
-        return @intCast(u16, file_path.len);
-    } else {
-        const sep = fs.path.sep;
-        var cwd_path = try std.os.getcwd(out_buffer);
-        out_buffer[cwd_path.len] = sep;
-        var out = out_buffer[cwd_path.len + 1 ..];
-        for (file_path) |c, i|
-            out[i] = c;
-
-        return @intCast(u16, cwd_path.len + file_path.len + 1);
-    }
+pub fn fullFilePath(file_path: []const u8, out_buffer: []u8) ![]u8 {
+    return fs.cwd().realpath(file_path, out_buffer);
 }
