@@ -28,7 +28,7 @@ pub const Error = error{
 /// creates a new buffer, adds it to the global.buffers array and
 /// returns a pointer to it.
 pub fn createBuffer(file_path: []const u8) !*Buffer {
-    var buf = try getBuffer(null, file_path);
+    var buf = try getBufferFP(file_path);
     if (buf) |b| return b;
 
     var buffer = try createLocalBuffer(file_path);
@@ -57,40 +57,58 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     return buffer;
 }
 
-/// Given an *index* or a *file_path* searches the global.buffers array for a buffer
+/// Given an *index* searches the global.buffers array for a buffer
 /// matching either.
-/// Returns null if the buffer isn't found or if both index and file_path are null
-pub fn getBuffer(index: ?u32, file_path: ?[]const u8) !?*Buffer {
+/// Returns null if the buffer isn't found.
+pub fn getBufferI(index: u32) !?*Buffer {
     for (global.buffers.items) |buffer| {
-        if (index) |i|
-            if (buffer.index.? == i)
-                return buffer;
-
-        if (file_path) |fp| {
-            var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
-            const full_fp = try file_io.fullFilePath(fp, &out_buffer);
-            if (eql(u8, full_fp, buffer.metadata.file_path)) {
-                return buffer;
-            }
-        }
+        if (buffer.index.? == index)
+            return buffer;
     }
     return null;
 }
 
 pub fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
-    var buffer = (try getBuffer(index, file_path)) orelse
-        try createBuffer(file_path);
+    var buffer: *Buffer = undefined;
+    if (index) |i|
+        buffer = (try getBufferI(i)) orelse
+            try getBufferFP(file_path) orelse
+            try createBuffer(file_path)
+    else
+        buffer = (try getBufferFP(file_path)) orelse
+            try createBuffer(file_path);
 
     return buffer;
 }
 
-pub fn openBuffer(index: ?u32, file_path: ?[]const u8, direction: window_ops.Direction) !void {
-    assert(index != null or file_path != null);
+/// Given an *file_path* searches the global.buffers array for a buffer
+/// matching either.
+/// Returns null if the buffer isn't found.
+pub fn getBufferFP(file_path: []const u8) !?*Buffer {
+    for (global.buffers.items) |buffer| {
+        var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
+        const full_fp = try file_io.fullFilePath(file_path, &out_buffer);
+        if (eql(u8, full_fp, buffer.metadata.file_path))
+            return buffer;
+    }
+    return null;
+}
 
-    var buffer: *Buffer = if (file_path != null)
-        try getOrCreateBuffer(index, file_path.?)
-    else
-        try getOrCreateBuffer(index, "");
+pub fn openBufferI(index: u32, direction: window_ops.Direction) !void {
+    var buffer: *Buffer = (try getBufferI(index)) orelse return;
+
+    if (direction == .here and global.windows.wins.items.len > 0) {
+        global.windows.focusedWindow().buffer = buffer;
+        global.focused_buffer = buffer;
+    } else {
+        var window = try global.windows.openWindow(if (direction == .here) .next else direction);
+        window.buffer = buffer;
+        global.focused_buffer = buffer;
+    }
+}
+
+pub fn openBufferFP(file_path: []const u8, direction: window_ops.Direction) !void {
+    var buffer: *Buffer = try getOrCreateBuffer(null, file_path);
 
     if (direction == .here and global.windows.wins.items.len > 0) {
         global.windows.focusedWindow().buffer = buffer;

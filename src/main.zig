@@ -42,17 +42,17 @@ pub fn main() !void {
     try globals.global.layouts.add(tr.interface(), tr);
     globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
 
-    try buffer_ops.openBuffer(null, "build.zig", .here);
-    try buffer_ops.openBuffer(null, "src/editor/buffer_ops.zig", .right);
-    try buffer_ops.openBuffer(null, "src/core.zig", .right);
-    try buffer_ops.openBuffer(null, "src/editor/buffer.zig", .above);
-    try buffer_ops.openBuffer(null, "src/editor/command_line.zig", .right);
+    try buffer_ops.openBufferFP("build.zig", .here);
+    try buffer_ops.openBufferFP("src/editor/buffer_ops.zig", .right);
+    try buffer_ops.openBufferFP("src/core.zig", .right);
+    try buffer_ops.openBufferFP("src/editor/buffer.zig", .above);
+    try buffer_ops.openBufferFP("src/editor/command_line.zig", .right);
 
     if (globals.global.buffers.items.len == 0) {
         var buffer = try globals.internal.allocator.create(Buffer);
         buffer.* = try Buffer.init(globals.internal.allocator, "", "");
         try globals.global.buffers.append(buffer);
-        try buffer_ops.openBuffer(1, null, .here);
+        try buffer_ops.openBufferI(1, .here);
     }
 
     while (!window.shouldClose()) {
