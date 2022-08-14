@@ -14,19 +14,19 @@ const global = globals.global;
 const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
-    try add("open", open);
-    try add("openRight", openRight);
-    try add("openLeft", openLeft);
-    try add("openAbove", openAbove);
-    try add("openBelow", openBelow);
+    try add("o", open);
+    try add("or", openRight);
+    try add("ol", openLeft);
+    try add("oa", openAbove);
+    try add("ob", openBelow);
 
-    try add("closeWindow", window_ops.closeFocusedWindow);
+    try add("cw", window_ops.closeFocusedWindow);
 
     try add("save", saveFocused);
     try add("forceSave", forceSaveFocused);
     try add("kill", killFocused);
     try add("forceKill", forceKillFocused);
-    try add("saveAndQuit", saveAndQuitFocused);
+    try add("sq", saveAndQuitFocused);
     try add("forceSaveAndQuit", forceSaveAndQuitFocused);
 
     try add("hResize", hResizeFocusedDown);
