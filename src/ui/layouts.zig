@@ -57,21 +57,21 @@ pub const Layout = struct {
 pub const LayoutInterface = struct {
     impl_struct: *anyopaque,
 
-    openWindow: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
-    closeWindow: fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
-    resize: fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
-    equalize: fn (iface: *anyopaque, windows: *Windows) void,
-    changeFocusedWindow: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
-    cycleThroughWindows: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
+    openWindow: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
+    closeWindow: *const fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
+    resize: *const fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+    equalize: *const fn (iface: *anyopaque, windows: *Windows) void,
+    changeFocusedWindow: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
+    cycleThroughWindows: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
 
     pub fn init(
         impl_struct: *anyopaque,
-        openWindowFn: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
-        closeWindowFn: fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
-        resizeFn: fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
-        equalizeFn: fn (iface: *anyopaque, windows: *Windows) void,
-        changeFocusedWindowFn: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
-        cycleThroughWindowsFn: fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
+        openWindowFn: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) Allocator.Error!*Window,
+        closeWindowFn: *const fn (iface: *anyopaque, windows: *Windows, window_index: u32) void,
+        resizeFn: *const fn (iface: *anyopaque, windows: *Windows, window_index: u32, resize_value: f32, dir: window_ops.Direction) void,
+        equalizeFn: *const fn (iface: *anyopaque, windows: *Windows) void,
+        changeFocusedWindowFn: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
+        cycleThroughWindowsFn: *const fn (iface: *anyopaque, windows: *Windows, dir: window_ops.Direction) void,
     ) LayoutInterface {
         return .{
             .impl_struct = impl_struct,

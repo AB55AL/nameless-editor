@@ -17,7 +17,7 @@ pub fn init(window_width: u32, window_height: u32) !glfw.Window {
     });
     try glfw.makeContextCurrent(window);
 
-    _ = c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, glfw.getProcAddress));
+    _ = c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, &glfw.getProcAddress));
     c.glViewport(0, 0, @intCast(c_int, window_width), @intCast(c_int, window_height));
 
     // callbacks
