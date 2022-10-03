@@ -103,7 +103,7 @@ pub fn framebufferSizeCallback(window: glfw.Window, width: u32, height: u32) voi
 
     renderer_rect.shader.use();
     c.glUniformMatrix4fv(c.glGetUniformLocation(renderer_rect.shader.ID, "projection"), 1, c.GL_FALSE, &projection);
-    _ = window;
+    // _ = window;
 }
 
 pub fn cursorPositionCallback(window: glfw.Window, x_pos: f64, y_pos: f64) void {

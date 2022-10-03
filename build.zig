@@ -1,6 +1,7 @@
 const Builder = @import("std").build.Builder;
 const Source = @import("std").build.FileSource;
 const std = @import("std");
+const print = std.debug.print;
 
 const glfw = @import("libs/mach-glfw/build.zig");
 const freetype = @import("libs/mach-freetype/build.zig");
@@ -18,7 +19,7 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
     const exe = bob.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
     exe.setBuildMode(std.builtin.Mode.Debug);
     exe.linkLibC();
-    exe.addIncludeDir(comptime thisDir() ++ "/src/ui/glad/include");
+    exe.addIncludePath(comptime thisDir() ++ "/src/ui/glad/include");
     exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{});
 
     exe.addPackage(glfw.pkg);
@@ -33,7 +34,7 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
 
     exe.addPackagePath("c_ft_hb", "libs/mach-freetype/src/c.zig");
 
-    glfw.link(bob, exe, .{});
+    glfw.link(bob, exe, .{}) catch |err| print("err={}", .{err});
     freetype.link(bob, exe, .{ .harfbuzz = .{} });
     exe.install();
 

@@ -290,7 +290,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
 
 // FIXME: Implement this correctly
 pub fn copyOfRows(buffer: *Buffer, start_row: usize, end_row: usize) ![]u8 {
-    _ = buffer;
+    // _ = buffer;
     _ = start_row;
     _ = end_row;
     return buffer.lines.copy();
