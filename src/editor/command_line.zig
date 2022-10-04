@@ -11,7 +11,7 @@ const Buffer = @import("buffer.zig");
 const Cursor = @import("cursor.zig");
 const default_commands = @import("default_commands.zig");
 
-const FuncType = fn ([]PossibleValues) CommandRunError!void;
+const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
 
 const global = globals.global;
 const internal = globals.internal;

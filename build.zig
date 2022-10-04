@@ -32,8 +32,6 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
         .dependencies = &.{core_pkg},
     });
 
-    exe.addPackagePath("c_ft_hb", "libs/mach-freetype/src/c.zig");
-
     glfw.link(bob, exe, .{}) catch |err| print("err={}", .{err});
     freetype.link(bob, exe, .{ .harfbuzz = .{} });
     exe.install();

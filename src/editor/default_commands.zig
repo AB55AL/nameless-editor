@@ -71,14 +71,14 @@ fn saveFocused() void {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
         } else {
-            print("{}\nerr={}\n", .{ @src(), err });
+            print("err={}\n", .{err});
         }
     };
 }
 
 fn forceSaveFocused() void {
     buffer_ops.saveBuffer(global.focused_buffer, true) catch |err|
-        print("{}\nerr={}\n", .{ @src(), err });
+        print("err={}\n", .{err});
 }
 
 fn killFocused() void {
@@ -86,14 +86,14 @@ fn killFocused() void {
         if (err == buffer_ops.Error.KillingDirtyBuffer) {
             print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
         } else {
-            print("{}\nerr={}\n", .{ @src(), err });
+            print("err={}\n", .{err});
         }
     };
 }
 
 fn forceKillFocused() void {
     buffer_ops.forceKillBuffer(global.focused_buffer) catch |err|
-        print("{}\nerr={}\n", .{ @src(), err });
+        print("err={}\n", .{err});
 }
 
 fn saveAndQuitFocused() void {
@@ -102,14 +102,14 @@ fn saveAndQuitFocused() void {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSaveAndQuit", .{});
         } else {
-            print("{}\nerr={}\n", .{ @src(), err });
+            print("err={}\n", .{err});
         }
     };
 }
 
 fn forceSaveAndQuitFocused() void {
     buffer_ops.saveAndQuit(global.focused_buffer, true) catch |err|
-        print("{}\nerr={}\n", .{ @src(), err });
+        print("err={}\n", .{err});
 }
 
 fn vResizeFocused(resize_value: f32) void {

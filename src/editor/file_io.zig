@@ -27,13 +27,13 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     });
     defer internal.allocator.free(original_tmp_file_path);
 
-    const file_dir = &(try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{}));
+    var file_dir = try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{});
     defer file_dir.close();
 
     if (!force_write) {
         var stat = try file_dir.statFile(buffer.metadata.file_path);
         if (stat.mtime != buffer.metadata.file_last_mod_time)
-            return error.DifferentModTimes;
+            return Error.DifferentModTimes;
     }
 
     const new_file = try fs.createFileAbsolute(new_file_path, .{});

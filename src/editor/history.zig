@@ -40,18 +40,18 @@ pub const History = struct {
     }
 
     pub fn deinit(history: *History) void {
-        const free = history.stack.allocator.free;
+        const allocator = history.stack.allocator;
 
         while (history.stack.popOrNull()) |buffer_states| {
             for (buffer_states) |state|
-                free(state.content);
-            free(buffer_states);
+                allocator.free(state.content);
+            allocator.free(buffer_states);
         }
 
         while (history.redo_stack.popOrNull()) |buffer_states| {
             for (buffer_states) |state|
-                free(state.content);
-            free(buffer_states);
+                allocator.free(state.content);
+            allocator.free(buffer_states);
         }
 
         history.redo_stack.deinit();
@@ -59,10 +59,10 @@ pub const History = struct {
     }
 
     pub fn emptyRedoStack(history: *History) void {
-        const free = history.stack.allocator.free;
+        const allocator = history.stack.allocator;
         while (history.redo_stack.popOrNull()) |buffer_states|
             for (buffer_states) |state|
-                free(state.content);
+                allocator.free(state.content);
     }
 };
 

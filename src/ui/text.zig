@@ -130,7 +130,7 @@ pub const Text = struct {
         text.unicode_textures = StringArrayHashMap([]const Character).init(internal.allocator);
         text.shader = shader;
         text.font_size = font_size;
-        text.hb_font = harfbuzz.Font.fromFtFace(text.ft_face);
+        text.hb_font = harfbuzz.Font.fromFreetypeFace(text.ft_face);
         text.hb_buffer = harfbuzz.Buffer.init().?;
 
         return text;
@@ -224,11 +224,8 @@ pub const Text = struct {
             // harfbuzz.Feature.fromString("aalt[3:5]=2") orelse void,
         });
 
-        // var infos = text.hb_buffer.getGlyphInfos();
+        var infos = text.hb_buffer.getGlyphInfos();
         // var positions = text.hb_buffer.getGlyphPositions().?;
-
-        var len: u32 = c_ft_hb.hb_buffer_get_length(text.hb_buffer.handle);
-        var infos = c_ft_hb.hb_buffer_get_glyph_infos(text.hb_buffer.handle, null)[0..len];
 
         var characters_index: usize = 0;
         var characters = try internal.allocator.alloc(

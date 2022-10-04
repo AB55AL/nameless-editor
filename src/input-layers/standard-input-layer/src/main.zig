@@ -12,13 +12,13 @@ const global = core.global;
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
-var mappings: std.StringHashMap(fn () void) = undefined;
+var mappings: std.StringHashMap(*const fn () void) = undefined;
 var log_file: fs.File = undefined;
 
 pub fn inputLayerInit() !void {
     gpa = std.heap.GeneralPurposeAllocator(.{}){};
     allocator = gpa.allocator();
-    mappings = std.StringHashMap(fn () void).init(allocator);
+    mappings = std.StringHashMap(*const fn () void).init(allocator);
 
     const data_path = std.os.getenv("XDG_DATA_HOME").?;
     const log_path = try std.mem.concat(allocator, u8, &.{ data_path, "/ne" });
@@ -33,7 +33,7 @@ pub fn inputLayerInit() !void {
 
     setDefaultMappnigs();
     const end = log_file.getEndPos() catch return;
-    _ = log_file.pwrite("\n---------------new editor instance---------------\n", end) catch |err| print("{} err={}", .{ @src(), err });
+    _ = log_file.pwrite("\n---------------new editor instance---------------\n", end) catch |err| print("err={}", .{err});
 }
 
 pub fn inputLayerDeinit() void {
@@ -46,8 +46,8 @@ pub fn keyInput(key: []const u8) void {
     if (mappings.get(key)) |f| {
         f();
         const end = log_file.getEndPos() catch return;
-        _ = log_file.pwrite(key, end) catch |err| print("{} err={}", .{ @src(), err });
-        _ = log_file.pwrite("\n", end + key.len) catch |err| print("{} err={}", .{ @src(), err });
+        _ = log_file.pwrite(key, end) catch |err| print("err={}", .{err});
+        _ = log_file.pwrite("\n", end + key.len) catch |err| print("err={}", .{err});
     }
 }
 
@@ -63,12 +63,12 @@ pub fn characterInput(utf8_seq: []const u8) void {
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
-    _ = log_file.pwrite(insert, end) catch |err| print("{} err={}", .{ @src(), err });
-    _ = log_file.pwrite(utf8_seq, end + insert.len) catch |err| print("{} err={}", .{ @src(), err });
-    _ = log_file.pwrite("\n", end + insert.len + utf8_seq.len) catch |err| print("{} err={}", .{ @src(), err });
+    _ = log_file.pwrite(insert, end) catch |err| print("err={}", .{err});
+    _ = log_file.pwrite(utf8_seq, end + insert.len) catch |err| print("err={}", .{err});
+    _ = log_file.pwrite("\n", end + insert.len + utf8_seq.len) catch |err| print("err={}", .{err});
 }
 
-pub fn map(key: []const u8, function: fn () void) void {
+pub fn map(key: []const u8, function: *const fn () void) void {
     mappings.put(key, function) catch |err| {
         print("input_layer.map()\n\t{}\n", .{err});
     };
