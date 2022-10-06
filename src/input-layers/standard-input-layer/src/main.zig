@@ -5,7 +5,6 @@ const fs = std.fs;
 
 const core = @import("core");
 const Cursor = core.Cursor;
-const history = core.history;
 const layouts = @import("../../../plugins/layouts.zig");
 
 const global = core.global;
@@ -75,9 +74,6 @@ pub fn map(key: []const u8, function: *const fn () void) void {
 }
 
 fn setDefaultMappnigs() void {
-    map("C_z", undo);
-    map("C_y", redo);
-    map("<F1>", commitHistoryChanges);
     map("<F2>", insertAlot);
     map("<F3>", cycleThroughWindowsNext);
     map("S_<F3>", cycleThroughWindowsPrev);
@@ -99,17 +95,6 @@ fn setDefaultMappnigs() void {
     map("C_c", toggleCommandLine);
 }
 
-fn undo() void {
-    core.history.undo(global.focused_buffer) catch |err| {
-        print("input_layer.undo()\n\t{}\n", .{err});
-    };
-}
-fn redo() void {
-    core.history.redo(global.focused_buffer) catch |err| {
-        print("input_layer.redo()\n\t{}\n", .{err});
-    };
-}
-
 fn deleteBackward() void {
     if (global.focused_buffer.cursor.col > 1) {
         Cursor.moveRelative(global.focused_buffer, 0, -1);
@@ -124,12 +109,6 @@ fn deleteForward() void {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
-fn updateHistory() void {
-    core.history.updateHistory(global.focused_buffer) catch |err| {
-        print("input_layer.updateHistory()\n\t{}\n", .{err});
-    };
-}
-
 fn moveRight() void {
     Cursor.moveRelative(global.focused_buffer, 0, 1);
 }
@@ -176,10 +155,6 @@ fn insertNewLineAtCursor() void {
     };
     Cursor.moveRelative(global.focused_buffer, 1, 0);
     Cursor.moveToStartOfLine(global.focused_buffer);
-}
-
-fn commitHistoryChanges() void {
-    history.commitHistoryChanges(global.focused_buffer) catch unreachable;
 }
 
 fn insertAlot() void {

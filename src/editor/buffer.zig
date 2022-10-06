@@ -14,12 +14,6 @@ const GapBuffer = @import("gap_buffer.zig");
 const utf8 = @import("utf8.zig");
 const globals = @import("../globals.zig");
 
-const history = @import("history.zig");
-const History = history.History;
-const HistoryBufferState = history.HistoryBufferState;
-const HistoryBufferStateResizeable = history.HistoryBufferStateResizeable;
-const TypeOfChange = history.TypeOfChange;
-
 const utils = @import("utils.zig");
 
 const global = globals.global;
@@ -45,10 +39,6 @@ lines: GapBuffer,
 /// The locations of these newline chars is stored here
 sections: [NUM_OF_SECTIONS]usize,
 
-history: History,
-related_history_changes: Stack(HistoryBufferState),
-previous_change: HistoryBufferStateResizeable,
-
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
         var index: u32 = 0;
@@ -68,23 +58,11 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .cursor = .{ .row = 1, .col = 1 },
         .lines = try GapBuffer.init(allocator, buf),
-        .history = History.init(allocator),
-        .related_history_changes = Stack(HistoryBufferState).init(allocator),
-        .previous_change = undefined,
         .sections = undefined,
     };
 
     buffer.insureLastByteIsNewline() catch unreachable;
     buffer.updateSections(1, 0);
-
-    buffer.previous_change = .{
-        .content = try GapBuffer.init(allocator, null),
-        .index = 0,
-        .type_of_change = TypeOfChange.insertion,
-        .sections = buffer.sections,
-        .lines_count = buffer.lines.count,
-    };
-
     return buffer;
 }
 
@@ -120,13 +98,6 @@ pub fn deinitAndTrash(buffer: *Buffer) void {
 pub fn deinitNoTrash(buffer: *Buffer, allocator: std.mem.Allocator) void {
     buffer.lines.deinit();
 
-    buffer.previous_change.content.deinit();
-    while (buffer.related_history_changes.popOrNull()) |item|
-        allocator.free(item.content);
-
-    buffer.related_history_changes.deinit();
-    buffer.history.deinit();
-
     allocator.free(buffer.metadata.file_path);
 }
 
@@ -147,15 +118,6 @@ pub fn insert(buffer: *Buffer, row: u32, column: u32, string: []const u8) !void 
         buffer.getIndex(row, column)
     else
         buffer.lines.length();
-
-    buffer.history.emptyRedoStack();
-    try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
-        .content = string,
-        .index = index,
-        .type_of_change = TypeOfChange.insertion,
-        .sections = buffer.sections,
-        .lines_count = buffer.lines.count,
-    });
 
     buffer.lines.moveGapPosAbsolute(index);
     try buffer.lines.insert(string);
@@ -181,15 +143,6 @@ pub fn delete(buffer: *Buffer, row: u32, start_column: u32, end_column: u32) !vo
     const slice = buffer.getLine(row);
     const end = min(end_column - 1, unicode.utf8CountCodepoints(slice) catch unreachable);
     const substring = utf8.substringOfUTF8Sequence(slice, start_column, end) catch unreachable;
-
-    buffer.history.emptyRedoStack();
-    try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
-        .content = substring,
-        .index = index,
-        .type_of_change = TypeOfChange.deletion,
-        .sections = buffer.sections,
-        .lines_count = buffer.lines.count,
-    });
 
     buffer.lines.moveGapPosAbsolute(index);
     buffer.lines.delete(substring.len);
@@ -222,15 +175,6 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     }
 
     const substring = buffer.lines.slice(index, to);
-
-    buffer.history.emptyRedoStack();
-    try buffer.mergeOrPushHistoryChange(&buffer.previous_change, .{
-        .content = substring,
-        .index = index,
-        .type_of_change = TypeOfChange.deletion,
-        .sections = buffer.sections,
-        .lines_count = buffer.lines.count,
-    });
 
     try insureLastByteIsNewline(buffer);
 
@@ -302,119 +246,6 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u32) usize {
     return unicode.utf8CountCodepoints(slice) catch unreachable;
 }
 
-fn mergeOrPushHistoryChange(
-    buffer: *Buffer,
-    previous_change: *HistoryBufferStateResizeable,
-    upcoming_change: HistoryBufferState,
-) !void {
-    var pc = previous_change;
-    var uc = upcoming_change;
-
-    if (pc.content.isEmpty()) {
-        try pc.content.replaceAllWith(uc.content);
-        pc.index = uc.index;
-        pc.type_of_change = uc.type_of_change;
-    } else if (!changesAreRelated(pc, uc)) {
-        try history.updateRelatedHistoryChanges(buffer);
-        try pc.content.replaceAllWith(uc.content);
-        pc.index = uc.index;
-        pc.type_of_change = uc.type_of_change;
-    } else if (changesCanBeMerged(pc, uc)) {
-        try mergeChanges(pc, uc);
-    } else {
-        try history.updateRelatedHistoryChanges(buffer);
-        try pc.content.replaceAllWith(uc.content);
-        pc.index = uc.index;
-        pc.type_of_change = uc.type_of_change;
-    }
-}
-
-fn changesCanBeMerged(
-    previous_change: *HistoryBufferStateResizeable,
-    upcoming_change: HistoryBufferState,
-) bool {
-    var pc = previous_change;
-    var uc = upcoming_change;
-
-    if (!changesAreRelated(pc, uc)) return false;
-
-    var same_type = pc.type_of_change == uc.type_of_change;
-    if (same_type and changesAreRelated(pc, uc)) return true;
-
-    const correction_type =
-        pc.type_of_change == TypeOfChange.insertion and
-        uc.type_of_change == TypeOfChange.deletion;
-
-    if (correction_type) {
-        var i: i64 = @intCast(i64, uc.index) - @intCast(i64, pc.index);
-        if (i == 0) {
-            return true;
-        } else if (i - 1 < 0) {
-            return false;
-        } else if (utils.inRange(
-            usize,
-            uc.index,
-            pc.index,
-            pc.index + pc.content.length() - 1,
-        )) return true;
-    }
-
-    return false;
-}
-
-fn changesAreRelated(
-    previous_change: *HistoryBufferStateResizeable,
-    upcoming_change: HistoryBufferState,
-) bool {
-    var pc = previous_change;
-    var uc = upcoming_change;
-    var index = if (pc.index == 0) 0 else pc.index - 1;
-
-    return utils.inRange(
-        usize,
-        uc.index,
-        index,
-        pc.index + pc.content.length(),
-    );
-}
-
-fn mergeChanges(
-    previous_change: *HistoryBufferStateResizeable,
-    upcoming_change: HistoryBufferState,
-) !void {
-    var pc = previous_change;
-    var uc = upcoming_change;
-    var pc_index = if (pc.index == 0) 0 else pc.index - 1; // avoid integer underflows
-
-    var same_type = pc.type_of_change == uc.type_of_change;
-    var correction_type =
-        pc.type_of_change == TypeOfChange.insertion and
-        uc.type_of_change == TypeOfChange.deletion;
-
-    if (same_type) {
-        if (uc.index == pc_index) {
-            try pc.content.prepend(uc.content);
-            pc.index = if (pc.index == 0) 0 else pc.index - 1;
-        } else if (uc.type_of_change == TypeOfChange.deletion) {
-            try pc.content.append(uc.content);
-        } else if (uc.type_of_change == TypeOfChange.insertion) {
-            const i = uc.index - pc.index;
-            try pc.content.insertAt(i, uc.content);
-        }
-    } else if (correction_type and uc.index - pc_index >= 0 and
-        utils.inRange(usize, uc.index, pc.index, pc.index + pc.content.length() - 1))
-    {
-        previous_change.content.deleteAfter(uc.index - pc_index, uc.content.len);
-        if (uc.index - pc.index == 0) {
-            previous_change.content.replaceAllWith("") catch unreachable;
-            previous_change.index = uc.index;
-            previous_change.type_of_change = uc.type_of_change;
-        }
-    } else {
-        return error.ChangesCannotBeMerged;
-    }
-}
-
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     buffer.lines.moveGapPosRelative(-1);
     if (buffer.lines.content[buffer.lines.content.len - 1] != '\n' or
@@ -426,11 +257,6 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
 }
 
 pub fn clear(buffer: *Buffer) !void {
-    try history.updateRelatedHistoryChanges(buffer);
-    try buffer.previous_change.content.replaceAllWith(buffer.lines.slice(0, buffer.lines.length()));
-    buffer.previous_change.index = 1;
-    buffer.previous_change.type_of_change = TypeOfChange.deletion;
-
     buffer.lines.replaceAllWith("") catch unreachable;
     buffer.insureLastByteIsNewline() catch unreachable;
 }

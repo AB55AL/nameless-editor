@@ -9,7 +9,6 @@ const Mods = glfw.Mods;
 
 const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
-const history = @import("history.zig");
 
 const input_layer = @import("input_layer");
 
