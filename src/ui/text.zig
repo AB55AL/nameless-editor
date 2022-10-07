@@ -301,8 +301,9 @@ pub const Text = struct {
 
         const fs = text.font_size;
         var end_row = @floatToInt(u32, window_p.height / @intToFloat(f32, fs)) + window.start_row - 1;
-        end_row = std.math.min(window.buffer.lines.count, end_row);
-        var visible_lines = window.buffer.getLines(window.start_row, end_row);
+        end_row = std.math.min(window.buffer.lines.newlines_count, end_row);
+        var visible_lines = try window.buffer.getLines(window.start_row, end_row);
+        defer internal.allocator.free(visible_lines);
 
         var y = window_p.y;
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');

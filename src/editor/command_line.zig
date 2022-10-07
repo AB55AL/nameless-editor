@@ -73,11 +73,13 @@ pub fn close() void {
     Cursor.moveAbsolute(global.command_line_buffer, 1, 1);
 }
 
-pub fn run() void {
+pub fn run() !void {
     var command_str: [4096]u8 = undefined;
-    var len = global.command_line_buffer.lines.length();
+    var len = global.command_line_buffer.lines.size;
 
-    for (global.command_line_buffer.lines.slice(0, len)) |b, i|
+    const command_line_content = try global.command_line_buffer.getAllLines();
+    defer internal.allocator.free(command_line_content);
+    for (command_line_content) |b, i|
         command_str[i] = b;
 
     close();

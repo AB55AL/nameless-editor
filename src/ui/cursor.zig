@@ -2,6 +2,8 @@ const std = @import("std");
 const print = std.debug.print;
 const unicode = std.unicode;
 
+const internal = @import("../globals.zig").internal;
+
 const utils = @import("../editor/utils.zig");
 const utf8 = @import("../editor/utf8.zig");
 const Window = @import("window.zig").Window;
@@ -15,13 +17,14 @@ const Buffer = @import("../editor/buffer.zig");
 const WindowPixels = @import("window.zig").WindowPixels;
 const VCursor = @import("vcursor.zig").VCursor;
 
-pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.vec3) void {
+pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.vec3) !void {
     var vcursor = VCursor.convert(window.buffer.cursor, window.*);
     var buffer = window.buffer;
     var initial_cursor_h = @intToFloat(f32, renderer_text.font_size);
     var cursor_h = initial_cursor_h / 2.0 + 5.0;
 
-    var line = buffer.getLine(buffer.cursor.row);
+    var line = try buffer.getLine(buffer.cursor.row);
+    defer internal.allocator.free(line);
     var cursor_x = getX(renderer_text, window, &vcursor, line);
     var cursor_y = getY(window, &vcursor, initial_cursor_h);
     rect.render(cursor_x, cursor_y, 1, -cursor_h, color);

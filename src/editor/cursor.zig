@@ -9,23 +9,24 @@ const utils = @import("utils.zig");
 const Buffer = @import("buffer.zig");
 
 pub const Cursor = @This();
-row: u32,
-col: u32,
+row: u64,
+col: u64,
+index: u64,
 
-pub fn moveRelative(buffer: *Buffer, row_offset: i32, col_offset: i32) void {
-    if (buffer.lines.length() == 0) return;
+pub fn moveRelative(buffer: *Buffer, row_offset: i64, col_offset: i64) void {
+    if (buffer.lines.size == 0) return;
 
-    var new_row = @intCast(i32, buffer.cursor.row) + row_offset;
-    var new_col = @intCast(i32, buffer.cursor.col) + col_offset;
+    var new_row = @intCast(i64, buffer.cursor.row) + row_offset;
+    var new_col = @intCast(i64, buffer.cursor.col) + col_offset;
 
-    new_row = max(1, new_row);
-    new_col = max(1, new_col);
+    if (row_offset < 0) new_row = max(1, new_row);
+    if (col_offset < 0) new_col = max(1, new_col);
 
-    Cursor.moveAbsolute(buffer, @intCast(u32, new_row), @intCast(u32, new_col));
+    Cursor.moveAbsolute(buffer, @intCast(u64, new_row), @intCast(u64, new_col));
 }
 
-pub fn moveAbsolute(buffer: *Buffer, row: ?u32, col: ?u32) void {
-    if (buffer.lines.length() == 0) return;
+pub fn moveAbsolute(buffer: *Buffer, row: ?u64, col: ?u64) void {
+    if (buffer.lines.size == 0) return;
 
     var new_row = if (row) |r| r else buffer.cursor.row;
 
@@ -33,7 +34,7 @@ pub fn moveAbsolute(buffer: *Buffer, row: ?u32, col: ?u32) void {
         if (new_row <= 1)
             new_row = 1
         else
-            new_row = min(new_row, buffer.lines.count);
+            new_row = min(new_row, buffer.lines.newlines_count);
 
         buffer.cursor.row = new_row;
     }
@@ -48,6 +49,8 @@ pub fn moveAbsolute(buffer: *Buffer, row: ?u32, col: ?u32) void {
         }
         buffer.cursor.col = new_col;
     }
+
+    buffer.cursor.index = buffer.getIndex(buffer.cursor.row, buffer.cursor.col);
 }
 
 // TODO: Implement this
@@ -57,7 +60,7 @@ pub fn moveToEndOfLine(buffer: *Buffer) void {
 
 // TODO: Implement this
 pub fn moveToStartOfLine(buffer: *Buffer) void {
-    if (buffer.lines.length() == 0) return;
+    if (buffer.lines.size == 0) return;
 }
 
 /// Resets the cursor position to a valid position in the buffer

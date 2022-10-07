@@ -43,10 +43,10 @@ pub fn main() !void {
     globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
 
     try buffer_ops.openBufferFP("build.zig", .here);
-    try buffer_ops.openBufferFP("src/editor/buffer_ops.zig", .right);
-    try buffer_ops.openBufferFP("src/core.zig", .right);
-    try buffer_ops.openBufferFP("src/editor/buffer.zig", .above);
-    try buffer_ops.openBufferFP("src/editor/command_line.zig", .right);
+    // try buffer_ops.openBufferFP("src/editor/buffer_ops.zig", .right);
+    // try buffer_ops.openBufferFP("src/core.zig", .right);
+    // try buffer_ops.openBufferFP("src/editor/buffer.zig", .above);
+    // try buffer_ops.openBufferFP("src/editor/command_line.zig", .right);
 
     if (globals.global.buffers.items.len == 0) {
         var buffer = try globals.internal.allocator.create(Buffer);

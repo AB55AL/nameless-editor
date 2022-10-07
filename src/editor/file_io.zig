@@ -39,7 +39,7 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     const new_file = try fs.createFileAbsolute(new_file_path, .{});
     defer new_file.close();
 
-    const content_of_buffer = try buffer.lines.copy();
+    const content_of_buffer = try buffer.getAllLines();
     defer internal.allocator.free(content_of_buffer);
 
     try new_file.writeAll(content_of_buffer);
