@@ -64,7 +64,7 @@ pub fn deinit(pt: *PieceTable) void {
     if (root) |r| allocator.destroy(r);
 }
 
-fn deinitTree(pt: *PieceTable, piece: ?*PieceNode) ?*PieceNode {
+pub fn deinitTree(pt: *PieceTable, piece: ?*PieceNode) ?*PieceNode {
     if (piece == null) return null;
 
     var left = pt.deinitTree(piece.?.left);

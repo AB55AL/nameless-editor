@@ -149,7 +149,25 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
 }
 
 pub fn clear(buffer: *Buffer) !void {
-    _ = buffer;
+    _ = buffer.lines.deinitTree(buffer.lines.pieces_root);
+    var pt = buffer.lines;
+    buffer.lines.pieces_root.* = .{
+        .parent = null,
+        .left = null,
+        .right = null,
+
+        .left_subtree_len = 0,
+        .left_subtree_newlines_count = 0,
+
+        .newlines_start = pt.add_newlines.items.len,
+        .newlines_count = 0,
+
+        .start = pt.add.items.len,
+        .len = 0,
+        .source = .add,
+    };
+    try buffer.insureLastByteIsNewline();
+    buffer.metadata.dirty = true;
 }
 
 pub fn getLine(buffer: *Buffer, row: u64) ![]u8 {
