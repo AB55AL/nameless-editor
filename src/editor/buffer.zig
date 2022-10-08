@@ -21,6 +21,11 @@ const internal = globals.internal;
 
 const Buffer = @This();
 
+pub const State = enum {
+    invalid,
+    valid,
+};
+
 pub const MetaData = struct {
     file_path: []u8,
     file_last_mod_time: i128,
@@ -28,10 +33,13 @@ pub const MetaData = struct {
 };
 
 metadata: MetaData,
-index: ?u32,
+index: u32,
 cursor: Cursor,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
+state: State,
+
+next_buffer: ?*Buffer = null,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
@@ -52,7 +60,10 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .cursor = .{ .row = 1, .col = 1, .index = 0 },
         .lines = try PieceTable.init(allocator, buf),
+        .state = .valid,
     };
+
+    try buffer.insureLastByteIsNewline();
 
     return buffer;
 }
@@ -60,47 +71,24 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 /// Deinits the members of the buffer but does not destroy the buffer.
 /// So pointers to this buffer are all valid through out the life time of the
 /// program.
-/// Removes the buffer from the *global.buffers* array and places it into
-/// the *internal.buffers_trashcan* to be freed just before exiting the program
-/// The index of the buffer is set to `null` to signify that the buffer members
-/// have been deinitialized
-pub fn deinitAndTrash(buffer: *Buffer) void {
-    buffer.deinitNoTrash(internal.allocator);
-
-    var index_in_global_array: usize = 0;
-    for (global.buffers.items) |b, i| {
-        if (b.index.? == buffer.index.?) {
-            index_in_global_array = i;
-            break;
-        }
-    }
-    var removed_buffer = global.buffers.swapRemove(index_in_global_array);
-    removed_buffer.index = null;
-    internal.buffers_trashcan.append(removed_buffer) catch |err| {
-        print("Couldn't append to internal.buffers_trashcan err={}\n", .{err});
-    };
-}
-
-/// Deinits the members of the buffer but does not destroy the buffer.
-/// So pointers to this buffer are all valid through out the life time of the
-/// program.
-/// Does **NOT** Place the buffer into the internal.buffers_trashcan.
-/// Does **NOT** set the index to `null`
-pub fn deinitNoTrash(buffer: *Buffer, allocator: std.mem.Allocator) void {
+/// Sets state to State.invalid
+pub fn deinitNoDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
     buffer.lines.deinit();
-
     allocator.free(buffer.metadata.file_path);
+    buffer.state = .invalid;
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
 /// Pointers to this buffer are all invalidated
 pub fn deinitAndDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
-    buffer.deinitNoTrash(internal.allocator);
+    buffer.deinitNoDestroy(allocator);
     allocator.destroy(buffer);
 }
 
 pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
     try buffer.lines.insert(buffer.cursor.index, string);
+    buffer.cursor.index += string.len;
+    buffer.cursor.col += unicode.utf8CountCodepoints(string) catch unreachable;
     buffer.metadata.dirty = true;
 }
 
@@ -153,9 +141,12 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) usize {
     return unicode.utf8CountCodepoints(slice) catch unreachable;
 }
 
-// TODO: implement
-// pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
-// }
+pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
+    var last_node = buffer.lines.pieces_root.rightMostNode();
+    var content = last_node.content(&buffer.lines);
+    if (content.len == 0 or content[content.len - 1] != '\n')
+        try buffer.lines.insert(buffer.lines.size, "\n");
+}
 
 pub fn clear(buffer: *Buffer) !void {
     _ = buffer;
@@ -199,5 +190,7 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
         }
     }
 
-    return index + i - 1;
+    var result = index + i;
+    if (result > 0) result -= 1;
+    return result;
 }

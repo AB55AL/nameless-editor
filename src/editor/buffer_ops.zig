@@ -17,8 +17,8 @@ const internal = globals.internal;
 
 pub const Error = error{
     SavingPathlessBuffer,
-    SavingNullBuffer,
-    KillingNullBuffer,
+    SavingInvalidBuffer,
+    KillingInvalidBuffer,
     KillingDirtyBuffer,
 };
 
@@ -32,7 +32,12 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
     if (buf) |b| return b;
 
     var buffer = try createLocalBuffer(file_path);
-    try global.buffers.append(buffer);
+
+    // Prepend to linked list
+    buffer.next_buffer = global.first_buffer;
+    global.first_buffer = buffer;
+    global.valid_buffers_count += 1;
+
     return buffer;
 }
 
@@ -57,15 +62,34 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     return buffer;
 }
 
+pub fn createPathLessBuffer() !*Buffer {
+    var buffer = try internal.allocator.create(Buffer);
+    buffer.* = try Buffer.init(globals.internal.allocator, "", "");
+
+    // Prepend to linked list
+    buffer.next_buffer = global.first_buffer;
+    global.first_buffer = buffer;
+    global.valid_buffers_count += 1;
+
+    return buffer;
+}
+
 /// Given an *index* searches the global.buffers array for a buffer
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferI(index: u32) !?*Buffer {
-    for (global.buffers.items) |buffer| {
-        if (buffer.index.? == index)
+    if (global.first_buffer == null) return null;
+
+    var buffer = global.first_buffer.?;
+    while (true) {
+        if (buffer.state == .valid and buffer.index == index) {
             return buffer;
+        } else if (buffer.next_buffer) |nb| {
+            buffer = nb;
+        } else {
+            return null;
+        }
     }
-    return null;
 }
 
 pub fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
@@ -85,13 +109,20 @@ pub fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferFP(file_path: []const u8) !?*Buffer {
-    for (global.buffers.items) |buffer| {
-        var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
-        const full_fp = try file_io.fullFilePath(file_path, &out_buffer);
-        if (eql(u8, full_fp, buffer.metadata.file_path))
+    if (global.first_buffer == null) return null;
+
+    var buffer = global.first_buffer.?;
+    var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
+    while (true) {
+        const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
+        if (eql(u8, full_fp, buffer.metadata.file_path)) {
             return buffer;
+        } else if (buffer.next_buffer) |nb| {
+            buffer = nb;
+        } else {
+            return null;
+        }
     }
-    return null;
 }
 
 pub fn openBufferI(index: u32, direction: window_ops.Direction) !void {
@@ -122,34 +153,44 @@ pub fn openBufferFP(file_path: []const u8, direction: window_ops.Direction) !voi
 
 pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
     if (buffer.metadata.file_path.len == 0)
-        return error.SavingPathlessBuffer;
-    if (buffer.index == null)
-        return error.SavingNullBuffer;
+        return Error.SavingPathlessBuffer;
+    if (buffer.state == .invalid)
+        return Error.SavingInvalidBuffer;
 
     try file_io.writeToFile(buffer, force_write);
     buffer.metadata.dirty = false;
 }
 
 /// Deinits the buffer and closes it's window.
-/// To only deinit use `Buffer.deinitAndTrash()`
+/// To only deinit see `Buffer.deinitNoDestroy()` or `Buffer.deinitAndDestroy()`
 pub fn killBuffer(buffer: *Buffer) !void {
-    if (buffer.index == null)
-        return error.KillingNullBuffer;
+    if (buffer.state == .invalid)
+        return Error.KillingInvalidBuffer;
 
     if (buffer.metadata.dirty)
-        return error.KillingDirtyBuffer;
+        return Error.KillingDirtyBuffer;
 
     try forceKillBuffer(buffer);
 }
 
 pub fn forceKillBuffer(buffer: *Buffer) !void {
-    if (buffer.index == null)
-        return error.KillingNullBuffer;
+    if (buffer.state == .invalid)
+        return Error.KillingInvalidBuffer;
 
     window_ops.closeBufferWindow(buffer);
-    buffer.deinitAndTrash();
-    if (global.buffers.items.len > 0)
-        global.focused_buffer = global.buffers.items[0];
+    buffer.deinitNoDestroy(internal.allocator);
+
+    if (global.valid_buffers_count > 0) {
+        global.focused_buffer = first_valid_buffer: {
+            if (global.first_buffer.?.state == .valid)
+                break :first_valid_buffer global.first_buffer.?
+            else while (global.first_buffer.?.next_buffer) |nb|
+                if (nb.state == .valid)
+                    break :first_valid_buffer nb;
+        };
+    }
+
+    global.valid_buffers_count -= 1;
 }
 
 pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {

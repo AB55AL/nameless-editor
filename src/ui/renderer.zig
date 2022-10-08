@@ -72,7 +72,7 @@ pub fn render() !void {
             window.background_color;
 
         renderer_rect.renderFraction(window.*, syntax.hexToColorVector(bg_color));
-        if (window.buffer.index != null)
+        if (window.buffer.state == .valid)
             try renderer_text.render(window);
     }
     if (global.command_line_is_open.*) {
@@ -80,7 +80,7 @@ pub fn render() !void {
         try renderer_text.render(&internal.command_line_window);
         try cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
     } else if (global.windows.wins.items.len > 0) {
-        if (global.windows.focusedWindow().buffer.index != null) {
+        if (global.windows.focusedWindow().buffer.state == .valid) {
             try cursor.render(renderer_rect, renderer_text, global.windows.focusedWindow(), .{ .x = 1.0, .y = 1.0, .z = 1.0 });
         }
     }

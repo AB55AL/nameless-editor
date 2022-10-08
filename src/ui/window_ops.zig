@@ -28,6 +28,6 @@ pub fn closeFocusedWindow() void {
 
 pub fn closeBufferWindow(buffer: *Buffer) void {
     for (global.windows.wins.items) |*win|
-        if (buffer.index.? == win.buffer.index.?)
+        if (buffer.index == win.buffer.index)
             global.windows.closeWindow(win.index);
 }

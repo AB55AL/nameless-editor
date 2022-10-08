@@ -55,8 +55,6 @@ pub fn characterInput(utf8_seq: []const u8) void {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
 
-    Cursor.moveRelative(global.focused_buffer, 0, 1);
-
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
     _ = log_file.pwrite(insert, end) catch |err| print("err={}", .{err});

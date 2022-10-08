@@ -791,13 +791,13 @@ pub const PieceNode = struct {
         }
     }
 
-    fn rightMostNode(piece: *PieceNode) *PieceNode {
+    pub fn rightMostNode(piece: *PieceNode) *PieceNode {
         var node = piece;
         while (node.right) |right| node = right;
         return node;
     }
 
-    fn leftMostNode(piece: *PieceNode) *PieceNode {
+    pub fn leftMostNode(piece: *PieceNode) *PieceNode {
         var node = piece;
         while (node.left) |left| node = left;
         return node;

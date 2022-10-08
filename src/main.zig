@@ -48,15 +48,13 @@ pub fn main() !void {
     // try buffer_ops.openBufferFP("src/editor/buffer.zig", .above);
     // try buffer_ops.openBufferFP("src/editor/command_line.zig", .right);
 
-    if (globals.global.buffers.items.len == 0) {
-        var buffer = try globals.internal.allocator.create(Buffer);
-        buffer.* = try Buffer.init(globals.internal.allocator, "", "");
-        try globals.global.buffers.append(buffer);
-        try buffer_ops.openBufferI(1, .here);
+    if (globals.global.first_buffer == null) {
+        var buffer = try buffer_ops.createPathLessBuffer();
+        try buffer_ops.openBufferI(buffer.index, .here);
     }
 
     while (!window.shouldClose()) {
-        if (globals.global.buffers.items.len == 0) window.setShouldClose(true);
+        if (globals.global.valid_buffers_count == 0) window.setShouldClose(true);
         try renderer.render();
         try glfw.pollEvents();
     }
