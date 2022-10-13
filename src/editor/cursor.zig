@@ -37,6 +37,8 @@ pub fn moveAbsolute(buffer: *Buffer, row: ?u64, col: ?u64) void {
             new_row = min(new_row, buffer.lines.newlines_count);
 
         buffer.cursor.row = new_row;
+        if (buffer.cursor.row > buffer.lines.newlines_count)
+            buffer.cursor.row = buffer.lines.newlines_count;
     }
 
     if (col) |c| {
@@ -44,8 +46,8 @@ pub fn moveAbsolute(buffer: *Buffer, row: ?u64, col: ?u64) void {
         if (new_col <= 1) {
             new_col = 1;
         } else {
-            var max_col = buffer.countCodePointsAtRow(new_row) + 1;
-            new_col = min(new_col, max_col);
+            var max_col = buffer.countCodePointsAtRow(buffer.cursor.row) + 1;
+            if (new_col >= max_col) new_col = max_col;
         }
         buffer.cursor.col = new_col;
     }
@@ -65,15 +67,18 @@ pub fn moveToStartOfLine(buffer: *Buffer) void {
 
 /// Resets the cursor position to a valid position in the buffer
 pub fn resetPosition(buffer: *Buffer) void {
-    if (buffer.lines.length() == 0) return;
+    if (buffer.lines.size == 0) return;
     var cursor = &buffer.cursor;
 
-    if (cursor.row > buffer.lines.length()) {
-        cursor.row = @intCast(u32, buffer.lines.length());
-    }
+    resetRow(buffer);
 
     var max_col = buffer.countCodePointsAtRow(cursor.row);
     if (cursor.col > max_col) {
         moveAbsolute(buffer, null, max_col);
     }
+}
+
+pub fn resetRow(buffer: *Buffer) void {
+    if (buffer.lines.size == 0) return;
+    buffer.cursor.row = min(buffer.cursor.row, buffer.lines.newlines_count);
 }

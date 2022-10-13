@@ -93,18 +93,23 @@ pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
 }
 
 pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
-    const old_index = buffer.cursor.index;
-    Cursor.moveRelative(buffer, 0, -@intCast(i64, characters_to_delete));
-    const new_index = buffer.cursor.index;
+    if (buffer.cursor.col == 1) return;
 
-    const bytes_to_delete = old_index - new_index;
-    try buffer.lines.delete(buffer.cursor.index, bytes_to_delete);
+    var old_index = buffer.cursor.index;
+    Cursor.moveRelative(buffer, 0, -@intCast(i64, characters_to_delete));
+    var new_index = buffer.cursor.index;
+    try buffer.lines.delete(buffer.cursor.index, old_index - new_index);
+
     buffer.metadata.dirty = true;
+
+    try buffer.insureLastByteIsNewline();
+    Cursor.resetRow(buffer);
 }
 
 pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     Cursor.moveRelative(buffer, 0, @intCast(i64, characters_to_delete));
     try buffer.deleteBeforeCursor(characters_to_delete);
+    Cursor.resetRow(buffer);
 }
 
 // TODO: Implement this
@@ -142,9 +147,7 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) usize {
 }
 
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
-    var last_node = buffer.lines.pieces_root.rightMostNode();
-    var content = last_node.content(&buffer.lines);
-    if (content.len == 0 or content[content.len - 1] != '\n')
+    if (buffer.lines.size == 0 or buffer.lines.byteAt(buffer.lines.size - 1) != '\n')
         try buffer.lines.insert(buffer.lines.size, "\n");
 }
 
@@ -166,6 +169,8 @@ pub fn clear(buffer: *Buffer) !void {
         .len = 0,
         .source = .add,
     };
+    buffer.lines.size = 0;
+    buffer.lines.newlines_count = 0;
     try buffer.insureLastByteIsNewline();
     buffer.metadata.dirty = true;
 }
@@ -195,7 +200,7 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
 
     var char_count: usize = 0;
     var i: usize = 0;
-    while (char_count < col) {
+    while (char_count < col - 1) {
         const byte = buffer.lines.byteAt(i + index);
         const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
         if (byte == '\n') {
@@ -209,6 +214,5 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
     }
 
     var result = index + i;
-    if (result > 0) result -= 1;
     return result;
 }

@@ -79,8 +79,7 @@ pub fn run() !void {
 
     const command_line_content = try global.command_line_buffer.getAllLines();
     defer internal.allocator.free(command_line_content);
-    for (command_line_content) |b, i|
-        command_str[i] = b;
+    std.mem.copy(u8, &command_str, command_line_content);
 
     close();
     runCommand(command_str[0 .. len - 1]);

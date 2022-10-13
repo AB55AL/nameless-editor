@@ -91,11 +91,9 @@ fn setDefaultMappnigs() void {
 }
 
 fn deleteBackward() void {
-    if (global.focused_buffer.cursor.col > 1) {
-        global.focused_buffer.deleteBeforeCursor(1) catch |err| {
-            print("input_layer.deleteBackward()\n\t{}\n", .{err});
-        };
-    }
+    global.focused_buffer.deleteBeforeCursor(1) catch |err| {
+        print("input_layer.deleteBackward()\n\t{}\n", .{err});
+    };
 }
 
 fn deleteForward() void {
