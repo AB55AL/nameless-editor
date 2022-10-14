@@ -14,6 +14,8 @@ const globals = @import("globals.zig");
 const layouts = @import("ui/layouts.zig");
 
 const input_layer = @import("input_layer");
+const options = @import("options");
+const user = @import("user");
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
@@ -42,11 +44,8 @@ pub fn main() !void {
     try globals.global.layouts.add(tr.interface(), tr);
     globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
 
-    try buffer_ops.openBufferFP("build.zig", .here);
-    // try buffer_ops.openBufferFP("src/editor/buffer_ops.zig", .right);
-    // try buffer_ops.openBufferFP("src/core.zig", .right);
-    // try buffer_ops.openBufferFP("src/editor/buffer.zig", .above);
-    // try buffer_ops.openBufferFP("src/editor/command_line.zig", .right);
+    if (options.user_config_loaded) try user.init();
+    defer if (options.user_config_loaded) user.deinit();
 
     if (globals.global.first_buffer == null) {
         var buffer = try buffer_ops.createPathLessBuffer();

@@ -117,7 +117,16 @@ pub const Text = struct {
     pub fn init(shader: Shader) !*Text {
         var text = try internal.allocator.create(Text);
         text.ft_lib = try freetype.Library.init();
-        text.ft_face = try text.ft_lib.createFace("assets/Amiri-Regular.ttf", 0);
+
+        // TODO: Remove this once user provided fonts are implemented
+        const path = comptime blk: {
+            var path = std.fs.path.dirname(@src().file).?;
+            path = std.fs.path.dirname(path).?;
+            path = std.fs.path.dirname(path).?;
+            break :blk path;
+        };
+
+        text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Amiri-Regular.ttf", 0);
         // text.ft_face = try text.ft_lib.createFace("assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
 
         const font_size: i32 = 18;

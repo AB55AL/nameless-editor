@@ -15,7 +15,9 @@ pub const core_pkg = std.build.Pkg{
     .source = .{ .path = thisDir() ++ "/src/core.zig" },
 };
 
-pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
+var user_config_loaded = true;
+
+pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8, comptime user_config_main_path: []const u8) void {
     const exe = bob.addExecutable("main", comptime thisDir() ++ "/src/main.zig");
     exe.setBuildMode(std.builtin.Mode.Debug);
     exe.linkLibC();
@@ -32,8 +34,21 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
         .dependencies = &.{core_pkg},
     });
 
+    if (user_config_loaded) {
+        exe.addPackage(.{
+            .name = "user",
+            .source = .{ .path = user_config_main_path },
+            .dependencies = &.{core_pkg},
+        });
+    }
+
     glfw.link(bob, exe, .{}) catch |err| print("err={}", .{err});
     freetype.link(bob, exe, .{ .harfbuzz = .{} });
+
+    var options = bob.addOptions();
+    options.addOption(bool, "user_config_loaded", user_config_loaded);
+    exe.addOptions("options", options);
+
     exe.install();
 
     const run_cmd = exe.run();
@@ -52,5 +67,6 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_path: []const u8) void {
 
 pub fn build(bob: *Builder) void {
     const standard_input_layer_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer";
-    buildEditor(bob, standard_input_layer_path);
+    user_config_loaded = false;
+    buildEditor(bob, standard_input_layer_path, "");
 }
