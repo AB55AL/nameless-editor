@@ -28,17 +28,19 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_root_path: []const u8, co
     exe.addPackage(freetype.pkg);
     exe.addPackage(freetype.harfbuzz_pkg);
 
-    exe.addPackage(.{
+    const input_layer_pkg = .{
         .name = "input_layer",
         .source = .{ .path = input_layer_root_path },
         .dependencies = &.{core_pkg},
-    });
+    };
+
+    exe.addPackage(input_layer_pkg);
 
     if (user_config_loaded) {
         exe.addPackage(.{
             .name = "user",
             .source = .{ .path = user_config_root_path },
-            .dependencies = &.{core_pkg},
+            .dependencies = &.{ core_pkg, input_layer_pkg },
         });
     }
 
