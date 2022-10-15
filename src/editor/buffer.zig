@@ -128,11 +128,13 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
 //     buffer.metadata.dirty = true;
 // }
 
-// TODO: Implement this
-// pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
-//     _ = string;
-//     buffer.metadata.dirty = true;
-// }
+pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
+    try buffer.clear();
+    try buffer.lines.delete(0, 1); // Delete newline char
+    try buffer.lines.insert(0, string);
+    try buffer.insureLastByteIsNewline();
+    buffer.metadata.dirty = true;
+}
 
 // TODO: this
 // pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
@@ -173,6 +175,8 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.lines.newlines_count = 0;
     try buffer.insureLastByteIsNewline();
     buffer.metadata.dirty = true;
+
+    Cursor.moveAbsolute(buffer, 1, 1);
 }
 
 pub fn getLine(buffer: *Buffer, row: u64) ![]u8 {
