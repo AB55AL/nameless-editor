@@ -46,6 +46,8 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
     try std.os.rename(buffer.metadata.file_path, original_tmp_file_path);
     try std.os.rename(new_file_path, buffer.metadata.file_path);
     try file_dir.deleteFile(original_tmp_file_path);
+    var stat = try file_dir.statFile(buffer.metadata.file_path);
+    buffer.metadata.file_last_mod_time = stat.mtime;
 }
 
 pub fn fullFilePath(file_path: []const u8, out_buffer: []u8) ![]u8 {

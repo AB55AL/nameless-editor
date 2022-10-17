@@ -127,9 +127,9 @@ pub const Text = struct {
         };
 
         text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Amiri-Regular.ttf", 0);
-        // text.ft_face = try text.ft_lib.createFace("assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
+        // text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
 
-        const font_size: i32 = 18;
+        const font_size: i32 = 24;
         try text.ft_face.setCharSize(64 * font_size, 0, 0, 0);
         shader.use();
         text.createVaoAndVbo();
@@ -195,7 +195,8 @@ pub const Text = struct {
             c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_S, c.GL_CLAMP_TO_EDGE);
             c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_WRAP_T, c.GL_CLAMP_TO_EDGE);
             c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_LINEAR);
-            c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+            // c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_LINEAR);
+            c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
 
             const character = Character{
                 .texture_id = texture,
