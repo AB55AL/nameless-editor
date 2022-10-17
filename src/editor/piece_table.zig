@@ -197,14 +197,14 @@ pub fn byteAt(pt: *PieceTable, index: u64) u8 {
     return pt.findNode(&i).content(pt)[i];
 }
 
-pub fn getLine(pt: *PieceTable, line: u64) ![]u8 {
+pub fn getLine(pt: *PieceTable, allocator: std.mem.Allocator, line: u64) ![]u8 {
     var line_fragments = try pt.fragmentsOfLine(line);
     defer pt.allocator.free(line_fragments);
-    return std.mem.concat(pt.allocator, u8, line_fragments);
+    return std.mem.concat(allocator, u8, line_fragments);
 }
 
 // TODO: Make it faster
-pub fn getLines(pt: *PieceTable, first_line: u64, last_line: u64) ![]u8 {
+pub fn getLines(pt: *PieceTable, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
     assert(last_line >= first_line);
     var fragments_of_lines = ArrayList([]const u8).init(pt.allocator);
     defer fragments_of_lines.deinit();
@@ -215,7 +215,7 @@ pub fn getLines(pt: *PieceTable, first_line: u64, last_line: u64) ![]u8 {
         try fragments_of_lines.appendSlice(line_fragments);
     }
 
-    return std.mem.concat(pt.allocator, u8, fragments_of_lines.items);
+    return std.mem.concat(allocator, u8, fragments_of_lines.items);
 }
 
 /// The contents of a line can be spread across multiple pieces,

@@ -24,6 +24,7 @@ pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.
     var cursor_h = initial_cursor_h / 2.0 + 5.0;
 
     var line = try buffer.getLine(buffer.cursor.row);
+    var line = try buffer.getLine(internal.allocator, buffer.cursor.row);
     defer internal.allocator.free(line);
     var cursor_x = getX(renderer_text, window, &vcursor, line);
     var cursor_y = getY(window, &vcursor, initial_cursor_h);

@@ -165,7 +165,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
 // TODO: Use fragmentOfLine() for the slice
 pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) usize {
     assert(row <= buffer.lines.newlines_count);
-    const slice = buffer.getLine(row) catch unreachable;
+    const slice = buffer.getLine(internal.allocator, row) catch unreachable;
     defer internal.allocator.free(slice);
     return unicode.utf8CountCodepoints(slice) catch unreachable;
 }
@@ -201,22 +201,22 @@ pub fn clear(buffer: *Buffer) !void {
     Cursor.moveAbsolute(buffer, 1, 1);
 }
 
-pub fn getLine(buffer: *Buffer, row: u64) ![]u8 {
+pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
     assert(row <= buffer.lines.newlines_count);
-    return buffer.lines.getLine(row - 1);
+    return buffer.lines.getLine(allocator, row - 1);
 }
 
-pub fn getLines(buffer: *Buffer, first_line: u32, last_line: u32) ![]u8 {
+pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u32, last_line: u32) ![]u8 {
     assert(last_line >= first_line);
     assert(first_line > 0);
     assert(last_line <= buffer.lines.newlines_count);
-    return buffer.lines.getLines(first_line - 1, last_line - 1);
+    return buffer.lines.getLines(allocator, first_line - 1, last_line - 1);
 }
 
 /// Returns a copy of the entire buffer.
 /// Caller owns memory.
-pub fn getAllLines(buffer: *Buffer) ![]u8 {
-    var array = try internal.allocator.alloc(u8, buffer.lines.size);
+pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
+    var array = try allocator.alloc(u8, buffer.lines.size);
     return buffer.lines.buildIntoArray(array);
 }
 
