@@ -28,8 +28,23 @@ pub const State = enum {
 
 pub const MetaData = struct {
     file_path: []u8,
+    file_type: []u8,
     file_last_mod_time: i128,
     dirty: bool,
+
+    pub fn setFileType(metadata: *MetaData, new_ft: []const u8) !void {
+        var file_type = try internal.allocator.alloc(u8, new_ft.len);
+        std.mem.copy(u8, file_type, new_ft);
+        internal.allocator.free(metadata.file_type);
+        metadata.file_type = file_type;
+    }
+
+    pub fn setFilePath(metadata: *MetaData, new_fp: []const u8) !void {
+        var file_path = try internal.allocator.alloc(u8, new_fp.len);
+        std.mem.copy(u8, file_path, new_fp);
+        internal.allocator.free(metadata.file_path);
+        metadata.file_path = file_path;
+    }
 };
 
 metadata: MetaData,
@@ -49,8 +64,14 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var fp = try allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
+    var iter = std.mem.splitBackwards(u8, file_path, ".");
+    const file_type = if (std.mem.containsAtLeast(u8, file_path, 1, ".")) iter.next().? else "";
+    var ft = try allocator.alloc(u8, file_type.len);
+    std.mem.copy(u8, ft, file_type);
+
     var metadata = MetaData{
         .file_path = fp,
+        .file_type = ft,
         .file_last_mod_time = 0,
         .dirty = false,
     };
@@ -75,6 +96,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 pub fn deinitNoDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
     buffer.lines.deinit();
     allocator.free(buffer.metadata.file_path);
+    allocator.free(buffer.metadata.file_type);
     buffer.state = .invalid;
 }
 
