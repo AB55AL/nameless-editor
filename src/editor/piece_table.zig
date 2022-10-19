@@ -496,13 +496,24 @@ pub fn buildIntoArrayList(pt: *PieceTable, node: ?*PieceNode, array_list: *Array
 }
 
 pub fn buildIntoArray(pt: *PieceTable, array: []u8) []u8 {
-    var end: usize = 0;
-    while (end < array.len) : (end += 1) {
-        var index = end;
-        pt.splay(pt.findNode(&index));
-        array[end] = pt.byteAt(end);
+    var start: u64 = 0;
+    while (start < array.len) {
+        var index = start;
+        var node = pt.findNode(&index);
+        pt.splay(node);
+
+        const content = node.content(pt);
+        var slice = array[start..];
+        if (slice.len >= content.len) {
+            std.mem.copy(u8, slice, content);
+            start += content.len;
+        } else {
+            std.mem.copy(u8, slice, content[0..slice.len]);
+            start += slice.len;
+            break;
+        }
     }
-    return array[0..end];
+    return array[0..start];
 }
 
 pub fn treeToArray(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(*PieceNode)) std.mem.Allocator.Error!void {
