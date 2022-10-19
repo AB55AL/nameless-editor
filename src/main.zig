@@ -34,8 +34,8 @@ pub fn main() !void {
     try renderer.init(&window, window_width, window_height);
     defer renderer.deinit();
 
-    try input_layer.inputLayerInit();
-    defer input_layer.inputLayerDeinit();
+    try input_layer.init();
+    defer input_layer.deinit();
 
     try command_line.init();
     defer command_line.deinit();

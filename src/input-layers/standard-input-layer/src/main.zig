@@ -14,7 +14,7 @@ var allocator: std.mem.Allocator = undefined;
 var mappings: std.StringHashMap(*const fn () void) = undefined;
 var log_file: fs.File = undefined;
 
-pub fn inputLayerInit() !void {
+pub fn init() !void {
     gpa = std.heap.GeneralPurposeAllocator(.{}){};
     allocator = gpa.allocator();
     mappings = std.StringHashMap(*const fn () void).init(allocator);
@@ -35,8 +35,8 @@ pub fn inputLayerInit() !void {
     _ = log_file.pwrite("\n---------------new editor instance---------------\n", end) catch |err| print("err={}", .{err});
 }
 
-pub fn inputLayerDeinit() void {
     mappings.deinit();
+pub fn deinit() void {
     log_file.close();
     _ = gpa.deinit();
 }
