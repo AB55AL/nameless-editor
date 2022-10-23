@@ -77,7 +77,7 @@ pub fn run() !void {
     var command_str: [4096]u8 = undefined;
     var len = global.command_line_buffer.lines.size;
 
-    const command_line_content = try global.command_line_buffer.getAllLines();
+    const command_line_content = try global.command_line_buffer.getAllLines(internal.allocator);
     defer internal.allocator.free(command_line_content);
     std.mem.copy(u8, &command_str, command_line_content);
 
@@ -164,18 +164,17 @@ fn parse(allocator: std.mem.Allocator, string: []const u8) ![][]const u8 {
             try array.append(s);
             continue;
         }
+        if (s.len == 0) continue;
 
-        if (count(u8, s, "\"") > 2) {
+        if (count(u8, s, "\"") > 2)
             return ParseError.InvalidNumberOfDoubleQuote;
-        }
 
         const top_of_stack = array.items[array.items.len - 1];
         double_q_num = count(u8, top_of_stack, "\"") - count(u8, top_of_stack, "\\\"");
 
         if (double_q_num == 1) {
-            if (top_of_stack[0] != '"') {
+            if (top_of_stack[0] != '"')
                 return ParseError.DoubleQuoteInvalidPosition;
-            }
 
             var content = try std.mem.concat(allocator, u8, &.{
                 array.pop(),
