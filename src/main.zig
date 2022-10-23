@@ -44,13 +44,13 @@ pub fn main() !void {
     try globals.global.layouts.add(tr.interface(), tr);
     globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
 
-    if (options.user_config_loaded) try user.init();
-    defer if (options.user_config_loaded) user.deinit();
-
     if (globals.global.first_buffer == null) {
         var buffer = try buffer_ops.createPathLessBuffer();
         try buffer_ops.openBufferI(buffer.index, .here);
     }
+
+    if (options.user_config_loaded) try user.init();
+    defer if (options.user_config_loaded) user.deinit();
 
     while (!window.shouldClose()) {
         if (globals.global.valid_buffers_count == 0) window.setShouldClose(true);
