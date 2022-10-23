@@ -7,6 +7,7 @@ const ArrayList = std.ArrayList;
 
 const core = @import("core");
 const Buffer = core.Buffer;
+const Cursor = core.Cursor;
 
 test "deleteRange()" {
     const original_text =
@@ -23,12 +24,13 @@ test "deleteRange()" {
     ;
 
     var buffer = try Buffer.init(allocator, "", original_text);
-    defer buffer.deinitNoTrash(allocator);
-
-    // print("\n{any}\n", .{buffer.sections});
+    defer buffer.deinitNoDestroy(allocator);
 
     try buffer.deleteRange(2, 2, 3, 22);
-    try expectEqualStrings(string_after_change, buffer.lines.slice(0, buffer.lines.length()));
+
+    const buffer_slice = try buffer.getAllLines(allocator);
+    defer allocator.free(buffer_slice);
+    try expectEqualStrings(string_after_change, buffer_slice);
 }
 
 test "deleteRows()" {
@@ -66,182 +68,50 @@ test "deleteRows()" {
         \\
     ;
 
-    var buffer = &(try Buffer.init(allocator, "", original_text));
-    var lines = &buffer.lines;
-    defer buffer.deinitNoTrash(allocator);
+    var buffer = try Buffer.init(allocator, "", original_text);
+    defer buffer.deinitNoDestroy(allocator);
 
-    try buffer.deleteRows(1, 5);
-    try std.testing.expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
-
-    try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(1, 3);
-    try std.testing.expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
-
-    try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(2, 4);
-    try std.testing.expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
+    {
+        try buffer.deleteRows(1, 5);
+        const buffer_slice = try buffer.getAllLines(allocator);
+        defer allocator.free(buffer_slice);
+        try std.testing.expectEqualStrings(begin_to_end, buffer_slice);
+    }
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(2, 5);
-    try std.testing.expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
+    {
+        try buffer.deleteRows(1, 3);
+        const buffer_slice = try buffer.getAllLines(allocator);
+        defer allocator.free(buffer_slice);
+        try std.testing.expectEqualStrings(begin_to_mid, buffer_slice);
+    }
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(1, 1);
-    try std.testing.expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
+    {
+        try buffer.deleteRows(2, 4);
+        const buffer_slice = try buffer.getAllLines(allocator);
+        defer allocator.free(buffer_slice);
+        try std.testing.expectEqualStrings(mid_to_mid, buffer_slice);
+    }
+
+    try buffer.replaceAllWith(original_text);
+    {
+        try buffer.deleteRows(2, 5);
+        const buffer_slice = try buffer.getAllLines(allocator);
+        defer allocator.free(buffer_slice);
+        try std.testing.expectEqualStrings(mid_to_end, buffer_slice);
+    }
+
+    try buffer.replaceAllWith(original_text);
+    {
+        try buffer.deleteRows(1, 1);
+        const buffer_slice = try buffer.getAllLines(allocator);
+        defer allocator.free(buffer_slice);
+        try std.testing.expectEqualStrings(same_line, buffer_slice);
+    }
 }
 
-// test "undo and redo delete()" {
-//     const original_text =
-//         \\hello there my friend
-//         \\this ههههههه is a test إختبار text with UTF-8 mixed in.
-//         \\with three lines!!!!
-//         \\
-//     ; // the editor always insures a newline at is the end
-
-//     const deleted_whole_line =
-//         \\hello there my friend
-//         \\with three lines!!!!
-//         \\
-//     ;
-
-//     const deleted_within_line =
-//         \\hello there my friend
-//         \\this هتبار text with UTF-8 mixed in.
-//         \\with three lines!!!!
-//         \\
-//     ;
-
-//     var buffer = &(try Buffer.init(allocator, "", original_text));
-
-//     {
-//         try buffer.delete(2, 1, 999);
-//         try expectEqualStrings(deleted_whole_line, buffer.lines.slice(0, buffer.lines.length()));
-
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, buffer.lines.slice(0, buffer.lines.length()));
-
-//         try history.redo(buffer);
-//         try expectEqualStrings(deleted_whole_line, buffer.lines.slice(0, buffer.lines.length()));
-//     }
-
-//     try buffer.lines.replaceAllWith(original_text);
-
-//     {
-//         try buffer.delete(2, 7, 26);
-//         try expectEqualStrings(deleted_within_line, buffer.lines.slice(0, buffer.lines.length()));
-
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, buffer.lines.slice(0, buffer.lines.length()));
-
-//         try history.redo(buffer);
-//         try expectEqualStrings(deleted_within_line, buffer.lines.slice(0, buffer.lines.length()));
-//     }
-
-//     buffer.deinitNoTrash(allocator);
-// }
-
-// test "undo and redo deleteRows()" {
-//     const original_text =
-//         \\hello there my friend
-//         \\this is a test text.
-//         \\with UTF-8 نعم ، إنه مدهش Amazing isn't it ?!
-//         \\Oh! we got a another line here
-//         \\And heres some more
-//         \\
-//     ;
-
-//     const begin_to_end = "\n"; // the editor always insures a newline at is the end
-
-//     const begin_to_mid =
-//         \\Oh! we got a another line here
-//         \\And heres some more
-//         \\
-//     ;
-//     const mid_to_mid =
-//         \\hello there my friend
-//         \\And heres some more
-//         \\
-//     ;
-//     const mid_to_end =
-//         \\hello there my friend
-//         \\
-//     ;
-
-//     const same_line =
-//         \\this is a test text.
-//         \\with UTF-8 نعم ، إنه مدهش Amazing isn't it ?!
-//         \\Oh! we got a another line here
-//         \\And heres some more
-//         \\
-//     ;
-
-//     {
-//         var buffer = &(try Buffer.init(allocator, "", original_text));
-//         var lines = &buffer.lines;
-//         defer buffer.deinitNoTrash(allocator);
-
-//         try buffer.deleteRows(1, 5);
-//         try expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
-//         try history.redo(buffer);
-//         try expectEqualStrings(begin_to_end, lines.slice(0, buffer.lines.length()));
-//     }
-
-//     {
-//         var buffer = &(try Buffer.init(allocator, "", original_text));
-//         var lines = &buffer.lines;
-//         defer buffer.deinitNoTrash(allocator);
-
-//         try buffer.deleteRows(1, 3);
-//         try expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
-//         try history.redo(buffer);
-//         try expectEqualStrings(begin_to_mid, lines.slice(0, buffer.lines.length()));
-//     }
-
-//     {
-//         var buffer = &(try Buffer.init(allocator, "", original_text));
-//         var lines = &buffer.lines;
-//         defer buffer.deinitNoTrash(allocator);
-
-//         try buffer.deleteRows(2, 4);
-//         try expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
-//         try history.redo(buffer);
-//         try expectEqualStrings(mid_to_mid, lines.slice(0, buffer.lines.length()));
-//     }
-
-//     {
-//         var buffer = &(try Buffer.init(allocator, "", original_text));
-//         var lines = &buffer.lines;
-//         defer buffer.deinitNoTrash(allocator);
-
-//         try buffer.deleteRows(2, 5);
-//         try expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
-//         try history.redo(buffer);
-//         try expectEqualStrings(mid_to_end, lines.slice(0, buffer.lines.length()));
-//     }
-
-//     {
-//         var buffer = &(try Buffer.init(allocator, "", original_text));
-//         var lines = &buffer.lines;
-//         defer buffer.deinitNoTrash(allocator);
-
-//         try buffer.deleteRows(1, 1);
-//         try expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
-//         try history.undo(buffer);
-//         try expectEqualStrings(original_text, lines.slice(0, buffer.lines.length()));
-//         try history.redo(buffer);
-//         try expectEqualStrings(same_line, lines.slice(0, buffer.lines.length()));
-//     }
-// }
-
-test "insert" {
+test "buffer.insertBeforeCursor()" {
     const string =
         \\HELLO THERE! GENERAL
         \\KENOBI
@@ -249,42 +119,24 @@ test "insert" {
     ;
 
     var buffer = try Buffer.init(allocator, "", "HELLO THERE\n");
+    defer buffer.deinitNoDestroy(allocator);
 
-    // print("\n{any}\n", .{buffer.sections});
-    try buffer.insert(1, 191, "! GENERAL");
-    // print("\n{any}\n", .{buffer.sections});
-    try buffer.insert(2, 1, "KENOBI\n");
+    buffer.cursor.index = 11;
+    try buffer.insertBeforeCursor("! GENERAL");
+    buffer.cursor.index = 21;
+    try buffer.insertBeforeCursor("KENOBI\n");
 
-    try expectEqualStrings(string, buffer.lines.slice(0, buffer.lines.length()));
-
-    buffer.deinitNoTrash(allocator);
+    const buffer_slice = try buffer.getAllLines(allocator);
+    defer allocator.free(buffer_slice);
+    try expectEqualStrings(string, buffer_slice);
 }
 
-test "buffer.getLines()" {
-    var buffer = try Buffer.init(allocator, "", @embedFile("buffer.zig"));
+test "buffer.getAllLines()" {
+    const this_file = @embedFile("buffer.zig");
+    var buffer = try Buffer.init(allocator, "", this_file);
+    defer buffer.deinitNoDestroy(allocator);
 
-    while (buffer.lines.length() != 1) {
-        _ = buffer.getLines(1, buffer.lines.count);
-        try buffer.delete(1, 1, 2);
-    }
-
-    buffer.deinitNoTrash(allocator);
-}
-
-test "delete() and getLine()" {
-    const str = @embedFile(@src().file);
-    var original_buffer = try Buffer.init(allocator, "", str);
-    var buffer = try Buffer.init(allocator, "", str);
-
-    var og_row: u32 = 1;
-    while (buffer.lines.count > 1 and og_row < original_buffer.lines.count) : (og_row += 1) {
-        try expectEqualStrings(
-            original_buffer.getLine(og_row),
-            buffer.getLine(1),
-        );
-        try buffer.delete(1, 1, 9999);
-    }
-
-    buffer.deinitNoTrash(allocator);
-    original_buffer.deinitNoTrash(allocator);
+    const buffer_slice = try buffer.getAllLines(allocator);
+    defer allocator.free(buffer_slice);
+    try expectEqualStrings(this_file, buffer_slice);
 }
