@@ -119,32 +119,38 @@ pub fn characterInput(utf8_seq: []const u8) void {
     _ = log_file.pwrite("\n", end + insert.len + utf8_seq.len) catch |err| print("err={}", .{err});
 }
 
-pub fn map(file_type: []const u8, key: []const u8, function: InputHandler.FunctionType) void {
+pub fn map(key: []const u8, function: InputHandler.FunctionType) void {
+    ft_mappings.put("", key, function) catch |err| {
+        print("input_layer.map()\n\t{}\n", .{err});
+    };
+}
+
+pub fn fileTypeMap(file_type: []const u8, key: []const u8, function: InputHandler.FunctionType) void {
     ft_mappings.put(file_type, key, function) catch |err| {
         print("input_layer.map()\n\t{}\n", .{err});
     };
 }
 
 fn setDefaultMappnigs() void {
-    map("", "<F2>", insertAlot);
-    map("", "<F3>", cycleThroughWindowsNext);
-    map("", "S_<F3>", cycleThroughWindowsPrev);
+    map("<F2>", insertAlot);
+    map("<F3>", cycleThroughWindowsNext);
+    map("S_<F3>", cycleThroughWindowsPrev);
 
-    map("", "<BACKSPACE>", deleteBackward);
-    map("", "<DELETE>", deleteForward);
+    map("<BACKSPACE>", deleteBackward);
+    map("<DELETE>", deleteForward);
 
-    map("", "<RIGHT>", moveRight);
-    map("", "<LEFT>", moveLeft);
-    map("", "<UP>", moveUp);
-    map("", "<DOWN>", moveDown);
+    map("<RIGHT>", moveRight);
+    map("<LEFT>", moveLeft);
+    map("<UP>", moveUp);
+    map("<DOWN>", moveDown);
 
-    map("", "C_<RIGHT>", focusRightWindow);
-    map("", "C_<LEFT>", focusLeftWindow);
-    map("", "C_<UP>", focusAboveWindow);
-    map("", "C_<DOWN>", focusBelowWindow);
+    map("C_<RIGHT>", focusRightWindow);
+    map("C_<LEFT>", focusLeftWindow);
+    map("C_<UP>", focusAboveWindow);
+    map("C_<DOWN>", focusBelowWindow);
 
-    map("", "<ENTER>", enterKey);
-    map("", "C_c", toggleCommandLine);
+    map("<ENTER>", enterKey);
+    map("<F1>", toggleCommandLine);
 }
 
 fn deleteBackward() void {
