@@ -23,6 +23,7 @@ pub fn setDefaultCommands() !void {
     try add("cw", window_ops.closeFocusedWindow);
 
     try add("save", saveFocused);
+    try add("saveAs", saveAsFocused);
     try add("forceSave", forceSaveFocused);
     try add("kill", killFocused);
     try add("forceKill", forceKillFocused);
@@ -66,6 +67,48 @@ fn openBelow(file_path: []const u8) void {
 }
 
 fn saveFocused() void {
+    buffer_ops.saveBuffer(global.focused_buffer, false) catch |err| {
+        if (err == file_io.Error.DifferentModTimes) {
+            print("The file's contents might've changed since last load\n", .{});
+            print("To force saving use forceSave", .{});
+        } else {
+            print("err={}\n", .{err});
+        }
+    };
+}
+
+fn saveAsFocused(file_path: []const u8) void {
+    if (file_path.len == 0) return;
+
+    var fp: []const u8 = undefined;
+    if (std.fs.path.isAbsolute(file_path)) {
+        fp = file_path;
+        global.focused_buffer.metadata.setFilePath(fp) catch |err| {
+            print("err={}\n", .{err});
+            return;
+        };
+    } else {
+        var array: [4000]u8 = undefined;
+        var cwd = std.os.getcwd(&array) catch |err| {
+            print("err={}\n", .{err});
+            return;
+        };
+        fp = std.mem.concat(internal.allocator, u8, &.{
+            cwd,
+            &.{std.fs.path.sep},
+            file_path,
+        }) catch |err| {
+            print("err={}\n", .{err});
+            return;
+        };
+        global.focused_buffer.metadata.setFilePath(fp) catch |err| {
+            print("err={}\n", .{err});
+            return;
+        };
+
+        internal.allocator.free(fp);
+    }
+
     buffer_ops.saveBuffer(global.focused_buffer, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});

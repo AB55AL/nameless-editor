@@ -12,6 +12,34 @@ pub const Error = error{
 };
 
 pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
+    var file_dir = try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{});
+    defer file_dir.close();
+    var file = file_dir.openFile(buffer.metadata.file_path, .{});
+
+    if (file == error.FileNotFound)
+        try writeToNewFile(buffer)
+    else
+        try writeAndReplaceFile(buffer, force_write);
+
+    (file catch return).close();
+}
+
+fn writeToNewFile(buffer: *Buffer) !void {
+    const fp = buffer.metadata.file_path;
+    var file_dir = try fs.openDirAbsolute(fs.path.dirname(fp).?, .{});
+    defer file_dir.close();
+
+    const new_file = try fs.createFileAbsolute(fp, .{});
+    defer new_file.close();
+    const content_of_buffer = try buffer.getAllLines(internal.allocator);
+    defer internal.allocator.free(content_of_buffer);
+
+    try new_file.writeAll(content_of_buffer);
+    var stat = try file_dir.statFile(buffer.metadata.file_path);
+    buffer.metadata.file_last_mod_time = stat.mtime;
+}
+
+fn writeAndReplaceFile(buffer: *Buffer, force_write: bool) !void {
     const new_file_suffix = ".editor-new";
     const original_file_suffix = ".editor-original";
 
