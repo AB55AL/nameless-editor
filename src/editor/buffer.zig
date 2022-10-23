@@ -134,21 +134,39 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     Cursor.resetRow(buffer);
 }
 
-// TODO: Implement this
-// pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
-//     assert(start_row <= end_row);
-//     assert(end_row <= buffer.lines.count);
-// }
+pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
+    assert(start_row <= end_row);
+    assert(end_row <= buffer.lines.newlines_count);
 
-// TODO: Implement this
-// pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
-//     if (start_row > end_row)
-//         return error.InvalidRange;
-//     _ = end_col;
-//     _ = start_col;
+    const start_index = buffer.getIndex(start_row, 1);
+    const end_index = if (end_row >= buffer.lines.newlines_count)
+        buffer.lines.size + 1
+    else
+        buffer.getIndex(end_row + 1, 1);
+    const num_to_delete = end_index - start_index;
 
-//     buffer.metadata.dirty = true;
-// }
+    try buffer.lines.delete(start_index, num_to_delete);
+    buffer.metadata.dirty = true;
+
+    try buffer.insureLastByteIsNewline();
+}
+
+pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
+    if (start_row > end_row)
+        return error.InvalidRange;
+
+    const start_index = buffer.getIndex(start_row, start_col);
+    const end_index = if (end_row > buffer.lines.newlines_count)
+        buffer.lines.size + 1
+    else
+        buffer.getIndex(end_row, end_col + 1);
+    const num_to_delete = end_index - start_index;
+
+    try buffer.lines.delete(start_index, num_to_delete);
+    buffer.metadata.dirty = true;
+
+    try buffer.insureLastByteIsNewline();
+}
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.clear();
