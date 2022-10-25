@@ -76,8 +76,9 @@ pub fn deinitTree(pt: *PieceTable, piece: ?*PieceNode) ?*PieceNode {
 }
 
 pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
-    var i = index;
-    var node = pt.findNode(&i);
+    var node_info = pt.findNode(index);
+    var node = node_info.piece;
+    var i = node_info.relative_index;
 
     var newlines_in_string_indices = ArrayList(u64).init(pt.allocator);
     defer newlines_in_string_indices.deinit();
@@ -137,8 +138,9 @@ pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
 
     // Delete one byte at a time
     while (len < num_to_delete and index < pt.size) : (len += 1) {
-        var i: u64 = index;
-        var node = pt.findNode(&i);
+        var node_info = pt.findNode(index);
+        var node = node_info.piece;
+        var i = node_info.relative_index;
         pt.splay(node);
 
         const byte_to_be_removed = pt.byteAt(index);
@@ -193,8 +195,10 @@ pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
 }
 
 pub fn byteAt(pt: *PieceTable, index: u64) u8 {
-    var i = index;
-    return pt.findNode(&i).content(pt)[i];
+    var node_info = pt.findNode(index);
+    var node = node_info.piece;
+    var i = node_info.relative_index;
+    return node.content(pt)[i];
 }
 
 pub fn getLine(pt: *PieceTable, allocator: std.mem.Allocator, line: u64) ![]u8 {
@@ -273,7 +277,11 @@ pub fn fragmentsOfLine(pt: *PieceTable, line: u64) ![][]const u8 {
     return fragments;
 }
 
-pub fn findNodeWithLine(pt: *PieceTable, newline_index_of_node: u64) PieceNode.NodeInfo {
+pub fn findNodeWithLine(pt: *PieceTable, newline_index_of_node: u64) struct {
+    piece: *PieceNode,
+    index: u64,
+    newline_index: u64,
+} {
     var piece = pt.pieces_root;
     var piece_index: u64 = 0;
     var piece_index_newline: u64 = 0;
@@ -498,8 +506,7 @@ pub fn buildIntoArrayList(pt: *PieceTable, node: ?*PieceNode, array_list: *Array
 pub fn buildIntoArray(pt: *PieceTable, array: []u8) []u8 {
     var start: u64 = 0;
     while (start < array.len) {
-        var index = start;
-        var node = pt.findNode(&index);
+        var node = pt.findNode(start).piece;
         pt.splay(node);
 
         const content = node.content(pt);
@@ -528,23 +535,30 @@ pub fn treeToArray(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(*P
         try pt.treeToArray(right, array_list);
 }
 
-pub fn findNode(pt: *PieceTable, index: *u64) *PieceNode {
+pub fn findNode(pt: *PieceTable, index: u64) struct {
+    piece: *PieceNode,
+    relative_index: u64,
+} {
     var node = pt.pieces_root;
+    var relative_index = index;
     while (true) {
-        if (index.* < node.left_subtree_len and node.left != null) {
+        if (relative_index < node.left_subtree_len and node.left != null) {
             node = node.left.?;
-        } else if (index.* >= node.left_subtree_len and index.* < node.left_subtree_len + node.len) {
-            index.* -= node.left_subtree_len;
-            return node;
+        } else if (relative_index >= node.left_subtree_len and relative_index < node.left_subtree_len + node.len) {
+            relative_index -= node.left_subtree_len;
+            break;
         } else {
             if (node.right) |right| {
-                index.* -= node.left_subtree_len + node.len;
+                relative_index -= node.left_subtree_len + node.len;
                 node = right;
                 continue;
             } else break;
         }
     }
-    return node;
+    return .{
+        .piece = node,
+        .relative_index = relative_index,
+    };
 }
 
 const Source = enum(u1) {
@@ -553,22 +567,6 @@ const Source = enum(u1) {
 };
 
 pub const PieceNode = struct {
-    const SubtreeInfo = struct {
-        len: u64,
-        newlines_count: u64,
-    };
-
-    const PieceHalves = struct {
-        left: PieceNode,
-        right: PieceNode,
-    };
-
-    const NodeInfo = struct {
-        piece: *PieceNode,
-        index: u64,
-        newline_index: u64,
-    };
-
     parent: ?*PieceNode = null,
     left: ?*PieceNode = null,
     right: ?*PieceNode = null,
@@ -628,43 +626,51 @@ pub const PieceNode = struct {
         return parent.right == node and parent.parent.?.right == parent;
     }
 
-    pub fn subtreeLengthRecursive(node: *PieceNode) SubtreeInfo {
-        var subtree_info = SubtreeInfo{
-            .len = 0,
-            .newlines_count = 0,
-        };
+    pub fn subtreeLengthRecursive(node: *PieceNode) struct {
+        len: u64,
+        newlines_count: u64,
+    } {
+        var len: u64 = 0;
+        var newlines_count: u64 = 0;
 
         if (node.left) |left| {
             var info = left.subtreeLengthRecursive();
-            subtree_info.len += info.len;
-            subtree_info.newlines_count += info.newlines_count;
+            len += info.len;
+            newlines_count += info.newlines_count;
         }
 
-        subtree_info.len += node.len;
-        subtree_info.newlines_count += node.newlines_count;
+        len += node.len;
+        newlines_count += node.newlines_count;
 
         if (node.right) |right| {
             var info = right.subtreeLengthRecursive();
-            subtree_info.len += info.len;
-            subtree_info.newlines_count += info.newlines_count;
+            len += info.len;
+            newlines_count += info.newlines_count;
         }
 
-        return subtree_info;
+        return .{
+            .len = len,
+            .newlines_count = newlines_count,
+        };
     }
 
-    pub fn subtreeLengthAndNewlineCount(piece: *PieceNode) SubtreeInfo {
+    pub fn subtreeLengthAndNewlineCount(piece: *PieceNode) struct {
+        len: u64,
+        newlines_count: u64,
+    } {
         var node: ?*PieceNode = piece;
-        var info = SubtreeInfo{
-            .len = 0,
-            .newlines_count = 0,
-        };
+        var len: u64 = 0;
+        var newlines_count: u64 = 0;
         while (node) |n| {
-            info.len += n.left_subtree_len + n.len;
-            info.newlines_count += n.left_subtree_newlines_count + n.newlines_count;
+            len += n.left_subtree_len + n.len;
+            newlines_count += n.left_subtree_newlines_count + n.newlines_count;
             node = n.right;
         }
 
-        return info;
+        return .{
+            .len = len,
+            .newlines_count = newlines_count,
+        };
     }
 
     fn leftRotate(node: *PieceNode) void {
@@ -823,7 +829,10 @@ pub const PieceNode = struct {
         return num;
     }
 
-    pub fn spilt(piece: *PieceNode, pt: *PieceTable, index: u64) PieceHalves {
+    pub fn spilt(piece: *PieceNode, pt: *PieceTable, index: u64) struct {
+        left: PieceNode,
+        right: PieceNode,
+    } {
         assert(index <= piece.len);
         const newlines_count_for_left = piece.newlineCountBeforeRelativeIndex(pt, index);
 
