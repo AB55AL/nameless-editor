@@ -20,8 +20,6 @@ pub fn setDefaultCommands() !void {
     try add("oa", openAbove);
     try add("ob", openBelow);
 
-    try add("cw", window_ops.closeFocusedWindow);
-
     try add("save", saveFocused);
     try add("saveAs", saveAsFocused);
     try add("forceSave", forceSaveFocused);
@@ -29,39 +27,35 @@ pub fn setDefaultCommands() !void {
     try add("forceKill", forceKillFocused);
     try add("sq", saveAndQuitFocused);
     try add("forceSaveAndQuit", forceSaveAndQuitFocused);
-
-    try add("hResize", hResizeFocusedDown);
-    try add("vResize", vResizeFocused);
-    try add("eql", equalize);
 }
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferFP(file_path, .here) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path) catch |err| {
         print("open command: err={}\n", .{err});
     };
 }
 fn openRight(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferFP(file_path, .right) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
 fn openLeft(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferFP(file_path, .left) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
 fn openAbove(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferFP(file_path, .above) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
 fn openBelow(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    buffer_ops.openBufferFP(file_path, .below) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }
@@ -153,18 +147,4 @@ fn saveAndQuitFocused() void {
 fn forceSaveAndQuitFocused() void {
     buffer_ops.saveAndQuit(global.focused_buffer, true) catch |err|
         print("err={}\n", .{err});
-}
-
-fn vResizeFocused(resize_value: f32) void {
-    var win = global.windows.focusedWindow();
-    global.windows.resize(win.index, resize_value, .right);
-}
-
-fn hResizeFocusedDown(resize_value: f32) void {
-    var win = global.windows.focusedWindow();
-    global.windows.resize(win.index, resize_value, .above);
-}
-
-fn equalize() void {
-    global.windows.equalize();
 }

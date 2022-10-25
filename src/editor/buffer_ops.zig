@@ -28,8 +28,10 @@ pub const Error = error{
 /// creates a new buffer, adds it to the global.buffers array and
 /// returns a pointer to it.
 pub fn createBuffer(file_path: []const u8) !*Buffer {
-    var buf = try getBufferFP(file_path);
-    if (buf) |b| return b;
+    if (file_path.len > 0) {
+        var buf = try getBufferFP(file_path);
+        if (buf) |b| return b;
+    }
 
     var buffer = try createLocalBuffer(file_path);
 
@@ -45,19 +47,25 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
 /// Does not add the buffer to the global.buffers array
 /// Always creates a new buffer
 pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
-    var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
-    const full_file_path = try file_io.fullFilePath(file_path, &out_buffer);
-
-    const file = try fs.cwd().openFile(full_file_path, .{});
-    defer file.close();
-    const metadata = try file.metadata();
-    try file.seekTo(0);
-    var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
-    defer internal.allocator.free(buf);
-
     var buffer = try internal.allocator.create(Buffer);
-    buffer.* = try Buffer.init(internal.allocator, full_file_path, buf);
-    buffer.metadata.file_last_mod_time = metadata.modified();
+    errdefer internal.allocator.destroy(buffer);
+
+    if (file_path.len > 0) {
+        var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
+        const full_file_path = try file_io.fullFilePath(file_path, &out_buffer);
+
+        const file = try fs.cwd().openFile(full_file_path, .{});
+        defer file.close();
+        const metadata = try file.metadata();
+        try file.seekTo(0);
+        var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
+        defer internal.allocator.free(buf);
+
+        buffer.* = try Buffer.init(internal.allocator, full_file_path, buf);
+        buffer.metadata.file_last_mod_time = metadata.modified();
+    } else {
+        buffer.* = try Buffer.init(internal.allocator, "", "");
+    }
 
     return buffer;
 }
@@ -77,7 +85,7 @@ pub fn createPathLessBuffer() !*Buffer {
 /// Given an *index* searches the global.buffers array for a buffer
 /// matching either.
 /// Returns null if the buffer isn't found.
-pub fn getBufferI(index: u32) !?*Buffer {
+pub fn getBufferI(index: u32) ?*Buffer {
     if (global.first_buffer == null) return null;
 
     var buffer = global.first_buffer.?;
@@ -92,10 +100,10 @@ pub fn getBufferI(index: u32) !?*Buffer {
     }
 }
 
-pub fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
+fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
     var buffer: *Buffer = undefined;
     if (index) |i|
-        buffer = (try getBufferI(i)) orelse
+        buffer = getBufferI(i) orelse
             try getBufferFP(file_path) orelse
             try createBuffer(file_path)
     else
@@ -125,30 +133,18 @@ pub fn getBufferFP(file_path: []const u8) !?*Buffer {
     }
 }
 
-pub fn openBufferI(index: u32, direction: window_ops.Direction) !void {
-    var buffer: *Buffer = (try getBufferI(index)) orelse return;
-
-    if (direction == .here and global.windows.wins.items.len > 0) {
-        global.windows.focusedWindow().buffer = buffer;
-        global.focused_buffer = buffer;
-    } else {
-        var window = try global.windows.openWindow(if (direction == .here) .next else direction);
-        window.buffer = buffer;
-        global.focused_buffer = buffer;
-    }
+pub fn openBufferI(index: u32) !*Buffer {
+    var buffer: *Buffer = try getOrCreateBuffer(index, "");
+    global.previous_buffer_index = global.focused_buffer.index;
+    global.focused_buffer = buffer;
+    return buffer;
 }
 
-pub fn openBufferFP(file_path: []const u8, direction: window_ops.Direction) !void {
+pub fn openBufferFP(file_path: []const u8) !*Buffer {
     var buffer: *Buffer = try getOrCreateBuffer(null, file_path);
-
-    if (direction == .here and global.windows.wins.items.len > 0) {
-        global.windows.focusedWindow().buffer = buffer;
-        global.focused_buffer = buffer;
-    } else {
-        var window = try global.windows.openWindow(if (direction == .here) .next else direction);
-        window.buffer = buffer;
-        global.focused_buffer = buffer;
-    }
+    global.previous_buffer_index = global.focused_buffer.index;
+    global.focused_buffer = buffer;
+    return buffer;
 }
 
 pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
@@ -177,9 +173,7 @@ pub fn forceKillBuffer(buffer: *Buffer) !void {
     if (buffer.state == .invalid)
         return Error.KillingInvalidBuffer;
 
-    window_ops.closeBufferWindow(buffer);
     buffer.deinitNoDestroy(internal.allocator);
-
     if (global.valid_buffers_count > 0) {
         global.focused_buffer = first_valid_buffer: {
             if (global.first_buffer.?.state == .valid)

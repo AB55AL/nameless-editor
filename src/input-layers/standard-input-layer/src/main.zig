@@ -132,10 +132,7 @@ pub fn fileTypeMap(file_type: []const u8, key: []const u8, function: InputHandle
 }
 
 fn setDefaultMappnigs() void {
-    map("<F2>", insertAlot);
-    map("<F3>", cycleThroughWindowsNext);
-    map("S_<F3>", cycleThroughWindowsPrev);
-
+    map("<F3>", core.closeDrawerWindow);
     map("<BACKSPACE>", deleteBackward);
     map("<DELETE>", deleteForward);
 
@@ -143,11 +140,6 @@ fn setDefaultMappnigs() void {
     map("<LEFT>", moveLeft);
     map("<UP>", moveUp);
     map("<DOWN>", moveDown);
-
-    map("C_<RIGHT>", focusRightWindow);
-    map("C_<LEFT>", focusLeftWindow);
-    map("C_<UP>", focusAboveWindow);
-    map("C_<DOWN>", focusBelowWindow);
 
     map("<ENTER>", enterKey);
     map("<F1>", toggleCommandLine);
@@ -177,28 +169,15 @@ fn moveDown() void {
     Cursor.moveRelative(global.focused_buffer, 1, 0);
 }
 
-fn focusRightWindow() void {
-    core.global.windows.changeFocusedWindow(.right);
-}
-fn focusLeftWindow() void {
-    core.global.windows.changeFocusedWindow(.left);
-}
-fn focusAboveWindow() void {
-    core.global.windows.changeFocusedWindow(.above);
-}
-fn focusBelowWindow() void {
-    core.global.windows.changeFocusedWindow(.below);
-}
-
 fn toggleCommandLine() void {
-    if (global.command_line_is_open.*)
+    if (global.command_line_is_open)
         core.command_line.close()
     else
         core.command_line.open();
 }
 
 fn enterKey() void {
-    if (global.command_line_is_open.*)
+    if (global.command_line_is_open)
         core.command_line.run() catch |err| {
             print("Couldn't run command. err={}\n", .{err});
         }
@@ -212,16 +191,4 @@ fn insertNewLineAtCursor() void {
     };
     Cursor.moveRelative(global.focused_buffer, 1, 0);
     Cursor.moveToStartOfLine(global.focused_buffer);
-}
-
-fn insertAlot() void {
-    // global.focused_buffer.deleteRows(1, 3) catch unreachable;
-    global.focused_buffer.insertBeforeCursor("شششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششششش") catch unreachable;
-}
-
-fn cycleThroughWindowsNext() void {
-    core.global.windows.cycleThroughWindows(.next);
-}
-fn cycleThroughWindowsPrev() void {
-    core.global.windows.cycleThroughWindows(.prev);
 }

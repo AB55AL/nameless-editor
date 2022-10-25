@@ -36,10 +36,10 @@ pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.
         window.start_row -= 1;
 
     // Horizontal scroll
-    if (vcursor.col > window.visible_cols_at_buffer_row + 1)
-        window.start_col += 1
-    else if (vcursor.col == 0)
-        window.start_col -= 1;
+    // if (vcursor.col > window.visible_cols_at_buffer_row + 1)
+    //     window.start_col += 1
+    // else if (vcursor.col == 0)
+    //     window.start_col -= 1;
 }
 
 fn wrapOrStop(renderer_text: *Text, window: *Window, vcursor: *VCursor, x: *f32, y: *f32, character: Character) !void {

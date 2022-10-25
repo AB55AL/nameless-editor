@@ -21,6 +21,7 @@ const cursor = @import("cursor.zig");
 const globals = @import("../globals.zig");
 const VCursor = @import("vcursor.zig").VCursor;
 const syntax = @import("syntax-highlight.zig");
+const buffer_ops = @import("../editor/buffer_ops.zig");
 
 const global = globals.global;
 const internal = globals.internal;
@@ -61,28 +62,20 @@ pub fn render() !void {
     c.glClearColor(0.2, 0.3, 0.3, 1.0);
     c.glClear(c.GL_COLOR_BUFFER_BIT);
 
-    var wins = global.windows.wins.items;
-    var i: usize = 0;
-    while (i < wins.len) : (i += 1) {
-        var window = &global.windows.wins.items[i];
+    var window = &global.focused_window;
+    window.buffer = if (global.command_line_is_open or global.drawer_window_is_open) (buffer_ops.getBufferI(global.previous_buffer_index) orelse return) else global.focused_buffer;
+    const bg_color = 0x272822;
+    renderer_rect.renderFraction(window.*, syntax.hexToColorVector(bg_color));
+    if (window.buffer.state == .valid)
+        try renderer_text.render(window);
 
-        const bg_color = if (window.index == global.windows.focused_window_index)
-            0x272822
-        else
-            window.background_color;
-
-        renderer_rect.renderFraction(window.*, syntax.hexToColorVector(bg_color));
-        if (window.buffer.state == .valid)
-            try renderer_text.render(window);
-    }
-    if (global.command_line_is_open.*) {
-        renderer_rect.renderFraction(internal.command_line_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
-        try renderer_text.render(&internal.command_line_window);
-        try cursor.render(renderer_rect, renderer_text, &internal.command_line_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
-    } else if (global.windows.wins.items.len > 0) {
-        if (global.windows.focusedWindow().buffer.state == .valid) {
-            try cursor.render(renderer_rect, renderer_text, global.windows.focusedWindow(), .{ .x = 1.0, .y = 1.0, .z = 1.0 });
-        }
+    if (global.command_line_is_open or global.drawer_window_is_open) {
+        global.drawer_window.buffer = if (global.command_line_is_open) global.command_line_buffer else global.drawer_buffer;
+        renderer_rect.renderFraction(global.drawer_window, .{ .x = 0.0, .y = 0.0, .z = 0.0 });
+        try renderer_text.render(&global.drawer_window);
+        try cursor.render(renderer_rect, renderer_text, &global.drawer_window, .{ .x = 1.0, .y = 0.0, .z = 0.0 });
+    } else {
+        try cursor.render(renderer_rect, renderer_text, &global.focused_window, .{ .x = 1.0, .y = 1.0, .z = 1.0 });
     }
 
     try glfw_window.swapBuffers();

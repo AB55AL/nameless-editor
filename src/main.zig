@@ -11,7 +11,6 @@ const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
 const buffer_ops = @import("editor/buffer_ops.zig");
 const globals = @import("globals.zig");
-const layouts = @import("ui/layouts.zig");
 
 const input_layer = @import("input_layer");
 const options = @import("options");
@@ -40,13 +39,10 @@ pub fn main() !void {
     try command_line.init();
     defer command_line.deinit();
 
-    var tr = layouts.TileRight.init(1);
-    try globals.global.layouts.add(tr.interface(), tr);
-    globals.global.windows.active_layout = globals.global.layouts.layouts.items[0];
-
     if (globals.global.first_buffer == null) {
         var buffer = try buffer_ops.createPathLessBuffer();
-        try buffer_ops.openBufferI(buffer.index, .here);
+        globals.global.focused_buffer = buffer;
+        _ = try buffer_ops.openBufferI(buffer.index);
     }
 
     if (options.user_config_loaded) try user.init();
