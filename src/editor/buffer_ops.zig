@@ -4,7 +4,6 @@ const fs = std.fs;
 const ArrayList = std.ArrayList;
 const eql = std.mem.eql;
 const assert = std.debug.assert;
-
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 const globals = @import("../globals.zig");

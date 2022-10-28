@@ -11,19 +11,18 @@ const Rect = @import("rect.zig");
 const vectors = @import("vectors.zig");
 const text = @import("text.zig");
 const Text = text.Text;
-const Cursor = @import("../editor/cursor.zig");
 const Character = text.Character;
 const Buffer = @import("../editor/buffer.zig");
 const WindowPixels = @import("window.zig").WindowPixels;
 const VCursor = @import("vcursor.zig").VCursor;
 
 pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.vec3) !void {
-    var vcursor = VCursor.convert(window.buffer.cursor, window.*);
+    var vcursor = VCursor.convert(window.buffer, window.*);
     var buffer = window.buffer;
     var initial_cursor_h = @intToFloat(f32, renderer_text.font_size);
     var cursor_h = initial_cursor_h / 2.0 + 5.0;
 
-    var line = try buffer.getLine(internal.allocator, buffer.cursor.row);
+    var line = try buffer.getLine(internal.allocator, buffer.getRowAndCol(buffer.cursor_index).row);
     defer internal.allocator.free(line);
     var cursor_x = getX(renderer_text, window, &vcursor, line);
     var cursor_y = getY(window, &vcursor, initial_cursor_h);

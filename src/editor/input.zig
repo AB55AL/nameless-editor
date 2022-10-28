@@ -7,7 +7,6 @@ const freetype = @import("freetype");
 const glfw = @import("glfw");
 const Mods = glfw.Mods;
 
-const Cursor = @import("cursor.zig");
 const Buffer = @import("buffer.zig");
 
 const input_layer = @import("input_layer");

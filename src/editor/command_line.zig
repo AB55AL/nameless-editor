@@ -8,7 +8,6 @@ const ascii = std.ascii;
 
 const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
-const Cursor = @import("cursor.zig");
 const default_commands = @import("default_commands.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
 
@@ -71,7 +70,7 @@ pub fn close() void {
     global.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
-    Cursor.moveAbsolute(global.command_line_buffer, 1, 1);
+    global.command_line_buffer.moveAbsolute(1, 1);
 }
 
 pub fn run() !void {

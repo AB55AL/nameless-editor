@@ -1,10 +1,12 @@
 const std = @import("std");
 const print = std.debug.print;
-const Cursor = @import("../editor/cursor.zig");
+const Buffer = @import("../editor/buffer.zig");
 const Window = @import("window.zig").Window;
 
 pub const VCursor = struct {
-    pub fn convert(cursor: Cursor, window: Window) VCursor {
+    pub fn convert(buffer: *Buffer, window: Window) VCursor {
+        const cursor = buffer.getRowAndCol(buffer.cursor_index);
+
         var col = @intCast(i32, cursor.col) - @intCast(i32, window.start_col) + 1;
         col = std.math.max(0, col);
         var row = @intCast(i32, cursor.row) - @intCast(i32, window.start_row) + 1;

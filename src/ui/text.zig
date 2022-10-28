@@ -126,8 +126,8 @@ pub const Text = struct {
             break :blk path;
         };
 
-        text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Amiri-Regular.ttf", 0);
-        // text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
+        // text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Amiri-Regular.ttf", 0);
+        text.ft_face = try text.ft_lib.createFace(path ++ "/assets/Fira Code Light Nerd Font Complete Mono.otf", 0);
 
         const font_size: i32 = 24;
         try text.ft_face.setCharSize(64 * font_size, 0, 0, 0);
@@ -320,6 +320,7 @@ pub const Text = struct {
         window.visible_rows = 0;
         var row = window.start_row - 1;
         window.visible_cols_at_buffer_row = 0;
+        const cursor = window.buffer.getRowAndCol(window.buffer.index);
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
             if (y >= window_p.height + window_p.y) break;
@@ -356,7 +357,7 @@ pub const Text = struct {
                         var character = text.ascii_textures[byte];
                         text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
                         text.renderGlyph(character, &x, &y);
-                        if (window.buffer.cursor.row == row)
+                        if (cursor.row == row)
                             window.visible_cols_at_buffer_row += 1;
                     }
                 } else {
@@ -368,7 +369,7 @@ pub const Text = struct {
                     for (characters) |character| {
                         text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
                         text.renderGlyph(character, &x, &y);
-                        if (window.buffer.cursor.row == row)
+                        if (cursor.row == row)
                             window.visible_cols_at_buffer_row += 1;
                     }
                 }

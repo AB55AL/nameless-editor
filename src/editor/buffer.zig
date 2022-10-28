@@ -9,7 +9,6 @@ const assert = std.debug.assert;
 const max = std.math.max;
 const min = std.math.min;
 
-const Cursor = @import("cursor.zig").Cursor;
 const PieceTable = @import("piece_table.zig");
 const utf8 = @import("utf8.zig");
 const globals = @import("../globals.zig");
@@ -49,7 +48,7 @@ pub const MetaData = struct {
 
 metadata: MetaData,
 index: u32,
-cursor: Cursor,
+cursor_index: u64,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 state: State,
@@ -79,7 +78,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var buffer = Buffer{
         .index = static.index,
         .metadata = metadata,
-        .cursor = .{ .row = 1, .col = 1, .index = 0 },
+        .cursor_index = 0,
         .lines = try PieceTable.init(allocator, buf),
         .state = .valid,
     };
@@ -108,30 +107,81 @@ pub fn deinitAndDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
 }
 
 pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
-    try buffer.lines.insert(buffer.cursor.index, string);
-    buffer.cursor.index += string.len;
-    buffer.cursor.col += unicode.utf8CountCodepoints(string) catch unreachable;
+    try buffer.lines.insert(buffer.cursor_index, string);
+    buffer.cursor_index += string.len;
     buffer.metadata.dirty = true;
 }
 
 pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
-    if (buffer.cursor.col == 1) return;
+    if (buffer.cursor_index == 0) return;
 
-    var old_index = buffer.cursor.index;
-    Cursor.moveRelative(buffer, 0, -@intCast(i64, characters_to_delete));
-    var new_index = buffer.cursor.index;
-    try buffer.lines.delete(buffer.cursor.index, old_index - new_index);
+    var i = buffer.cursor_index;
+    var cont_bytes: u8 = 0;
+    var characters: u64 = 0;
+
+    { // Backward traverse the buffer while minding UTF-8
+        while (characters != characters_to_delete) {
+            const byte = buffer.lines.byteAt(i - 1);
+
+            switch (utf8.byteType(byte)) {
+                .start_byte => {
+                    cont_bytes = 0;
+                    characters += 1;
+                    i -= 1;
+                },
+                .continue_byte => {
+                    cont_bytes += 1;
+                    i -= 1;
+                },
+            }
+
+            if (cont_bytes > 3) unreachable;
+        }
+    }
+
+    var old_index = buffer.cursor_index;
+    var new_index = i;
+    buffer.cursor_index = new_index;
+    try buffer.lines.delete(buffer.cursor_index, old_index - new_index);
 
     buffer.metadata.dirty = true;
 
     try buffer.insureLastByteIsNewline();
-    Cursor.resetRow(buffer);
 }
 
 pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
-    Cursor.moveRelative(buffer, 0, @intCast(i64, characters_to_delete));
-    try buffer.deleteBeforeCursor(characters_to_delete);
-    Cursor.resetRow(buffer);
+    var i = buffer.cursor_index;
+    var cont_bytes: u8 = 0;
+    var characters: u64 = 0;
+
+    { // Forward traverse the buffer while minding UTF-8
+        while (characters != characters_to_delete and i < buffer.lines.size) {
+            const byte = buffer.lines.byteAt(i);
+
+            switch (utf8.byteType(byte)) {
+                .start_byte => {
+                    cont_bytes = 0;
+                    characters += 1;
+                    i += 1;
+                },
+                .continue_byte => {
+                    cont_bytes += 1;
+                    i += 1;
+                },
+            }
+
+            if (cont_bytes > 3) unreachable;
+        }
+    }
+
+    var old_index = buffer.cursor_index;
+    var new_index = i;
+    buffer.cursor_index = i - 1;
+    try buffer.lines.delete(buffer.cursor_index, new_index - old_index);
+
+    buffer.metadata.dirty = true;
+    try buffer.insureLastByteIsNewline();
+    buffer.cursor_index = min(buffer.cursor_index, buffer.lines.size - 1);
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
@@ -216,7 +266,7 @@ pub fn clear(buffer: *Buffer) !void {
     try buffer.insureLastByteIsNewline();
     buffer.metadata.dirty = true;
 
-    Cursor.moveAbsolute(buffer, 1, 1);
+    buffer.moveAbsolute(1, 1);
 }
 
 pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
@@ -240,7 +290,7 @@ pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
 
 pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
     assert(row <= buffer.lines.newlines_count);
-    var index: u64 = if (row == 1) 0 else buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
+    var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
     var char_count: usize = 0;
     var i: usize = 0;
@@ -248,6 +298,7 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
         const byte = buffer.lines.byteAt(i + index);
         const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
         if (byte == '\n') {
+            i += 1;
             break;
         } else if (byte_seq_len > 0) {
             char_count += 1;
@@ -260,3 +311,139 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
     var result = index + i;
     return result;
 }
+
+pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
+    // in the findNodeWithLine() call we subtract 2 from row because
+    // rows in the buffer are 1-based but in buffer.lines they're 0-based so
+    // we subtract 1 and because we use 0 as the index for row 1 because that's
+    // the first byte of the first row we need to subtract another 1.
+    return if (row == 1)
+        0
+    else if (row == buffer.lines.newlines_count)
+        buffer.lines.size - 1
+    else
+        buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
+}
+
+pub fn getRowAndCol(buffer: *Buffer, index: u64) struct { row: u64, col: u64 } {
+    assert(index <= buffer.lines.size);
+
+    var row: u64 = 0;
+    var newline_index: u64 = 0;
+    if (index == buffer.lines.size) {
+        row = buffer.lines.newlines_count - 1;
+        newline_index = buffer.lines.findNodeWithLine(row).newline_index + 1;
+    } else if (index == 0) {
+        row = 0;
+        newline_index = 0;
+    } else {
+        while (row < buffer.lines.newlines_count) : (row += 1) {
+            var ni = buffer.lines.findNodeWithLine(row).newline_index;
+            if (ni <= index) newline_index = ni else break;
+        }
+    }
+
+    if (newline_index > 0 and newline_index == index) {
+        if (row == 0) row = 1;
+        return .{ .row = row, .col = buffer.countCodePointsAtRow(row) };
+    } else if (newline_index > 0 and newline_index + 1 == index) {
+        if (row == 0) row = 1;
+        return .{ .row = row + 1, .col = 1 };
+    }
+
+    var col: u64 = if (row == 0) 1 else 0;
+    // var col: u64 = 1;
+    var i: u64 = 1;
+    while (i + newline_index <= index) {
+        const byte = buffer.lines.byteAt(i + newline_index);
+        const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+        if (byte == '\n') {
+            break;
+        } else if (byte_seq_len > 0) {
+            col += 1;
+            i += byte_seq_len;
+        } else { // Continuation byte
+            i += 1;
+        }
+    }
+
+    return .{ .row = row + 1, .col = col };
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Cursor
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn moveColumnRelative(buffer: *Buffer, col_offset: i64) void {
+    if (col_offset == 0) return;
+    if (buffer.cursor_index == 0 and col_offset <= 0) return;
+
+    var i = buffer.cursor_index;
+    if (col_offset > 0) {
+        var characters: u64 = 0;
+        while (characters != col_offset) {
+            const byte = buffer.lines.byteAt(i);
+            if (byte == '\n') {
+                i += 1;
+                break;
+            }
+
+            var len = unicode.utf8ByteSequenceLength(byte) catch 0;
+            if (len > 0) {
+                i += len;
+                characters += 1;
+            } else { // Continuation byte
+                i += 1;
+            }
+        }
+    } else if (col_offset < 0) {
+        var characters: u64 = 0;
+        var cont_bytes: u8 = 0;
+        while (characters != -col_offset) {
+            const byte = buffer.lines.byteAt(if (i == 0) 0 else i - 1);
+            if (byte == '\n') {
+                i -= 1;
+                break;
+            }
+            switch (utf8.byteType(byte)) {
+                .start_byte => {
+                    cont_bytes = 0;
+                    characters += 1;
+                    i -= 1;
+                },
+                .continue_byte => {
+                    cont_bytes += 1;
+                    i -= 1;
+                },
+            }
+
+            if (cont_bytes > 3) unreachable;
+        }
+    }
+
+    buffer.cursor_index = min(i, buffer.lines.size - 1);
+}
+
+pub fn moveRelativeRow(buffer: *Buffer, row_offset: i64) void {
+    if (buffer.lines.size == 0) return;
+    if (row_offset == 0) return;
+
+    const cursor = buffer.getRowAndCol(buffer.cursor_index);
+
+    var new_row = @intCast(i64, cursor.row) + row_offset;
+    if (row_offset < 0) new_row = max(1, new_row) else new_row = min(new_row, buffer.lines.newlines_count);
+
+    buffer.cursor_index = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
+
+    const old_col = cursor.col;
+    moveColumnRelative(buffer, @intCast(i64, old_col - 1));
+}
+
+pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
+    if (row > buffer.lines.newlines_count) return;
+    buffer.cursor_index = buffer.getIndex(row, col);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Cursor end
+////////////////////////////////////////////////////////////////////////////////

@@ -157,16 +157,18 @@ fn deleteForward() void {
     };
 }
 fn moveRight() void {
-    Cursor.moveRelative(global.focused_buffer, 0, 1);
+    // Cursor.moveRelative(global.focused_buffer, 0, 1);
+    global.focused_buffer.moveColumnRelative(1);
 }
 fn moveLeft() void {
-    Cursor.moveRelative(global.focused_buffer, 0, -1);
+    // Cursor.moveRelative(global.focused_buffer, 0, -1);
+    global.focused_buffer.moveColumnRelative(-1);
 }
 fn moveUp() void {
-    Cursor.moveRelative(global.focused_buffer, -1, 0);
+    global.focused_buffer.moveRelativeRow(-1);
 }
 fn moveDown() void {
-    Cursor.moveRelative(global.focused_buffer, 1, 0);
+    global.focused_buffer.moveRelativeRow(1);
 }
 
 fn toggleCommandLine() void {
@@ -189,6 +191,4 @@ fn insertNewLineAtCursor() void {
     global.focused_buffer.insertBeforeCursor("\n") catch |err| {
         print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
     };
-    Cursor.moveRelative(global.focused_buffer, 1, 0);
-    Cursor.moveToStartOfLine(global.focused_buffer);
 }

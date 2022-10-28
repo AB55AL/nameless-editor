@@ -3,6 +3,11 @@ const print = std.debug.print;
 const unicode = std.unicode;
 const assert = std.debug.assert;
 
+pub const ByteType = enum {
+    start_byte,
+    continue_byte,
+};
+
 /// Given a valid UTF-8 sequence returns a slice
 /// containing the bytes of the ith character up to and including the jth character (1-based)
 pub fn substringOfUTF8Sequence(utf8_seq: []const u8, i: usize, j: usize) ![]const u8 {
@@ -85,4 +90,16 @@ pub fn lastByteOfCodeUnit(utf8_string: []const u8, index: usize) usize {
     var i = firstByteOfCodeUnit(utf8_string, index);
     var len = unicode.utf8ByteSequenceLength(utf8_string[i]) catch unreachable;
     return i + len - 1;
+}
+
+pub fn byteType(byte: u8) ByteType {
+    return switch (byte) {
+        0b0000_0000...0b0111_1111, // ASCII
+        0b1100_0000...0b1101_1111, // 2-byte UTF-8
+        0b1110_0000...0b1110_1111, // 3-byte UTF-8
+        0b1111_0000...0b1111_0111, // 4-byte UTF-8
+        => return .start_byte,
+
+        else => return .continue_byte,
+    };
 }
