@@ -373,7 +373,7 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveColumnRelative(buffer: *Buffer, col_offset: i64) void {
+pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64) void {
     if (col_offset == 0) return;
     if (buffer.cursor_index == 0 and col_offset <= 0) return;
 
@@ -435,7 +435,7 @@ pub fn moveRelativeRow(buffer: *Buffer, row_offset: i64) void {
     buffer.cursor_index = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
 
     const old_col = cursor.col;
-    moveColumnRelative(buffer, @intCast(i64, old_col - 1));
+    moveRelativeColumn(buffer, @intCast(i64, old_col - 1));
 }
 
 pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
