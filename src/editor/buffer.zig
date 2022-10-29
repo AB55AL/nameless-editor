@@ -162,7 +162,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
                 .start_byte => {
                     cont_bytes = 0;
                     characters += 1;
-                    i += 1;
+                    i += unicode.utf8ByteSequenceLength(byte) catch unreachable;
                 },
                 .continue_byte => {
                     cont_bytes += 1;
@@ -176,7 +176,6 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
 
     var old_index = buffer.cursor_index;
     var new_index = i;
-    buffer.cursor_index = i - 1;
     try buffer.lines.delete(buffer.cursor_index, new_index - old_index);
 
     buffer.metadata.dirty = true;
