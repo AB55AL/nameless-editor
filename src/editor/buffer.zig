@@ -325,8 +325,8 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
         buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
 }
 
-pub fn getRowAndCol(buffer: *Buffer, index: u64) struct { row: u64, col: u64 } {
-    assert(index <= buffer.lines.size);
+pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } {
+    var index = min(index_, buffer.lines.size);
 
     var row: u64 = 0;
     var newline_index: u64 = 0;
