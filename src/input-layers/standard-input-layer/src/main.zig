@@ -171,10 +171,10 @@ fn deleteForward() void {
     };
 }
 fn moveRight() void {
-    global.focused_buffer.moveRelativeColumn(1);
+    global.focused_buffer.moveRelativeColumn(1, false);
 }
 fn moveLeft() void {
-    global.focused_buffer.moveRelativeColumn(-1);
+    global.focused_buffer.moveRelativeColumn(-1, false);
 }
 fn moveUp() void {
     global.focused_buffer.moveRelativeRow(-1);

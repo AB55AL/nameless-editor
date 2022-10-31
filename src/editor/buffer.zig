@@ -329,32 +329,15 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
 
     var row: u64 = 0;
     var newline_index: u64 = 0;
-    if (index == buffer.lines.size) {
-        row = buffer.lines.newlines_count - 1;
-        newline_index = buffer.lines.findNodeWithLine(row).newline_index + 1;
-    } else if (index == 0) {
-        row = 0;
-        newline_index = 0;
-    } else {
-        while (row < buffer.lines.newlines_count) : (row += 1) {
-            var ni = buffer.lines.findNodeWithLine(row).newline_index;
-            if (ni <= index) newline_index = ni else break;
-        }
+    while (row < buffer.lines.newlines_count) : (row += 1) {
+        var ni = buffer.indexOfFirstByteAtRow(row + 1);
+        if (ni <= index) newline_index = ni else break;
     }
 
-    if (newline_index > 0 and newline_index == index) {
-        if (row == 0) row = 1;
-        return .{ .row = row, .col = buffer.countCodePointsAtRow(row) };
-    } else if (newline_index > 0 and newline_index + 1 == index) {
-        if (row == 0) row = 1;
-        return .{ .row = row + 1, .col = 1 };
-    }
-
-    var col: u64 = if (row == 0) 1 else 0;
-    // var col: u64 = 1;
-    var i: u64 = 1;
-    while (i + newline_index <= index) {
-        const byte = buffer.lines.byteAt(i + newline_index);
+    var col: u64 = 1;
+    var i: u64 = newline_index;
+    while (i < index) {
+        const byte = buffer.lines.byteAt(i);
         const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
         if (byte == '\n') {
             break;
@@ -366,14 +349,14 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
         }
     }
 
-    return .{ .row = row + 1, .col = col };
+    return .{ .row = row, .col = col };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64) void {
+pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64, stop_before_newline: bool) void {
     if (col_offset == 0) return;
     if (buffer.cursor_index == 0 and col_offset <= 0) return;
 
@@ -383,7 +366,7 @@ pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64) void {
         while (characters != col_offset) {
             const byte = buffer.lines.byteAt(i);
             if (byte == '\n') {
-                i += 1;
+                if (!stop_before_newline) i += 1;
                 break;
             }
 
@@ -435,7 +418,7 @@ pub fn moveRelativeRow(buffer: *Buffer, row_offset: i64) void {
     buffer.cursor_index = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
 
     const old_col = cursor.col;
-    moveRelativeColumn(buffer, @intCast(i64, old_col - 1));
+    moveRelativeColumn(buffer, @intCast(i64, old_col - 1), true);
 }
 
 pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
