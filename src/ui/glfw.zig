@@ -1,7 +1,7 @@
 const glfw = @import("glfw");
 const c = @import("c.zig");
 
-const input = @import("../editor/input.zig");
+const input = @import("../editor/glfw_input.zig");
 const Renderer = @import("renderer.zig");
 
 const GLFW = @This();
