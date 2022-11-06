@@ -318,8 +318,6 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
     // the first byte of the first row we need to subtract another 1.
     return if (row == 1)
         0
-    else if (row == buffer.lines.newlines_count)
-        buffer.lines.size - 1
     else
         buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
 }
