@@ -289,10 +289,11 @@ pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
 
 pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
     assert(row <= buffer.lines.newlines_count);
+    assert(row > 0);
     var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
-    var char_count: usize = 0;
-    var i: usize = 0;
+    var char_count: u64 = 0;
+    var i: u64 = 0;
     while (char_count < col - 1) {
         const byte = buffer.lines.byteAt(i + index);
         const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
@@ -368,7 +369,7 @@ pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64, stop_before_newline:
                 break;
             }
 
-            var len = unicode.utf8ByteSequenceLength(byte) catch 0;
+            const len = unicode.utf8ByteSequenceLength(byte) catch 0;
             if (len > 0) {
                 i += len;
                 characters += 1;
