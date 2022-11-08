@@ -15,7 +15,7 @@ const WindowPixels = @import("window.zig").WindowPixels;
 const Buffer = @import("../editor/buffer.zig");
 const globals = @import("../globals.zig");
 const utf8 = @import("../editor/utf8.zig");
-const syntax = @import("syntax-highlight.zig");
+const colors = @import("colors.zig");
 
 const vectors = @import("vectors.zig");
 const c = @import("c.zig");
@@ -92,7 +92,7 @@ pub fn splitByLanguageIterator() type {
 
             return true;
         }
-        fn isAsciiByte(byte: u8) bool {
+        pub fn isAsciiByte(byte: u8) bool {
             if (byte & 0b1_0000000 == 0)
                 return true
             else
@@ -320,7 +320,11 @@ pub const Text = struct {
         window.visible_rows = 0;
         var row = window.start_row - 1;
         window.visible_cols_at_buffer_row = 0;
-        const cursor = window.buffer.getRowAndCol(window.buffer.index);
+        // const cursor = window.buffer.getRowAndCol(window.buffer.index);
+
+        // var tree = treesitter();
+        // var ts_cursor = tree.cursor();
+
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
             if (y >= window_p.height + window_p.y) break;
@@ -343,34 +347,30 @@ pub const Text = struct {
             c.glActiveTexture(c.GL_TEXTURE0);
             c.glBindVertexArray(text.VAO);
 
-            var iter = splitByLanguage(visible_line);
-            while (iter.next()) |text_segment| {
-                if (text_segment.is_ascii and text_segment.utf8_seq[0] == '\n' and builtin.mode != std.builtin.Mode.Debug) {
-                    continue;
-                }
+            var i: u64 = 0;
+            while (i < visible_line.len) {
+                const byte = visible_line[i];
+                var color = colors.hexToColorVector(0xFFFFFF);
 
-                if (text_segment.is_ascii) {
-                    var color = syntax.getColor(text_segment.utf8_seq);
-
+                if (byte & 0b1_0000000 == 0) { // is ASCII
                     c.glUniform3f(c.glGetUniformLocation(text.shader.ID, "textColor"), color.x, color.y, color.z);
-                    for (text_segment.utf8_seq) |byte| {
-                        var character = text.ascii_textures[byte];
-                        text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
-                        text.renderGlyph(character, &x, &y);
-                        if (cursor.row == row)
-                            window.visible_cols_at_buffer_row += 1;
-                    }
+                    var character = text.ascii_textures[byte];
+                    text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
+                    text.renderGlyph(character, &x, &y);
+                    i += 1;
                 } else {
-                    var characters = text.unicode_textures.get(text_segment.utf8_seq) orelse blk: {
-                        var utf8_seq = try internal.allocator.alloc(u8, text_segment.utf8_seq.len);
-                        std.mem.copy(u8, utf8_seq, text_segment.utf8_seq);
+                    const byte_len = unicode.utf8ByteSequenceLength(byte) catch unreachable;
+                    const bytes = visible_line[i .. i + byte_len];
+                    i += byte_len;
+
+                    var characters = text.unicode_textures.get(bytes) orelse blk: {
+                        var utf8_seq = try internal.allocator.alloc(u8, bytes.len);
+                        std.mem.copy(u8, utf8_seq, bytes);
                         break :blk try text.generateAndCacheUnicodeTextures(utf8_seq);
                     };
                     for (characters) |character| {
                         text.wrapOrCut(window, &x, &y, character, window.options.wrap_text) catch break;
                         text.renderGlyph(character, &x, &y);
-                        if (cursor.row == row)
-                            window.visible_cols_at_buffer_row += 1;
                     }
                 }
             }

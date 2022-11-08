@@ -20,7 +20,7 @@ const Windows = @import("window.zig").Windows;
 const cursor = @import("cursor.zig");
 const globals = @import("../globals.zig");
 const VCursor = @import("vcursor.zig").VCursor;
-const syntax = @import("syntax-highlight.zig");
+const colors = @import("colors.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
 
 const global = globals.global;
@@ -65,7 +65,7 @@ pub fn render() !void {
     var window = &global.focused_window;
     window.buffer = if (global.command_line_is_open or global.drawer_window_is_open) (buffer_ops.getBufferI(global.previous_buffer_index) orelse return) else global.focused_buffer;
     const bg_color = 0x272822;
-    renderer_rect.renderFraction(window.*, syntax.hexToColorVector(bg_color));
+    renderer_rect.renderFraction(window.*, colors.hexToColorVector(bg_color));
     if (window.buffer.state == .valid)
         try renderer_text.render(window);
 
