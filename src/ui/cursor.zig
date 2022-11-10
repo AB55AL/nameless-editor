@@ -33,12 +33,6 @@ pub fn render(rect: Rect, renderer_text: *Text, window: *Window, color: vectors.
         window.start_row += 1
     else if (vcursor.row == 0)
         window.start_row -= 1;
-
-    // Horizontal scroll
-    // if (vcursor.col > window.visible_cols_at_buffer_row + 1)
-    //     window.start_col += 1
-    // else if (vcursor.col == 0)
-    //     window.start_col -= 1;
 }
 
 fn wrapOrStop(renderer_text: *Text, window: *Window, vcursor: *VCursor, x: *f32, y: *f32, character: Character) !void {
@@ -75,22 +69,24 @@ fn getX(renderer_text: *Text, window: *Window, vcursor: *VCursor, line: []const 
     var x: f32 = window_p.x;
     var y: f32 = window_p.y;
 
-    const s = std.math.min(window.start_col, line.len - 1);
     var col = std.math.max(1, vcursor.col);
-    const e = std.math.min(col + window.start_col - 2, line.len);
+    const e = std.math.min(col, line.len) - 1;
     if (e == 0) return x;
-    var visible_line = utf8.substringOfUTF8Sequence(line, s, e) catch unreachable;
+    var visible_line = utf8.substringOfUTF8Sequence(line, 1, e) catch unreachable;
 
-    var it = text.splitByLanguage(visible_line);
-    while (it.next()) |text_segment| {
-        if (text_segment.is_ascii) {
-            for (text_segment.utf8_seq) |byte| {
-                var character = renderer_text.ascii_textures[byte];
-                wrapOrStop(renderer_text, window, vcursor, &x, &y, character) catch break;
-                x += @intToFloat(f32, character.Advance >> 6);
-            }
+    var i: u64 = 0;
+    while (i < visible_line.len) {
+        const byte = line[i];
+        if (byte & 0b1_0000000 == 0) {
+            var character = renderer_text.ascii_textures[byte];
+            wrapOrStop(renderer_text, window, vcursor, &x, &y, character) catch break;
+            x += @intToFloat(f32, character.Advance >> 6);
+            i += 1;
         } else {
-            var characters = renderer_text.unicode_textures.get(text_segment.utf8_seq) orelse continue;
+            const byte_len = unicode.utf8ByteSequenceLength(byte) catch unreachable;
+            const bytes = visible_line[i .. i + byte_len];
+            i += byte_len;
+            var characters = renderer_text.unicode_textures.get(bytes) orelse continue;
             for (characters) |character| {
                 wrapOrStop(renderer_text, window, vcursor, &x, &y, character) catch break;
                 x += @intToFloat(f32, character.Advance >> 6);

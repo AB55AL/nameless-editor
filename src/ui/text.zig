@@ -29,78 +29,6 @@ pub const Character = struct {
     Advance: u64, // Offset to advance to next glyph
 };
 
-pub const TextSegment = struct {
-    utf8_seq: []const u8,
-    is_ascii: bool,
-};
-
-pub fn splitByLanguage(utf8_seq: []const u8) splitByLanguageIterator() {
-    return .{
-        .buffer = utf8_seq,
-        .start_index = 0,
-        .end_index = 0,
-    };
-}
-
-pub fn splitByLanguageIterator() type {
-    return struct {
-        buffer: []const u8,
-        start_index: usize,
-        end_index: usize,
-
-        const Self = @This();
-
-        /// Returns a slice of the next field, or null if splitting is complete.
-        pub fn next(self: *Self) ?TextSegment {
-            var i: usize = self.start_index;
-            while (i < self.buffer.len) {
-                const s = std.math.min(self.start_index, self.buffer.len);
-                const e = std.math.min(self.end_index + 1, self.buffer.len);
-                var byte = self.buffer[i];
-                var next_byte = self.buffer[std.math.min(self.buffer.len - 1, i + 1)];
-
-                if (isAsciiSymbol(byte)) {
-                    self.end_index += 1;
-                    self.start_index = self.end_index;
-                    return TextSegment{ .utf8_seq = self.buffer[s..e], .is_ascii = Self.isAsciiString(self.buffer[s..e]) };
-                } else if (isAsciiSymbol(next_byte) or i + 1 == self.buffer.len) {
-                    self.end_index += 1;
-                    self.start_index = self.end_index;
-                    return TextSegment{ .utf8_seq = self.buffer[s..e], .is_ascii = Self.isAsciiString(self.buffer[s..e]) };
-                } else {
-                    self.end_index += 1;
-                    i += 1;
-                }
-            }
-            return null;
-        }
-
-        fn isAsciiSymbol(byte: u8) bool {
-            if (byte > 127) return false;
-
-            if (byte <= 64 or
-                (byte >= 91 and byte <= 96) or
-                (byte >= 123))
-                return true
-            else
-                return false;
-        }
-
-        fn isAsciiString(utf8_seq: []const u8) bool {
-            for (utf8_seq) |byte|
-                if (byte & 0b1_0000000 != 0) return false;
-
-            return true;
-        }
-        pub fn isAsciiByte(byte: u8) bool {
-            if (byte & 0b1_0000000 == 0)
-                return true
-            else
-                return false;
-        }
-    };
-}
-
 pub const Text = struct {
     font_size: i32,
     VAO: u32,
@@ -319,11 +247,6 @@ pub const Text = struct {
         var line_iter = utils.splitAfter(u8, visible_lines, '\n');
         window.visible_rows = 0;
         var row = window.start_row - 1;
-        window.visible_cols_at_buffer_row = 0;
-        // const cursor = window.buffer.getRowAndCol(window.buffer.index);
-
-        // var tree = treesitter();
-        // var ts_cursor = tree.cursor();
 
         while (line_iter.next()) |line| {
             y += @intToFloat(f32, text.font_size);
@@ -335,12 +258,6 @@ pub const Text = struct {
                 continue;
             }
 
-            var visible_line = line;
-            if (!window.options.wrap_text) {
-                const s = utf8.firstByteOfCodeUnit(visible_line, window.start_col);
-                visible_line = line[s..];
-            }
-
             var x = window_p.x;
 
             text.shader.use();
@@ -348,8 +265,8 @@ pub const Text = struct {
             c.glBindVertexArray(text.VAO);
 
             var i: u64 = 0;
-            while (i < visible_line.len) {
-                const byte = visible_line[i];
+            while (i < line.len) {
+                const byte = line[i];
                 var color = colors.hexToColorVector(0xFFFFFF);
 
                 if (byte & 0b1_0000000 == 0) { // is ASCII
@@ -360,7 +277,7 @@ pub const Text = struct {
                     i += 1;
                 } else {
                     const byte_len = unicode.utf8ByteSequenceLength(byte) catch unreachable;
-                    const bytes = visible_line[i .. i + byte_len];
+                    const bytes = line[i .. i + byte_len];
                     i += byte_len;
 
                     var characters = text.unicode_textures.get(bytes) orelse blk: {
