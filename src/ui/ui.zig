@@ -254,7 +254,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     if (widget.enabled(.render_background)) {
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0x0);
     }
-
+    ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.draggable)) {
         if (action.clicked) {
             widget.drag_start.x = @floatToInt(i16, ui.state.mousex);
@@ -269,10 +269,10 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
                 action.drag_delta = widget.drag_end.sub(widget.drag_start);
             }
         }
-
-        if (widget.enabled(.clip)) {
-            try shape2d.ShapeCommand.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
-        }
+    }
+    ////////////////////////////////////////////////////////////////////////////
+    if (widget.enabled(.clip)) {
+        try shape2d.ShapeCommand.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
     }
 
     return action;
