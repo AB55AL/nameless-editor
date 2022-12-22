@@ -8,7 +8,7 @@ const command_line = @import("command_line.zig");
 const file_io = @import("file_io.zig");
 const add = command_line.add;
 
-const global = globals.global;
+const editor = globals.editor;
 const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
@@ -59,7 +59,7 @@ fn openBelow(file_path: []const u8) void {
 }
 
 fn saveFocused() void {
-    buffer_ops.saveBuffer(global.focused_buffer, false) catch |err| {
+    buffer_ops.saveBuffer(editor.focused_buffer, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -75,7 +75,7 @@ fn saveAsFocused(file_path: []const u8) void {
     var fp: []const u8 = undefined;
     if (std.fs.path.isAbsolute(file_path)) {
         fp = file_path;
-        global.focused_buffer.metadata.setFilePath(fp) catch |err| {
+        editor.focused_buffer.metadata.setFilePath(fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
@@ -93,7 +93,7 @@ fn saveAsFocused(file_path: []const u8) void {
             print("err={}\n", .{err});
             return;
         };
-        global.focused_buffer.metadata.setFilePath(fp) catch |err| {
+        editor.focused_buffer.metadata.setFilePath(fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
@@ -101,7 +101,7 @@ fn saveAsFocused(file_path: []const u8) void {
         internal.allocator.free(fp);
     }
 
-    buffer_ops.saveBuffer(global.focused_buffer, false) catch |err| {
+    buffer_ops.saveBuffer(editor.focused_buffer, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -112,12 +112,12 @@ fn saveAsFocused(file_path: []const u8) void {
 }
 
 fn forceSaveFocused() void {
-    buffer_ops.saveBuffer(global.focused_buffer, true) catch |err|
+    buffer_ops.saveBuffer(editor.focused_buffer, true) catch |err|
         print("err={}\n", .{err});
 }
 
 fn killFocused() void {
-    buffer_ops.killBuffer(global.focused_buffer) catch |err| {
+    buffer_ops.killBuffer(editor.focused_buffer) catch |err| {
         if (err == buffer_ops.Error.KillingDirtyBuffer) {
             print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
         } else {
@@ -127,12 +127,12 @@ fn killFocused() void {
 }
 
 fn forceKillFocused() void {
-    buffer_ops.forceKillBuffer(global.focused_buffer) catch |err|
+    buffer_ops.forceKillBuffer(editor.focused_buffer) catch |err|
         print("err={}\n", .{err});
 }
 
 fn saveAndQuitFocused() void {
-    buffer_ops.saveAndQuit(global.focused_buffer, false) catch |err| {
+    buffer_ops.saveAndQuit(editor.focused_buffer, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSaveAndQuit", .{});
@@ -143,6 +143,6 @@ fn saveAndQuitFocused() void {
 }
 
 fn forceSaveAndQuitFocused() void {
-    buffer_ops.saveAndQuit(global.focused_buffer, true) catch |err|
+    buffer_ops.saveAndQuit(editor.focused_buffer, true) catch |err|
         print("err={}\n", .{err});
 }

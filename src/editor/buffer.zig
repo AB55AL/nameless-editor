@@ -10,10 +10,10 @@ const max = std.math.max;
 const min = std.math.min;
 
 const PieceTable = @import("piece_table.zig");
-const utf8 = @import("utf8.zig");
+const utf8 = @import("../utf8.zig");
 const globals = @import("../globals.zig");
 
-const utils = @import("utils.zig");
+const utils = @import("../utils.zig");
 
 const global = globals.global;
 const internal = globals.internal;

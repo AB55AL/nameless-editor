@@ -3,6 +3,22 @@ const print = std.debug.print;
 
 const utf8 = @import("utf8.zig");
 
+pub fn assert(ok: bool, comptime message: []const u8) void {
+    if (!ok) {
+        print("{s}\n", .{message});
+        unreachable;
+    }
+}
+
+pub fn minOrMax(comptime T: type, value: T, min: T, max: T) T {
+    return if (value <= min)
+        min
+    else if (value >= max)
+        max
+    else
+        value;
+}
+
 pub fn countChar(string: []const u8, char: u8) u32 {
     var count: u32 = 0;
     for (string) |c| {

@@ -8,6 +8,8 @@ const glfw = @import("glfw");
 const Mods = glfw.Mods;
 const input = @import("input.zig");
 
+const editor = @import("../globals.zig").editor;
+const ui = @import("../globals.zig").ui;
 const Buffer = @import("buffer.zig");
 
 const input_layer = @import("input_layer");
@@ -45,6 +47,14 @@ pub fn keyInputCallback(window: glfw.Window, glfw_key: glfw.Key, scancode: i32, 
     };
 
     input_layer.keyInput(key);
+}
+
+pub fn mouseCallback(window: glfw.Window, mb: glfw.MouseButton, a: glfw.Action, m: glfw.Mods) void {
+    _ = mb;
+    _ = m;
+    _ = window;
+
+    if (a == .press or a == .repeat) ui.state.mousedown = true else ui.state.mousedown = false;
 }
 
 fn isFunctionKey(key: glfw.Key) bool {

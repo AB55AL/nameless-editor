@@ -7,7 +7,7 @@ const StringHashMap = std.StringHashMap;
 const AutoHashMap = std.AutoHashMap;
 
 const core = @import("core");
-const global = core.global;
+const editor = core.editor;
 const input = core.input;
 const Key = input.Key;
 
@@ -93,7 +93,7 @@ pub fn deinit() void {
 }
 
 pub fn keyInput(key: Key) void {
-    var file_type = core.global.focused_buffer.metadata.file_type;
+    var file_type = core.editor.focused_buffer.metadata.file_type;
     var k = ft_mappings.get(file_type, key);
     if (k) |f| {
         f();
@@ -107,7 +107,7 @@ pub fn keyInput(key: Key) void {
 }
 
 pub fn characterInput(utf8_seq: []const u8) void {
-    global.focused_buffer.insertBeforeCursor(utf8_seq) catch |err| {
+    editor.focused_buffer.insertBeforeCursor(utf8_seq) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
 
@@ -159,38 +159,38 @@ fn logKey(key: Key) void {
 ////////////////////////////////////////////////////////////////////////////////
 
 fn deleteBackward() void {
-    global.focused_buffer.deleteBeforeCursor(1) catch |err| {
+    editor.focused_buffer.deleteBeforeCursor(1) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 }
 
 fn deleteForward() void {
-    global.focused_buffer.deleteAfterCursor(1) catch |err| {
+    editor.focused_buffer.deleteAfterCursor(1) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
 fn moveRight() void {
-    global.focused_buffer.moveRelativeColumn(1, false);
+    editor.focused_buffer.moveRelativeColumn(1, false);
 }
 fn moveLeft() void {
-    global.focused_buffer.moveRelativeColumn(-1, false);
+    editor.focused_buffer.moveRelativeColumn(-1, false);
 }
 fn moveUp() void {
-    global.focused_buffer.moveRelativeRow(-1);
+    editor.focused_buffer.moveRelativeRow(-1);
 }
 fn moveDown() void {
-    global.focused_buffer.moveRelativeRow(1);
+    editor.focused_buffer.moveRelativeRow(1);
 }
 
 fn toggleCommandLine() void {
-    if (global.command_line_is_open)
+    if (editor.command_line_is_open)
         core.command_line.close()
     else
         core.command_line.open();
 }
 
 fn enterKey() void {
-    if (global.command_line_is_open)
+    if (editor.command_line_is_open)
         core.command_line.run() catch |err| {
             print("Couldn't run command. err={}\n", .{err});
         }
@@ -199,7 +199,7 @@ fn enterKey() void {
 }
 
 fn insertNewLineAtCursor() void {
-    global.focused_buffer.insertBeforeCursor("\n") catch |err| {
+    editor.focused_buffer.insertBeforeCursor("\n") catch |err| {
         print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
     };
 }

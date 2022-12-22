@@ -2,11 +2,13 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
+const State = @import("ui/ui.zig").State;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
 const BufferNode = buffer_ops.BufferNode;
+const shape2d = @import("ui/shape2d.zig");
 
-pub const global = struct {
+pub const editor = struct {
     /// A Pointer to the currently focused buffer
     pub var focused_buffer: *Buffer = undefined;
     /// A linked list of all the buffers in the editor
@@ -21,23 +23,32 @@ pub const global = struct {
     pub var previous_buffer_index: u32 = undefined;
 };
 
+pub const ui = struct {
+    pub var state: State = undefined;
+};
+
 pub const internal = struct {
     /// Global allocator
     pub var allocator: std.mem.Allocator = undefined;
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !void {
-    _ = window_width;
-    _ = window_height;
     internal.allocator = allocator;
-    global.command_line_is_open = false;
-    global.drawer_window_is_open = false;
-    global.command_line_buffer = try internal.allocator.create(Buffer);
-    global.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
+    editor.command_line_is_open = false;
+    editor.drawer_window_is_open = false;
+    editor.command_line_buffer = try internal.allocator.create(Buffer);
+    editor.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
+
+    ui.state = State{
+        .font = try shape2d.Font.init(allocator, "assets/Fira Code Light Nerd Font Complete Mono.otf", 24),
+        .window_width = window_width,
+        .window_height = window_height,
+        .shape_cmds = ArrayList(shape2d.ShapeCommand).init(allocator),
+    };
 }
 
 pub fn deinitGlobals() void {
-    if (global.first_buffer) |first_buffer| {
+    if (editor.first_buffer) |first_buffer| {
         var buffer = first_buffer;
         while (buffer.next_buffer) |nb| {
             switch (buffer.state) {
@@ -53,5 +64,7 @@ pub fn deinitGlobals() void {
         }
     }
 
-    global.command_line_buffer.deinitAndDestroy(internal.allocator);
+    ui.state.deinit(internal.allocator);
+
+    editor.command_line_buffer.deinitAndDestroy(internal.allocator);
 }

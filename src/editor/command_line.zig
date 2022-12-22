@@ -13,7 +13,7 @@ const buffer_ops = @import("../editor/buffer_ops.zig");
 
 const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
 
-const global = globals.global;
+const editor = globals.editor;
 const internal = globals.internal;
 
 var command_function_lut: std.StringHashMap(FuncType) = undefined;
@@ -59,25 +59,25 @@ pub fn deinit() void {
 }
 
 pub fn open() void {
-    global.command_line_is_open = true;
-    global.previous_buffer_index = global.focused_buffer.index;
-    global.focused_buffer = global.command_line_buffer;
+    editor.command_line_is_open = true;
+    editor.previous_buffer_index = editor.focused_buffer.index;
+    editor.focused_buffer = editor.command_line_buffer;
 }
 
 pub fn close() void {
-    global.command_line_is_open = false;
-    global.focused_buffer = buffer_ops.getBufferI(global.previous_buffer_index).?;
-    global.command_line_buffer.clear() catch |err| {
+    editor.command_line_is_open = false;
+    editor.focused_buffer = buffer_ops.getBufferI(editor.previous_buffer_index).?;
+    editor.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
-    global.command_line_buffer.moveAbsolute(1, 1);
+    editor.command_line_buffer.moveAbsolute(1, 1);
 }
 
 pub fn run() !void {
     var command_str: [4096]u8 = undefined;
-    var len = global.command_line_buffer.lines.size;
+    var len = editor.command_line_buffer.lines.size;
 
-    const command_line_content = try global.command_line_buffer.getAllLines(internal.allocator);
+    const command_line_content = try editor.command_line_buffer.getAllLines(internal.allocator);
     defer internal.allocator.free(command_line_content);
     std.mem.copy(u8, &command_str, command_line_content);
 

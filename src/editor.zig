@@ -4,4 +4,4 @@ pub usingnamespace @import("editor/buffer_ops.zig");
 pub const input = @import("editor/input.zig");
 
 const globals = @import("globals.zig");
-pub const global = globals.global;
+pub const editor = globals.editor;

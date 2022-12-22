@@ -8,7 +8,7 @@ const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 const globals = @import("../globals.zig");
 
-const global = globals.global;
+const editor = globals.editor;
 const internal = globals.internal;
 
 pub const Error = error{
@@ -21,7 +21,7 @@ pub const Error = error{
 /// Returns a pointer to a buffer.
 /// If a buffer with the given file_path already exists
 /// returns a pointer to that buffer otherwise
-/// creates a new buffer, adds it to the global.buffers array and
+/// creates a new buffer, adds it to the editor.buffers array and
 /// returns a pointer to it.
 pub fn createBuffer(file_path: []const u8) !*Buffer {
     if (file_path.len > 0) {
@@ -32,15 +32,15 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
     var buffer = try createLocalBuffer(file_path);
 
     // Prepend to linked list
-    buffer.next_buffer = global.first_buffer;
-    global.first_buffer = buffer;
-    global.valid_buffers_count += 1;
+    buffer.next_buffer = editor.first_buffer;
+    editor.first_buffer = buffer;
+    editor.valid_buffers_count += 1;
 
     return buffer;
 }
 
 /// Opens a file and returns a pointer to a buffer.
-/// Does not add the buffer to the global.buffers array
+/// Does not add the buffer to the editor.buffers array
 /// Always creates a new buffer
 pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
     var buffer = try internal.allocator.create(Buffer);
@@ -71,20 +71,20 @@ pub fn createPathLessBuffer() !*Buffer {
     buffer.* = try Buffer.init(globals.internal.allocator, "", "");
 
     // Prepend to linked list
-    buffer.next_buffer = global.first_buffer;
-    global.first_buffer = buffer;
-    global.valid_buffers_count += 1;
+    buffer.next_buffer = editor.first_buffer;
+    editor.first_buffer = buffer;
+    editor.valid_buffers_count += 1;
 
     return buffer;
 }
 
-/// Given an *index* searches the global.buffers array for a buffer
+/// Given an *index* searches the editor.buffers array for a buffer
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferI(index: u32) ?*Buffer {
-    if (global.first_buffer == null) return null;
+    if (editor.first_buffer == null) return null;
 
-    var buffer = global.first_buffer.?;
+    var buffer = editor.first_buffer.?;
     while (true) {
         if (buffer.state == .valid and buffer.index == index) {
             return buffer;
@@ -109,13 +109,13 @@ fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
     return buffer;
 }
 
-/// Given an *file_path* searches the global.buffers array for a buffer
+/// Given an *file_path* searches the editor.buffers array for a buffer
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferFP(file_path: []const u8) !?*Buffer {
-    if (global.first_buffer == null) return null;
+    if (editor.first_buffer == null) return null;
 
-    var buffer = global.first_buffer.?;
+    var buffer = editor.first_buffer.?;
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     while (true) {
         const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
@@ -131,15 +131,15 @@ pub fn getBufferFP(file_path: []const u8) !?*Buffer {
 
 pub fn openBufferI(index: u32) !*Buffer {
     var buffer: *Buffer = try getOrCreateBuffer(index, "");
-    global.previous_buffer_index = global.focused_buffer.index;
-    global.focused_buffer = buffer;
+    editor.previous_buffer_index = editor.focused_buffer.index;
+    editor.focused_buffer = buffer;
     return buffer;
 }
 
 pub fn openBufferFP(file_path: []const u8) !*Buffer {
     var buffer: *Buffer = try getOrCreateBuffer(null, file_path);
-    global.previous_buffer_index = global.focused_buffer.index;
-    global.focused_buffer = buffer;
+    editor.previous_buffer_index = editor.focused_buffer.index;
+    editor.focused_buffer = buffer;
     return buffer;
 }
 
@@ -170,17 +170,17 @@ pub fn forceKillBuffer(buffer: *Buffer) !void {
         return Error.KillingInvalidBuffer;
 
     buffer.deinitNoDestroy(internal.allocator);
-    if (global.valid_buffers_count > 0) {
-        global.focused_buffer = first_valid_buffer: {
-            if (global.first_buffer.?.state == .valid)
-                break :first_valid_buffer global.first_buffer.?
-            else while (global.first_buffer.?.next_buffer) |nb|
+    if (editor.valid_buffers_count > 0) {
+        editor.focused_buffer = first_valid_buffer: {
+            if (editor.first_buffer.?.state == .valid)
+                break :first_valid_buffer editor.first_buffer.?
+            else while (editor.first_buffer.?.next_buffer) |nb|
                 if (nb.state == .valid)
                     break :first_valid_buffer nb;
         };
     }
 
-    global.valid_buffers_count -= 1;
+    editor.valid_buffers_count -= 1;
 }
 
 pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {

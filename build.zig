@@ -26,7 +26,7 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_root_path: []const u8, co
 
     exe.addPackage(glfw.pkg);
     exe.addPackage(freetype.pkg);
-    exe.addPackage(freetype.harfbuzz_pkg);
+    // exe.addPackage(freetype.harfbuzz_pkg);
 
     const input_layer_pkg = .{
         .name = "input_layer",
@@ -45,7 +45,8 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_root_path: []const u8, co
     }
 
     glfw.link(bob, exe, .{}) catch |err| print("err={}", .{err});
-    freetype.link(bob, exe, .{ .harfbuzz = .{} });
+    freetype.link(bob, exe, .{});
+    // freetype.link(bob, exe, .{ .harfbuzz = .{} });
 
     var options = bob.addOptions();
     options.addOption(bool, "user_config_loaded", user_config_loaded);
