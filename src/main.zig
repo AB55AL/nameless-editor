@@ -72,9 +72,9 @@ pub fn main() !void {
 
         ui.begin();
 
-        var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nbut spaces don't work";
+        var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nand spaces do work";
         var dim = ui.stringDimension(string);
-        try ui.container(globals.internal.allocator, .{ .x = 200, .y = 200, .w = dim.x, .h = dim.y + 50 });
+        try ui.container(globals.internal.allocator, .{ .x = 200, .y = 200, .w = dim.x, .h = dim.y });
         if (try ui.button(globals.internal.allocator, .row_wise, 50, 50)) {
             print("button clicked\n", .{});
         }

@@ -201,66 +201,6 @@ pub const Widget = struct {
     }
 };
 
-pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) struct { index: ?u64, location: shape2d.Rect } {
-    var x = region.x;
-    var y = region.y;
-
-    var glyph_rect: shape2d.Rect = .{ .x = 0, .y = 0, .w = 0, .h = 0 };
-
-    var index: ?u64 = null;
-    var previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 };
-    for (string) |char, i| {
-        var g = ui.state.font.glyphs.get(char) orelse continue;
-
-        if (contains(@intToFloat(f32, pos.x), @intToFloat(f32, pos.y), .{
-            .x = x,
-            .y = y,
-            .w = @intToFloat(f32, g.advance),
-            .h = ui.state.font.newLineOffset(),
-        })) {
-            glyph_rect = .{
-                .x = x,
-                .y = y,
-                .w = @intToFloat(f32, g.advance),
-                .h = ui.state.font.newLineOffset(),
-            };
-
-            index = i;
-            break;
-        } else {
-            x += @intToFloat(f32, g.advance);
-        }
-        if (char == '\n') {
-            previous_line_end = .{
-                .x = x,
-                .y = y,
-            };
-
-            if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset()) or
-                i == string.len - 1)
-            {
-                glyph_rect = .{
-                    .x = previous_line_end.x,
-                    .y = previous_line_end.y,
-                    .w = @intToFloat(f32, g.advance),
-                    .h = ui.state.font.newLineOffset(),
-                };
-
-                index = i;
-                break;
-            }
-
-            y += ui.state.font.newLineOffset();
-            x = region.x;
-        }
-    }
-
-    return .{
-        .index = index,
-        .location = glyph_rect,
-    };
-}
-
 pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
     var id = newId();
     if (Widget.widgetExists(id)) |widget| {
@@ -497,4 +437,72 @@ pub fn end() void {
     }
 
     ui.state.max_id = 1;
+}
+
+pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) struct { index: ?u64, location: shape2d.Rect } {
+    var x = region.x;
+    var y = region.y;
+
+    var previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 };
+    for (string) |char, i| {
+        var g = ui.state.font.glyphs.get(char) orelse continue;
+        var g_advance = @intToFloat(f32, g.advance);
+
+        if (contains( // found the glyph
+            @intToFloat(f32, pos.x),
+            @intToFloat(f32, pos.y),
+            .{ .x = x, .y = y, .w = g_advance, .h = ui.state.font.newLineOffset() },
+        )) {
+            return .{
+                .index = i,
+                .location = .{
+                    .x = x,
+                    .y = y,
+                    .w = g_advance,
+                    .h = ui.state.font.newLineOffset(),
+                },
+            };
+        } else {
+            x += g_advance;
+        }
+
+        if (char == '\n') { // end of line with a newline char
+            previous_line_end = .{
+                .x = x,
+                .y = y,
+            };
+
+            if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset()) or
+                i == string.len - 1)
+            {
+                return .{
+                    .index = i,
+                    .location = .{
+                        .x = previous_line_end.x - g_advance,
+                        .y = previous_line_end.y,
+                        .w = g_advance,
+                        .h = ui.state.font.newLineOffset(),
+                    },
+                };
+            }
+
+            y += ui.state.font.newLineOffset();
+            x = region.x;
+        } else if (i == string.len - 1) { // end of line without a newline char
+            return .{
+                .index = i,
+                .location = .{
+                    .x = x - g_advance,
+                    .y = y,
+                    .w = g_advance,
+                    .h = ui.state.font.newLineOffset(),
+                },
+            };
+        }
+    }
+
+    return .{
+        .index = null,
+        .location = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
+    };
 }

@@ -221,6 +221,19 @@ pub const Font = struct {
 
                 try font.glyphs.put(i, glyph);
             }
+
+            {
+                try font.ft_face.loadChar(' ', .{ .render = true });
+                var g = font.ft_face.glyph();
+                const glyph: Glyph = .{
+                    .uv_bottom_left = .{ .x = 0, .y = 0 },
+                    .uv_top_right = .{ .x = 0, .y = 0 },
+                    .size = .{ .x = 0, .y = 0 },
+                    .bearing = .{ .x = 0, .y = 0 },
+                    .advance = @intCast(u32, g.advance().x >> 6),
+                };
+                try font.glyphs.put(' ', glyph);
+            }
         }
 
         return font;
