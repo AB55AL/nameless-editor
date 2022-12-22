@@ -2,7 +2,6 @@ const glfw = @import("glfw");
 const c = @import("c.zig");
 
 const input = @import("../editor/glfw_input.zig");
-const Renderer = @import("renderer.zig");
 
 const GLFW = @This();
 
@@ -21,11 +20,11 @@ pub fn init(window_width: u32, window_height: u32) !glfw.Window {
     c.glViewport(0, 0, @intCast(c_int, window_width), @intCast(c_int, window_height));
 
     // callbacks
-    window.setFramebufferSizeCallback(Renderer.framebufferSizeCallback);
+    // window.setFramebufferSizeCallback(Renderer.framebufferSizeCallback);
     window.setCharCallback(input.characterInputCallback);
     window.setKeyCallback(input.keyInputCallback);
-    window.setCursorPosCallback(Renderer.cursorPositionCallback);
-    window.setScrollCallback(Renderer.scrollCallback);
+    // window.setCursorPosCallback(Renderer.cursorPositionCallback);
+    // window.setScrollCallback(Renderer.scrollCallback);
 
     return window;
 }

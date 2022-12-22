@@ -7,9 +7,6 @@ const assert = std.debug.assert;
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 const globals = @import("../globals.zig");
-const Windows = @import("../ui/window.zig").Windows;
-const Window = @import("../ui/window.zig").Window;
-const window_ops = @import("../ui/window_ops.zig");
 
 const global = globals.global;
 const internal = globals.internal;

@@ -121,9 +121,9 @@ test "buffer.insertBeforeCursor()" {
     var buffer = try Buffer.init(allocator, "", "HELLO THERE\n");
     defer buffer.deinitNoDestroy(allocator);
 
-    buffer.cursor.index = 11;
+    buffer.cursor_index = 11;
     try buffer.insertBeforeCursor("! GENERAL");
-    buffer.cursor.index = 21;
+    buffer.cursor_index = 21;
     try buffer.insertBeforeCursor("KENOBI\n");
 
     const buffer_slice = try buffer.getAllLines(allocator);

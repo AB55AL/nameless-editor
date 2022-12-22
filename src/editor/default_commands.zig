@@ -4,7 +4,6 @@ const print = @import("std").debug.print;
 const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const buffer_ops = @import("buffer_ops.zig");
-const window_ops = @import("../ui/window_ops.zig");
 const command_line = @import("command_line.zig");
 const file_io = @import("file_io.zig");
 const add = command_line.add;

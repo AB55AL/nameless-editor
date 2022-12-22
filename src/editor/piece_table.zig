@@ -32,7 +32,7 @@ pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     var piece_table = PieceTable{
         .allocator = allocator,
         .original = original_content,
-        .original_newlines = original_newlines.toOwnedSlice(),
+        .original_newlines = try original_newlines.toOwnedSlice(),
         .add = ArrayList(u8).init(allocator),
         .add_newlines = ArrayList(u64).init(allocator),
         .pieces_root = try allocator.create(PieceNode),

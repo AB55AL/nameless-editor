@@ -4,10 +4,6 @@ const ArrayList = std.ArrayList;
 
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
-const window_ops = @import("ui/window_ops.zig");
-const window = @import("ui/window.zig");
-const Window = window.Window;
-const OSWindow = @import("ui/window.zig").OSWindow;
 const BufferNode = buffer_ops.BufferNode;
 
 pub const global = struct {
@@ -20,8 +16,6 @@ pub const global = struct {
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = undefined;
-    pub var focused_window: Window = undefined;
-    pub var drawer_window: Window = undefined;
     pub var drawer_window_is_open: bool = undefined;
     pub var drawer_buffer: *Buffer = undefined;
     pub var previous_buffer_index: u32 = undefined;
@@ -30,33 +24,16 @@ pub const global = struct {
 pub const internal = struct {
     /// Global allocator
     pub var allocator: std.mem.Allocator = undefined;
-    /// The width and height of the window system window
-    pub var os_window: *OSWindow = undefined;
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !void {
+    _ = window_width;
+    _ = window_height;
     internal.allocator = allocator;
     global.command_line_is_open = false;
     global.drawer_window_is_open = false;
     global.command_line_buffer = try internal.allocator.create(Buffer);
     global.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
-
-    internal.os_window = try internal.allocator.create(OSWindow);
-    internal.os_window.* = .{ .width = @intToFloat(f32, window_width), .height = @intToFloat(f32, window_height) };
-    global.focused_window = .{
-        .x = 0,
-        .y = 0,
-        .width = 1,
-        .height = 1,
-        .buffer = global.focused_buffer,
-    };
-    global.drawer_window = .{
-        .x = 0,
-        .y = 0.95,
-        .width = 1,
-        .height = 0.1,
-        .buffer = global.command_line_buffer,
-    };
 }
 
 pub fn deinitGlobals() void {
@@ -76,6 +53,5 @@ pub fn deinitGlobals() void {
         }
     }
 
-    internal.allocator.destroy(internal.os_window);
     global.command_line_buffer.deinitAndDestroy(internal.allocator);
 }

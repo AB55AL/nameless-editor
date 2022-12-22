@@ -5,8 +5,6 @@ const ArrayList = std.ArrayList;
 
 const glfw = @import("glfw");
 const Buffer = @import("editor/buffer.zig");
-const renderer = @import("ui/renderer.zig");
-const Window = @import("ui/window.zig").Window;
 const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
 const buffer_ops = @import("editor/buffer_ops.zig");
@@ -30,9 +28,6 @@ pub fn main() !void {
     var window = try glfw_window.init(window_width, window_height);
     defer glfw_window.deinit(&window);
 
-    try renderer.init(&window, window_width, window_height);
-    defer renderer.deinit();
-
     try input_layer.init();
     defer input_layer.deinit();
 
@@ -50,7 +45,6 @@ pub fn main() !void {
 
     while (!window.shouldClose()) {
         if (globals.global.valid_buffers_count == 0) window.setShouldClose(true);
-        try renderer.render();
         try glfw.pollEvents();
     }
 }

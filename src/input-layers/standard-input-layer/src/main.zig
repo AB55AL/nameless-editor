@@ -133,7 +133,6 @@ pub fn fileTypeMap(file_type: []const u8, key: Key, function: Table.FunctionType
 fn setDefaultMappnigs() void {
     const f = input.functionKey;
 
-    map(f(.none, .f3), core.closeDrawerWindow);
     map(f(.none, .backspace), deleteBackward);
     map(f(.none, .delete), deleteForward);
 
