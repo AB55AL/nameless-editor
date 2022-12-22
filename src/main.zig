@@ -66,18 +66,19 @@ pub fn main() !void {
     }
 
     while (!window.shouldClose()) {
-        glfw_window.updateSize(window, device);
         c.glClearColor(0.5, 0.5, 0.5, 1);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
+
+        glfw_window.updateSize(window, device);
+        var pos = window.getCursorPos() catch glfw.Window.CursorPos{ .xpos = 0, .ypos = 0 };
+        globals.ui.state.mousex = @floatCast(f32, pos.xpos);
+        globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
         ui.begin();
 
         var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nand spaces do work";
         var dim = ui.stringDimension(string);
-        try ui.container(globals.internal.allocator, .{ .x = 200, .y = 200, .w = dim.x, .h = dim.y });
-        if (try ui.button(globals.internal.allocator, .row_wise, 50, 50)) {
-            print("button clicked\n", .{});
-        }
+        try ui.container(globals.internal.allocator, .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
         try ui.textWithDim(allocator, string, dim);
 
         ui.end();
@@ -145,6 +146,7 @@ pub fn main() !void {
             // reset the shape_cmds array
             globals.ui.state.shape_cmds.deinit();
             globals.ui.state.shape_cmds = ArrayList(shape2d.ShapeCommand).init(globals.internal.allocator);
+            try shape2d.ShapeCommand.pushClip(0, 0, @intToFloat(f32, globals.ui.state.window_width), @intToFloat(f32, globals.ui.state.window_height));
 
             c.glUseProgram(0);
             c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
@@ -153,11 +155,6 @@ pub fn main() !void {
             c.glDisable(c.GL_BLEND);
             c.glDisable(c.GL_SCISSOR_TEST);
         }
-
-        glfw_window.updateSize(window, device);
-        var pos = window.getCursorPos() catch glfw.Window.CursorPos{ .xpos = 0, .ypos = 0 };
-        globals.ui.state.mousex = @floatCast(f32, pos.xpos);
-        globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
         try window.swapBuffers();
         try glfw.pollEvents();

@@ -1,3 +1,6 @@
+const std = @import("std");
+const print = std.debug.print;
+
 const glfw = @import("glfw");
 const c = @import("c.zig");
 

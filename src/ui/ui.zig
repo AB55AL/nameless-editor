@@ -232,6 +232,7 @@ pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
     }
 
     focused_widget = widget;
+    try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
 pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutType, width: f32, height: f32, features_flags: []const Flags) !Action {
@@ -251,7 +252,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     }
 
     if (widget.enabled(.render_background)) {
-        try shape2d.ShapeCommand.pushRect(focused_widget.?.rect.x, focused_widget.?.rect.y, focused_widget.?.rect.w, focused_widget.?.rect.h, 0x0);
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0x0);
     }
 
     if (widget.enabled(.draggable)) {
@@ -280,8 +281,9 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
 pub fn widgetEnd() !void {
     utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
 
-    if (focused_widget.?.enabled(.clip))
+    if (focused_widget.?.enabled(.clip)) {
         try shape2d.ShapeCommand.pushClip(0, 0, @intToFloat(f32, ui.state.window_width), @intToFloat(f32, ui.state.window_height));
+    }
 
     focused_widget = focused_widget.?.parent;
 }
