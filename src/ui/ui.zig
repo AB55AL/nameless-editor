@@ -18,7 +18,10 @@ pub const LayoutType = enum {
 };
 
 pub const Action = struct {
-    clicked: bool = false,
+    /// User clicked but is still holding the mouse button
+    half_click: bool = false,
+    /// User clicked and let the mouse button go AND is on the same widget that had the half click
+    full_click: bool = false,
     hover: bool = false,
     drag_delta: math.Vec2(i16) = .{ .x = 0, .y = 0 },
 };
@@ -259,10 +262,11 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
         action.hover = true;
         if ((ui.state.active == 0 or widget.isChildOf(ui.state.active)) and ui.state.mousedown) {
             ui.state.active = id;
+            action.half_click = true;
         }
 
         if (ui.state.active == id and !ui.state.mousedown)
-            action.clicked = true;
+            action.full_click = true;
     }
 
     if (widget.enabled(.render_background)) {
@@ -270,12 +274,12 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     }
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.draggable)) {
-        if (action.clicked) {
+        if (action.half_click) {
             widget.drag_start.x = @floatToInt(i16, ui.state.mousex);
             widget.drag_start.y = @floatToInt(i16, ui.state.mousey);
 
             widget.drag_end = widget.drag_start;
-        } else if (ui.state.active == id and !action.clicked) {
+        } else if (ui.state.active == id and ui.state.mousedown) {
             widget.drag_end.x = @floatToInt(i16, ui.state.mousex);
             widget.drag_end.y = @floatToInt(i16, ui.state.mousey);
 
@@ -369,7 +373,7 @@ pub fn button(allocator: std.mem.Allocator, layout_type: LayoutType, w: f32, h: 
     }
 
     try widgetEnd();
-    return action.clicked;
+    return action.full_click;
 }
 
 pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []const Flags) !void {
@@ -402,7 +406,7 @@ pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string:
     try textWithDim(allocator, string, dim, &.{});
 
     try widgetEnd();
-    return action.clicked;
+    return action.full_click;
 }
 
 fn contains(x: f32, y: f32, rect: shape2d.Rect) bool {
