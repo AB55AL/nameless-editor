@@ -244,7 +244,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     if (widget.enabled(.clickable) and contains(ui.state.mousex, ui.state.mousey, widget.rect)) {
         ui.state.hot = id;
         action.hover = true;
-        if (ui.state.active == 0 and ui.state.mousedown) {
+        if ((ui.state.active == 0 or ui.state.active < id) and ui.state.mousedown) {
             ui.state.active = id;
             action.clicked = true;
         }
@@ -273,8 +273,8 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     if (widget.enabled(.clip)) {
         try shape2d.ShapeCommand.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
     }
-
-    if (widget.enabled(.highlight_text) and string != null) {
+    ////////////////////////////////////////////////////////////////////////////
+    if (widget.enabled(.highlight_text) and widget.enabled(.draggable) and string != null) {
         var s = string.?;
         var line_height = ui.state.font.newLineOffset();
 
@@ -357,14 +357,14 @@ pub fn button(allocator: std.mem.Allocator, layout_type: LayoutType, w: f32, h: 
     return action.clicked;
 }
 
-pub fn text(allocator: std.mem.Allocator, string: []const u8) !void {
+pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []const Flags) !void {
     const dim = stringDimension(string);
-    try textWithDim(allocator, string, dim);
+    try textWithDim(allocator, string, dim, features_flags);
 }
 
-pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, dim: math.Vec2(f32)) !void {
+pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, dim: math.Vec2(f32), features_flags: []const Flags) !void {
     const id = newId();
-    var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, &.{ .clickable, .draggable, .clip, .highlight_text });
+    var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, features_flags);
     _ = action;
 
     var widget = focused_widget.?;
@@ -376,18 +376,17 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, dim: math.V
 pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string: []const u8) !bool {
     var id = newId();
     var dim = stringDimension(string);
-    var action = try widgetStart(allocator, id, layout_type, dim.x, 20, &.{ .clickable, .render_background });
+    var action = try widgetStart(allocator, id, layout_type, dim.x, dim.y, string, &.{.clickable});
 
     if (action.hover) {
         var widget = focused_widget.?;
         ui.state.hot = id;
-        var color: u24 = 0xFF0000;
-        try shape2d.ShapeCommand.pushRect(allocator, widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
+        var color: u24 = 0x0000FF;
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
     }
+    try textWithDim(allocator, string, dim, &.{});
 
-    try text(allocator, string);
-
-    widgetEnd();
+    try widgetEnd();
     return action.clicked;
 }
 

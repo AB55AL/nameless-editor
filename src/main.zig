@@ -79,7 +79,11 @@ pub fn main() !void {
         var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nand spaces do work";
         var dim = ui.stringDimension(string);
         try ui.container(globals.internal.allocator, .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
-        try ui.textWithDim(allocator, string, dim);
+        if (try ui.buttonText(allocator, .column_wise, "hey")) {
+            print("hey\n", .{});
+        }
+
+        try ui.textWithDim(allocator, string, dim, &.{ .clickable, .draggable, .clip, .highlight_text });
 
         ui.end();
 
