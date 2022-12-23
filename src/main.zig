@@ -74,7 +74,7 @@ pub fn main() !void {
         globals.ui.state.mousex = @floatCast(f32, pos.xpos);
         globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
-        ui.begin();
+        ui.beginUI();
 
         var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nand spaces do work";
         var dim = ui.stringDimension(string);
@@ -83,9 +83,9 @@ pub fn main() !void {
             print("hey\n", .{});
         }
 
-        try ui.textWithDim(allocator, string, dim, &.{ .clickable, .draggable, .clip, .highlight_text });
+        try ui.textWithDim(allocator, string, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
 
-        ui.end();
+        ui.endUI();
 
         //
         // Render

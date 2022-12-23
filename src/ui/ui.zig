@@ -24,6 +24,8 @@ pub const Action = struct {
     full_click: bool = false,
     hover: bool = false,
     drag_delta: math.Vec2(i16) = .{ .x = 0, .y = 0 },
+    string_selection_range: ?(struct { start: u64, end: u64 }) = null,
+    // string_glyph_index: ?u64 = null,
 };
 
 pub const Flags = enum(u32) {
@@ -32,6 +34,7 @@ pub const Flags = enum(u32) {
     draggable = 4,
     clip = 8,
     highlight_text = 16,
+    text_cursor = 32,
 };
 
 pub const State = struct {
@@ -307,44 +310,54 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
         var start_glyph = locateGlyphCoords(widget.drag_start, s, widget.rect);
         var end_glyph = locateGlyphCoords(widget.drag_end, s, widget.rect);
 
-        var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
-        var end_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point furthest away from 0,0
+        if (!start_glyph.location.eql(end_glyph.location)) {
+            var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
+            var end_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point furthest away from 0,0
 
-        if (start_glyph.location.y <= end_glyph.location.y) {
-            start_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
-            end_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
-            end_point.x += end_glyph.location.w;
-        } else {
-            start_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
-            end_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
-            end_point.x += start_glyph.location.w;
-        }
-
-        var next_line_start: f32 = start_point.y + line_height;
-        if (start_point.y == end_point.y) { // same line
-            const width = end_point.x - start_point.x;
-            try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00);
-        } else if (next_line_start == end_point.y) { // two lines
-            const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-            try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
-
-            const second_line_w = utils.abs(widget.rect.x - end_point.x);
-            try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00);
-        } else { // at least three lines
-
-            const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-            try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
-
-            while (next_line_start < end_point.y) : (next_line_start += line_height) {
-                try shape2d.ShapeCommand.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00);
+            if (start_glyph.location.y <= end_glyph.location.y) {
+                start_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
+                end_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
+                end_point.x += end_glyph.location.w;
+            } else {
+                start_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
+                end_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
+                end_point.x += start_glyph.location.w;
             }
 
-            const last_line_w = utils.abs(widget.rect.x - end_point.x);
-            try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00);
+            var next_line_start: f32 = start_point.y + line_height;
+            if (start_point.y == end_point.y) { // same line
+                const width = end_point.x - start_point.x;
+                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00);
+            } else if (next_line_start == end_point.y) { // two lines
+                const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
+                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
+
+                const second_line_w = utils.abs(widget.rect.x - end_point.x);
+                try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00);
+            } else { // at least three lines
+
+                const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
+                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
+
+                while (next_line_start < end_point.y) : (next_line_start += line_height) {
+                    try shape2d.ShapeCommand.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00);
+                }
+
+                const last_line_w = utils.abs(widget.rect.x - end_point.x);
+                try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00);
+            }
         }
 
         // cursor
-        try shape2d.ShapeCommand.pushRect(end_glyph.location.x, end_glyph.location.y, end_glyph.location.w, line_height, 0xFF0000);
+        if (widget.enabled(.text_cursor)) {
+            try shape2d.ShapeCommand.pushRect(end_glyph.location.x, end_glyph.location.y, end_glyph.location.w, line_height, 0xFF0000);
+            const end = end_glyph.index.?;
+            const start = if (start_glyph.index) |i| i else end;
+            action.string_selection_range = .{
+                .start = std.math.min(start, end),
+                .end = std.math.max(start, end),
+            };
+        }
     }
 
     return action;
@@ -384,10 +397,13 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
 pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, dim: math.Vec2(f32), features_flags: []const Flags) !void {
     const id = newId();
     var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, features_flags);
-    _ = action;
 
     var widget = focused_widget.?;
     try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
+
+    if (action.string_selection_range) |range| {
+        print("char is '{c}' and '{c}'\n", .{ string[range.start], string[range.end] });
+    }
 
     try widgetEnd();
 }
@@ -449,11 +465,11 @@ pub fn newId() u32 {
     return old_id;
 }
 
-pub fn begin() void {
+pub fn beginUI() void {
     ui.state.hot = 0;
 }
 
-pub fn end() void {
+pub fn endUI() void {
     if (!ui.state.mousedown) {
         ui.state.active = 0;
     }
