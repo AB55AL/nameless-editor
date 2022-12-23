@@ -169,6 +169,19 @@ pub const Widget = struct {
         });
     }
 
+    pub fn isChildOf(widget: *Widget, id: u32) bool {
+        var parent = widget.parent;
+        while (parent) |p| {
+            if (p.id == id) {
+                return true;
+            } else {
+                parent = p.parent;
+            }
+        }
+
+        return false;
+    }
+
     fn widgetExists(id: u32) ?*Widget {
         if (ui.state.first_widget_tree == null) return null;
         return widgetExistsRecursive(ui.state.first_widget_tree.?, id);
@@ -244,10 +257,12 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     if (widget.enabled(.clickable) and contains(ui.state.mousex, ui.state.mousey, widget.rect)) {
         ui.state.hot = id;
         action.hover = true;
-        if ((ui.state.active == 0 or ui.state.active < id) and ui.state.mousedown) {
+        if ((ui.state.active == 0 or widget.isChildOf(ui.state.active)) and ui.state.mousedown) {
             ui.state.active = id;
-            action.clicked = true;
         }
+
+        if (ui.state.active == id and !ui.state.mousedown)
+            action.clicked = true;
     }
 
     if (widget.enabled(.render_background)) {
