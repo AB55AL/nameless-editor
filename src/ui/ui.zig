@@ -116,6 +116,8 @@ pub const Widget = struct {
 
     pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout_type: LayoutType, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
+            widget.rect.w = width;
+            widget.rect.h = height;
             return widget;
         }
 
@@ -260,6 +262,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     var widget = focused_widget.?;
     var action = Action{};
 
+    ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clickable) and contains(ui.state.mousex, ui.state.mousey, widget.rect)) {
         ui.state.hot = id;
         action.hover = true;
@@ -272,6 +275,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
             action.full_click = true;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.render_background)) {
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0x0);
     }
