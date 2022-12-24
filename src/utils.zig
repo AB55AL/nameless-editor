@@ -85,3 +85,7 @@ pub fn inRange(comptime T: type, a: T, b: T, c: T) bool {
 pub fn abs(val: f32) f32 {
     return if (val < 0) -val else val;
 }
+
+pub fn fileLocation(comptime location: std.builtin.SourceLocation) []const u8 {
+    return location.file ++ " | " ++ location.fn_name ++ ": ";
+}

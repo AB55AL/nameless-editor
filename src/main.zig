@@ -76,15 +76,16 @@ pub fn main() !void {
 
         ui.beginUI();
 
-        var string = "This\nworks very nice\narstoierastie arstienarioesniaersnoa\nand spaces do work";
-        var dim = ui.stringDimension(string);
+        var string = try globals.editor.focused_buffer.getAllLines(allocator);
+        defer allocator.free(string);
+
         try ui.container(globals.internal.allocator, .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
         if (try ui.buttonText(allocator, .column_wise, "hey")) {
             print("hey\n", .{});
         }
 
-        try ui.textWithDim(allocator, string, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
-
+        var dim = ui.stringDimension(string);
+        _ = try ui.textWithDim(allocator, string, globals.editor.focused_buffer.cursor_index, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
         ui.endUI();
 
         //

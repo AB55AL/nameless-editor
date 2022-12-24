@@ -255,7 +255,7 @@ pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
     try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
-pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutType, w: f32, h: f32, string: ?[]const u8, features_flags: []const Flags) !Action {
+pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutType, w: f32, h: f32, string: ?[]const u8, cursor_index: u64, features_flags: []const Flags) !Action {
     utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
     focused_widget = try focused_widget.?.pushChild(allocator, id, layout_type, w, h, features_flags);
 
@@ -279,6 +279,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     if (widget.enabled(.render_background)) {
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0x0);
     }
+
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.draggable)) {
         if (action.half_click) {
@@ -295,10 +296,12 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
             }
         }
     }
+
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clip)) {
         try shape2d.ShapeCommand.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
     }
+
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.highlight_text) and widget.enabled(.draggable) and string != null) {
         var s = string.?;
@@ -311,8 +314,8 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
         widget.drag_end.x = utils.minOrMax(i16, widget.drag_end.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
         widget.drag_start.x = utils.minOrMax(i16, widget.drag_start.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
 
-        var start_glyph = locateGlyphCoords(widget.drag_start, s, widget.rect);
         var end_glyph = locateGlyphCoords(widget.drag_end, s, widget.rect);
+        var start_glyph = if (widget.drag_start.eql(widget.drag_end)) end_glyph else locateGlyphCoords(widget.drag_start, s, widget.rect);
 
         if (!start_glyph.location.eql(end_glyph.location)) {
             var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
@@ -351,17 +354,12 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
                 try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00);
             }
         }
+    }
 
-        // cursor
-        if (widget.enabled(.text_cursor)) {
-            try shape2d.ShapeCommand.pushRect(end_glyph.location.x, end_glyph.location.y, end_glyph.location.w, line_height, 0xFF0000);
-            const end = end_glyph.index.?;
-            const start = if (start_glyph.index) |i| i else end;
-            action.string_selection_range = .{
-                .start = std.math.min(start, end),
-                .end = std.math.max(start, end),
-            };
-        }
+    ////////////////////////////////////////////////////////////////////////////
+    if (widget.enabled(.text_cursor) and string != null) {
+        var rect = locateGlyphCoordsByIndex(cursor_index, string.?, widget.rect);
+        try shape2d.ShapeCommand.pushRect(rect.x, rect.y, rect.w, rect.h, 0xFF00AA);
     }
 
     return action;
@@ -398,24 +396,22 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
     try textWithDim(allocator, string, dim, features_flags);
 }
 
-pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, dim: math.Vec2(f32), features_flags: []const Flags) !void {
+pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags) !Action {
     const id = newId();
-    var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, features_flags);
+    var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, cursor_index, features_flags);
 
     var widget = focused_widget.?;
     try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
 
-    if (action.string_selection_range) |range| {
-        print("char is '{c}' and '{c}'\n", .{ string[range.start], string[range.end] });
-    }
-
     try widgetEnd();
+
+    return action;
 }
 
 pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string: []const u8) !bool {
     var id = newId();
     var dim = stringDimension(string);
-    var action = try widgetStart(allocator, id, layout_type, dim.x, dim.y, string, &.{.clickable});
+    var action = try widgetStart(allocator, id, layout_type, dim.x, dim.y, string, 0, &.{.clickable});
 
     if (action.hover) {
         var widget = focused_widget.?;
@@ -423,7 +419,7 @@ pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string:
         var color: u24 = 0x0000FF;
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
     }
-    try textWithDim(allocator, string, dim, &.{});
+    _ = try textWithDim(allocator, string, 0, dim, &.{});
 
     try widgetEnd();
     return action.full_click;
@@ -481,6 +477,7 @@ pub fn endUI() void {
     ui.state.max_id = 1;
 }
 
+/// This function assumes the string is present in the provided region
 pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) struct { index: ?u64, location: shape2d.Rect } {
     var x = region.x;
     var y = region.y;
@@ -547,4 +544,34 @@ pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2
         .index = null,
         .location = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
     };
+}
+
+/// This function assumes the string is present in the provided region
+pub fn locateGlyphCoordsByIndex(index: u64, string: []const u8, region: shape2d.Rect) shape2d.Rect {
+    utils.assert(index < string.len, utils.fileLocation(@src()) ++ "Index must be < to string.len");
+
+    var x = region.x;
+    var y = region.y;
+
+    for (string) |char, i| {
+        var g = ui.state.font.glyphs.get(char) orelse continue;
+        var g_advance = @intToFloat(f32, g.advance);
+        if (i == index) {
+            return .{
+                .x = x,
+                .y = y,
+                .w = g_advance,
+                .h = ui.state.font.newLineOffset(),
+            };
+        } else {
+            x += g_advance;
+
+            if (char == '\n') {
+                x = region.x;
+                y += ui.state.font.newLineOffset();
+            }
+        }
+    }
+
+    unreachable;
 }
