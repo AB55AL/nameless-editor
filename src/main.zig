@@ -79,13 +79,20 @@ pub fn main() !void {
         var string = try globals.editor.focused_buffer.getAllLines(allocator);
         defer allocator.free(string);
 
-        try ui.container(globals.internal.allocator, .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
-        if (try ui.buttonText(allocator, .column_wise, "hey")) {
+        try ui.container(globals.internal.allocator, ui.RowFirst.columnWise(), .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
+        if (try ui.buttonText(allocator, ui.RowFirst.columnWise(), "hey")) {
             print("hey\n", .{});
         }
 
         var dim = ui.stringDimension(string);
         _ = try ui.textWithDim(allocator, string, globals.editor.focused_buffer.cursor_index, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
+        if (try ui.button(allocator, ui.RowFirst.rowWise(), 50, 50)) {
+            print("button\n", .{});
+        }
+        if (try ui.button(allocator, ui.RowFirst.columnWise(), 50, 50)) {
+            print("button\n", .{});
+        }
+
         ui.endUI();
 
         //

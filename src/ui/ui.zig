@@ -12,11 +12,6 @@ const ui = @import("../globals.zig").ui;
 
 pub var focused_widget: ?*Widget = null;
 
-pub const LayoutType = enum {
-    column_wise,
-    row_wise,
-};
-
 pub const Action = struct {
     /// User clicked but is still holding the mouse button
     half_click: bool = false,
@@ -77,6 +72,7 @@ pub const Widget = struct {
     last_child: ?*Widget = null,
     prev_sibling: ?*Widget = null,
 
+    layout_of_children: Layouts,
     id: u32,
 
     rect: shape2d.Rect,
@@ -114,63 +110,20 @@ pub const Widget = struct {
         return child;
     }
 
-    pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout_type: LayoutType, width: f32, height: f32, features_flags: []const Flags) !*Widget {
+    pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, layout_hints: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
             widget.rect.w = width;
             widget.rect.h = height;
             return widget;
         }
 
-        const new_pos: math.Vec2(f32) = blk: {
-            if (parent.first_child == null) {
-                break :blk .{
-                    .x = parent.rect.x,
-                    .y = parent.rect.y,
-                };
-            }
-
-            var lc = parent.last_child.?;
-            switch (layout_type) {
-                .column_wise => {
-                    var x = lc.rect.x + lc.rect.w;
-                    const y = parent.rect.y;
-
-                    var widget = lc.prev_sibling;
-                    while (widget) |w| {
-                        if (w.rect.x == lc.rect.x) {
-                            x = std.math.max(x, w.rect.x + w.rect.w);
-                        } else break;
-                        widget = w.prev_sibling;
-                    }
-
-                    break :blk .{
-                        .x = x,
-                        .y = y,
-                    };
-                },
-                .row_wise => {
-                    var x = lc.rect.x;
-
-                    var y = parent.rect.y + lc.rect.h;
-
-                    var widget = lc.prev_sibling;
-                    while (widget) |w| {
-                        if (w.rect.x == lc.rect.x) y += w.rect.h;
-                        widget = w.prev_sibling;
-                    }
-
-                    break :blk .{
-                        .x = x,
-                        .y = y,
-                    };
-                },
-            }
-        };
+        const new_pos: math.Vec2(f32) = parent.layout_of_children.getPos(layout_hints, parent);
 
         var flags: u32 = 0;
         for (features_flags) |f| flags |= @enumToInt(f);
 
         return parent.addChild(allocator, .{
+            .layout_of_children = layout,
             .id = child_id,
             .rect = .{ .x = new_pos.x, .y = new_pos.y, .w = width, .h = height },
             .features_flags = flags,
@@ -221,7 +174,7 @@ pub const Widget = struct {
     }
 };
 
-pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
+pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.Rect) !void {
     var id = newId();
     if (Widget.widgetExists(id)) |widget| {
         focused_widget = widget;
@@ -231,6 +184,7 @@ pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
 
     var widget = try allocator.create(Widget);
     widget.* = .{
+        .layout_of_children = layout,
         .id = id,
         .parent = null,
         .first_child = null,
@@ -258,7 +212,8 @@ pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
 pub fn widgetStart(args: struct {
     allocator: std.mem.Allocator,
     id: u32,
-    layout_type: LayoutType,
+    layout: Layouts,
+    layout_hints: Layouts,
     w: f32,
     h: f32,
     features_flags: []const Flags,
@@ -267,7 +222,7 @@ pub fn widgetStart(args: struct {
     cursor_index: u64 = 0,
 }) !Action {
     utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
-    focused_widget = try focused_widget.?.pushChild(args.allocator, args.id, args.layout_type, args.w, args.h, args.features_flags);
+    focused_widget = try focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.layout_hints, args.w, args.h, args.features_flags);
 
     var widget = focused_widget.?;
     var action = Action{};
@@ -385,14 +340,14 @@ pub fn widgetEnd() !void {
     focused_widget = focused_widget.?.parent;
 }
 
-pub fn button(allocator: std.mem.Allocator, layout_type: LayoutType, w: f32, h: f32) !bool {
+pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bool {
     var id = newId();
 
     var action = try widgetStart(.{
-        // allocator, id, layout_type, w, h, null, &.{ .clickable, .render_background }
         .allocator = allocator,
         .id = id,
-        .layout_type = layout_type,
+        .layout = layout,
+        .layout_hints = layout,
         .w = w,
         .h = h,
         .features_flags = &.{ .clickable, .render_background },
@@ -419,7 +374,8 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     var action = try widgetStart(.{
         .allocator = allocator,
         .id = id,
-        .layout_type = .column_wise,
+        .layout = RowFirst.columnWise(),
+        .layout_hints = RowFirst.columnWise(),
         .w = dim.x,
         .h = dim.y,
         .string = string,
@@ -435,13 +391,14 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     return action;
 }
 
-pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string: []const u8) !bool {
+pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, string: []const u8) !bool {
     var id = newId();
     var dim = stringDimension(string);
     var action = try widgetStart(.{
         .allocator = allocator,
         .id = id,
-        .layout_type = layout_type,
+        .layout = layout,
+        .layout_hints = layout,
         .w = dim.x,
         .h = dim.y,
         .string = string,
@@ -610,3 +567,89 @@ pub fn locateGlyphCoordsByIndex(index: u64, string: []const u8, region: shape2d.
 
     unreachable;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//                                   Layouts
+////////////////////////////////////////////////////////////////////////////////
+
+pub const Layouts = union(enum) {
+    row_first: RowFirst,
+
+    pub fn getPos(layout: Layouts, layout_hints: Layouts, parent: *Widget) math.Vec2(f32) {
+        switch (layout) {
+            inline else => |lo| return lo.getPos(layout_hints, parent),
+        }
+    }
+};
+
+pub const RowFirst = struct {
+    pub const LayoutType = enum {
+        column_wise,
+        row_wise,
+    };
+
+    layout_type: LayoutType,
+
+    pub fn columnWise() Layouts {
+        return .{ .row_first = .{
+            .layout_type = .column_wise,
+        } };
+    }
+
+    pub fn rowWise() Layouts {
+        return .{ .row_first = .{
+            .layout_type = .row_wise,
+        } };
+    }
+
+    pub fn getPos(self: RowFirst, layout_hints: Layouts, parent: *Widget) math.Vec2(f32) {
+        _ = self;
+        var layout_type = switch (layout_hints) {
+            .row_first => |rf| rf.layout_type,
+        };
+
+        if (parent.first_child == null) {
+            return .{
+                .x = parent.rect.x,
+                .y = parent.rect.y,
+            };
+        }
+
+        var lc = parent.last_child.?;
+        switch (layout_type) {
+            .column_wise => {
+                var x = lc.rect.x + lc.rect.w;
+                const y = parent.rect.y;
+
+                var widget = lc.prev_sibling;
+                while (widget) |w| {
+                    if (w.rect.x == lc.rect.x) {
+                        x = std.math.max(x, w.rect.x + w.rect.w);
+                    } else break;
+                    widget = w.prev_sibling;
+                }
+
+                return .{
+                    .x = x,
+                    .y = y,
+                };
+            },
+            .row_wise => {
+                var x = lc.rect.x;
+
+                var y = parent.rect.y + lc.rect.h;
+
+                var widget = lc.prev_sibling;
+                while (widget) |w| {
+                    if (w.rect.x == lc.rect.x) y += w.rect.h;
+                    widget = w.prev_sibling;
+                }
+
+                return .{
+                    .x = x,
+                    .y = y,
+                };
+            },
+        }
+    }
+};
