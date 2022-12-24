@@ -255,23 +255,33 @@ pub fn container(allocator: std.mem.Allocator, region: shape2d.Rect) !void {
     try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
-pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutType, w: f32, h: f32, string: ?[]const u8, cursor_index: u64, features_flags: []const Flags) !Action {
+pub fn widgetStart(args: struct {
+    allocator: std.mem.Allocator,
+    id: u32,
+    layout_type: LayoutType,
+    w: f32,
+    h: f32,
+    features_flags: []const Flags,
+
+    string: ?[]const u8 = null,
+    cursor_index: u64 = 0,
+}) !Action {
     utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
-    focused_widget = try focused_widget.?.pushChild(allocator, id, layout_type, w, h, features_flags);
+    focused_widget = try focused_widget.?.pushChild(args.allocator, args.id, args.layout_type, args.w, args.h, args.features_flags);
 
     var widget = focused_widget.?;
     var action = Action{};
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clickable) and contains(ui.state.mousex, ui.state.mousey, widget.rect)) {
-        ui.state.hot = id;
+        ui.state.hot = args.id;
         action.hover = true;
         if ((ui.state.active == 0 or widget.isChildOf(ui.state.active)) and ui.state.mousedown) {
-            ui.state.active = id;
+            ui.state.active = args.id;
             action.half_click = true;
         }
 
-        if (ui.state.active == id and !ui.state.mousedown)
+        if (ui.state.active == args.id and !ui.state.mousedown)
             action.full_click = true;
     }
 
@@ -287,7 +297,7 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
             widget.drag_start.y = @floatToInt(i16, ui.state.mousey);
 
             widget.drag_end = widget.drag_start;
-        } else if (ui.state.active == id and ui.state.mousedown) {
+        } else if (ui.state.active == args.id and ui.state.mousedown) {
             widget.drag_end.x = @floatToInt(i16, ui.state.mousex);
             widget.drag_end.y = @floatToInt(i16, ui.state.mousey);
 
@@ -303,8 +313,8 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    if (widget.enabled(.highlight_text) and widget.enabled(.draggable) and string != null) {
-        var s = string.?;
+    if (widget.enabled(.highlight_text) and widget.enabled(.draggable) and args.string != null) {
+        var s = args.string.?;
         var line_height = ui.state.font.newLineOffset();
 
         const last_line_y = @floatToInt(i16, widget.rect.y + widget.rect.h - line_height + 1);
@@ -357,8 +367,8 @@ pub fn widgetStart(allocator: std.mem.Allocator, id: u32, layout_type: LayoutTyp
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    if (widget.enabled(.text_cursor) and string != null) {
-        var rect = locateGlyphCoordsByIndex(cursor_index, string.?, widget.rect);
+    if (widget.enabled(.text_cursor) and args.string != null) {
+        var rect = locateGlyphCoordsByIndex(args.cursor_index, args.string.?, widget.rect);
         try shape2d.ShapeCommand.pushRect(rect.x, rect.y, rect.w, rect.h, 0xFF00AA);
     }
 
@@ -378,7 +388,15 @@ pub fn widgetEnd() !void {
 pub fn button(allocator: std.mem.Allocator, layout_type: LayoutType, w: f32, h: f32) !bool {
     var id = newId();
 
-    var action = try widgetStart(allocator, id, layout_type, w, h, null, &.{ .clickable, .render_background });
+    var action = try widgetStart(.{
+        // allocator, id, layout_type, w, h, null, &.{ .clickable, .render_background }
+        .allocator = allocator,
+        .id = id,
+        .layout_type = layout_type,
+        .w = w,
+        .h = h,
+        .features_flags = &.{ .clickable, .render_background },
+    });
     var widget = focused_widget.?;
 
     if (action.hover) {
@@ -398,7 +416,16 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
 
 pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags) !Action {
     const id = newId();
-    var action = try widgetStart(allocator, id, .column_wise, dim.x, dim.y, string, cursor_index, features_flags);
+    var action = try widgetStart(.{
+        .allocator = allocator,
+        .id = id,
+        .layout_type = .column_wise,
+        .w = dim.x,
+        .h = dim.y,
+        .string = string,
+        .cursor_index = cursor_index,
+        .features_flags = features_flags,
+    });
 
     var widget = focused_widget.?;
     try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
@@ -411,7 +438,15 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
 pub fn buttonText(allocator: std.mem.Allocator, layout_type: LayoutType, string: []const u8) !bool {
     var id = newId();
     var dim = stringDimension(string);
-    var action = try widgetStart(allocator, id, layout_type, dim.x, dim.y, string, 0, &.{.clickable});
+    var action = try widgetStart(.{
+        .allocator = allocator,
+        .id = id,
+        .layout_type = layout_type,
+        .w = dim.x,
+        .h = dim.y,
+        .string = string,
+        .features_flags = &.{.clickable},
+    });
 
     if (action.hover) {
         var widget = focused_widget.?;
@@ -458,7 +493,7 @@ pub fn stringDimension(string: []const u8) math.Vec2(f32) {
     return max_dim;
 }
 
-// TODO: get have a better way of generating ids
+// TODO: have a better way of generating ids
 pub fn newId() u32 {
     var old_id = ui.state.max_id;
     ui.state.max_id += 1;
