@@ -112,12 +112,10 @@ pub const Widget = struct {
 
     pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, layout_hints: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
-            widget.rect.w = width;
-            widget.rect.h = height;
             return widget;
         }
 
-        const new_pos: math.Vec2(f32) = parent.layout_of_children.getPos(layout_hints, parent);
+        const new_rect = parent.layout_of_children.getRect(layout_hints, parent, width, height);
 
         var flags: u32 = 0;
         for (features_flags) |f| flags |= @enumToInt(f);
@@ -125,7 +123,7 @@ pub const Widget = struct {
         return parent.addChild(allocator, .{
             .layout_of_children = layout,
             .id = child_id,
-            .rect = .{ .x = new_pos.x, .y = new_pos.y, .w = width, .h = height },
+            .rect = .{ .x = new_rect.x, .y = new_rect.y, .w = new_rect.w, .h = new_rect.h },
             .features_flags = flags,
         });
     }
@@ -160,6 +158,18 @@ pub const Widget = struct {
         if (result) |r| return r;
 
         return result;
+    }
+
+    pub fn numOfChildren(widget: *Widget) u32 {
+        var count: u32 = 0;
+
+        var child = widget.first_child;
+        while (child) |w| {
+            count += 1;
+            child = w.next_sibling;
+        }
+
+        return count;
     }
 
     pub fn lastSibling(widget: *Widget) *Widget {
@@ -574,10 +584,11 @@ pub fn locateGlyphCoordsByIndex(index: u64, string: []const u8, region: shape2d.
 
 pub const Layouts = union(enum) {
     row_first: RowFirst,
+    grid2x2: Grid2x2,
 
-    pub fn getPos(layout: Layouts, layout_hints: Layouts, parent: *Widget) math.Vec2(f32) {
+    pub fn getRect(layout: Layouts, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
         switch (layout) {
-            inline else => |lo| return lo.getPos(layout_hints, parent),
+            inline else => |lo| return lo.getRect(layout_hints, parent, width, height),
         }
     }
 };
@@ -602,16 +613,19 @@ pub const RowFirst = struct {
         } };
     }
 
-    pub fn getPos(self: RowFirst, layout_hints: Layouts, parent: *Widget) math.Vec2(f32) {
+    pub fn getRect(self: RowFirst, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
         _ = self;
         var layout_type = switch (layout_hints) {
             .row_first => |rf| rf.layout_type,
+            else => .column_wise,
         };
 
         if (parent.first_child == null) {
             return .{
                 .x = parent.rect.x,
                 .y = parent.rect.y,
+                .w = width,
+                .h = height,
             };
         }
 
@@ -632,6 +646,8 @@ pub const RowFirst = struct {
                 return .{
                     .x = x,
                     .y = y,
+                    .w = width,
+                    .h = height,
                 };
             },
             .row_wise => {
@@ -648,8 +664,61 @@ pub const RowFirst = struct {
                 return .{
                     .x = x,
                     .y = y,
+                    .w = width,
+                    .h = height,
                 };
             },
+        }
+    }
+};
+
+pub const Grid2x2 = struct {
+    pub fn getLayout() Layouts {
+        return .{
+            .grid2x2 = Grid2x2{},
+        };
+    }
+
+    pub fn getRect(self: Grid2x2, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
+        _ = self;
+        _ = layout_hints;
+        _ = width;
+        _ = height;
+
+        switch (parent.numOfChildren()) {
+            0 => return parent.rect,
+            1 => {
+                var first_child = parent.first_child.?;
+                first_child.rect.w /= 2;
+
+                return .{
+                    .x = parent.rect.x + first_child.rect.w,
+                    .y = parent.rect.y,
+                    .w = first_child.rect.w,
+                    .h = first_child.rect.h,
+                };
+            },
+            2 => {
+                var first_child = parent.first_child.?;
+                first_child.rect.h /= 2;
+                return .{
+                    .x = first_child.rect.x,
+                    .y = first_child.rect.y + first_child.rect.h,
+                    .w = first_child.rect.w,
+                    .h = first_child.rect.h,
+                };
+            },
+            3 => {
+                var second_child = parent.first_child.?.next_sibling.?;
+                second_child.rect.h /= 2;
+                return .{
+                    .x = second_child.rect.x,
+                    .y = second_child.rect.y + second_child.rect.h,
+                    .w = second_child.rect.w,
+                    .h = second_child.rect.h,
+                };
+            },
+            else => unreachable,
         }
     }
 };
