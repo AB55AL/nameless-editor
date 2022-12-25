@@ -53,14 +53,11 @@ pub const State = struct {
         state.font.deinit();
         state.shape_cmds.deinit();
 
-        if (state.first_widget_tree != state.last_widget_tree) {
-            var widget_tree = ui.state.first_widget_tree;
-            while (widget_tree) |wt| {
-                wt.deinitTree(allocator);
-                widget_tree = wt.next_sibling;
-            }
-        } else {
-            state.first_widget_tree.?.deinitTree(allocator);
+        var widget_tree = ui.state.first_widget_tree;
+        while (widget_tree) |wt| {
+            widget_tree = wt.next_sibling;
+            if (wt.first_child) |fc| fc.deinitTree(allocator);
+            allocator.destroy(wt);
         }
     }
 };
@@ -164,6 +161,18 @@ pub const Widget = struct {
         var count: u32 = 0;
 
         var child = widget.first_child;
+        while (child) |w| {
+            count += 1;
+            child = w.next_sibling;
+        }
+
+        return count;
+    }
+
+    pub fn numOfSiblings(widget: *Widget) u32 {
+        var count: u32 = 0;
+
+        var child = widget.next_sibling;
         while (child) |w| {
             count += 1;
             child = w.next_sibling;
