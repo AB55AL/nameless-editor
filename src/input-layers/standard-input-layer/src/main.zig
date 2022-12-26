@@ -93,7 +93,7 @@ pub fn deinit() void {
 }
 
 pub fn keyInput(key: Key) void {
-    var file_type = core.editor.focused_buffer.metadata.file_type;
+    var file_type = if (core.editor.focused_buffer) |fb| fb.metadata.file_type else "";
     var k = ft_mappings.get(file_type, key);
     if (k) |f| {
         f();
@@ -107,7 +107,8 @@ pub fn keyInput(key: Key) void {
 }
 
 pub fn characterInput(utf8_seq: []const u8) void {
-    editor.focused_buffer.insertBeforeCursor(utf8_seq) catch |err| {
+    var fb = core.editor.focused_buffer orelse return;
+    fb.insertBeforeCursor(utf8_seq) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
 
@@ -159,27 +160,33 @@ fn logKey(key: Key) void {
 ////////////////////////////////////////////////////////////////////////////////
 
 fn deleteBackward() void {
-    editor.focused_buffer.deleteBeforeCursor(1) catch |err| {
+    var fb = core.editor.focused_buffer orelse return;
+    fb.deleteBeforeCursor(1) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 }
 
 fn deleteForward() void {
-    editor.focused_buffer.deleteAfterCursor(1) catch |err| {
+    var fb = core.editor.focused_buffer orelse return;
+    fb.deleteAfterCursor(1) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
 fn moveRight() void {
-    editor.focused_buffer.moveRelativeColumn(1, false);
+    var fb = core.editor.focused_buffer orelse return;
+    fb.moveRelativeColumn(1, false);
 }
 fn moveLeft() void {
-    editor.focused_buffer.moveRelativeColumn(-1, false);
+    var fb = core.editor.focused_buffer orelse return;
+    fb.moveRelativeColumn(-1, false);
 }
 fn moveUp() void {
-    editor.focused_buffer.moveRelativeRow(-1);
+    var fb = core.editor.focused_buffer orelse return;
+    fb.moveRelativeRow(-1);
 }
 fn moveDown() void {
-    editor.focused_buffer.moveRelativeRow(1);
+    var fb = core.editor.focused_buffer orelse return;
+    fb.moveRelativeRow(1);
 }
 
 fn toggleCommandLine() void {
@@ -199,7 +206,8 @@ fn enterKey() void {
 }
 
 fn insertNewLineAtCursor() void {
-    editor.focused_buffer.insertBeforeCursor("\n") catch |err| {
+    var fb = core.editor.focused_buffer orelse return;
+    fb.insertBeforeCursor("\n") catch |err| {
         print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
     };
 }

@@ -8,6 +8,8 @@ const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 const globals = @import("../globals.zig");
 
+const buffer_ui = @import("../ui/buffer.zig");
+
 const editor = globals.editor;
 const internal = globals.internal;
 
@@ -131,15 +133,17 @@ pub fn getBufferFP(file_path: []const u8) !?*Buffer {
 
 pub fn openBufferI(index: u32) !*Buffer {
     var buffer: *Buffer = try getOrCreateBuffer(index, "");
-    editor.previous_buffer_index = editor.focused_buffer.index;
+    if (editor.focused_buffer) |fb| editor.previous_buffer_index = fb.index;
     editor.focused_buffer = buffer;
+    buffer_ui.makeBufferVisable(buffer);
     return buffer;
 }
 
 pub fn openBufferFP(file_path: []const u8) !*Buffer {
     var buffer: *Buffer = try getOrCreateBuffer(null, file_path);
-    editor.previous_buffer_index = editor.focused_buffer.index;
+    if (editor.focused_buffer) |fb| editor.previous_buffer_index = fb.index;
     editor.focused_buffer = buffer;
+    buffer_ui.makeBufferVisable(buffer);
     return buffer;
 }
 

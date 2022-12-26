@@ -7,10 +7,11 @@ const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
 const BufferNode = buffer_ops.BufferNode;
 const shape2d = @import("ui/shape2d.zig");
+const ui_lib = @import("ui/ui.zig");
 
 pub const editor = struct {
     /// A Pointer to the currently focused buffer
-    pub var focused_buffer: *Buffer = undefined;
+    pub var focused_buffer: ?*Buffer = null;
     /// A linked list of all the buffers in the editor
     pub var first_buffer: ?*Buffer = undefined;
     /// The number of valid buffers in the linked list
@@ -25,6 +26,7 @@ pub const editor = struct {
 
 pub const ui = struct {
     pub var state: State = undefined;
+    pub var visiable_buffers: [4]?*Buffer = .{ null, null, null, null };
 };
 
 pub const internal = struct {
@@ -40,7 +42,8 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
     editor.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
 
     ui.state = State{
-        .font = try shape2d.Font.init(allocator, "assets/Fira Code Light Nerd Font Complete Mono.otf", 24),
+        // .font = try shape2d.Font.init(allocator, "assets/Fira Code Light Nerd Font Complete Mono.otf", 24),
+        .font = try shape2d.Font.init(allocator, "assets/Amiri-Regular.ttf", 24),
         .window_width = window_width,
         .window_height = window_height,
         .shape_cmds = ArrayList(shape2d.ShapeCommand).init(allocator),

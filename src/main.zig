@@ -14,6 +14,7 @@ const ui = @import("ui/ui.zig");
 const shape2d = @import("ui/shape2d.zig");
 const c = @import("ui/c.zig");
 const draw_command = @import("ui/draw_command.zig");
+const math = @import("ui/math.zig");
 
 const input_layer = @import("input_layer");
 const options = @import("options");
@@ -39,12 +40,6 @@ pub fn main() !void {
 
     try command_line.init();
     defer command_line.deinit();
-
-    if (globals.editor.first_buffer == null) {
-        var buffer = try buffer_ops.createPathLessBuffer();
-        globals.editor.focused_buffer = buffer;
-        _ = try buffer_ops.openBufferI(buffer.index);
-    }
 
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
@@ -74,29 +69,45 @@ pub fn main() !void {
         globals.ui.state.mousex = @floatCast(f32, pos.xpos);
         globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
+        var arena = std.heap.ArenaAllocator.init(globals.internal.allocator);
+        defer arena.deinit();
+        const arena_allocator = arena.allocator();
+
         ui.beginUI();
+        defer ui.endUI();
 
-        var string = try globals.editor.focused_buffer.getAllLines(allocator);
-        defer allocator.free(string);
+        try ui.container(arena_allocator, ui.RowFirst.columnWise(), .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
 
-        try ui.container(globals.internal.allocator, ui.Grid2x2.getLayout(), .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
-        if (try ui.buttonText(allocator, ui.RowFirst.columnWise(), "hey")) {
-            print("hey\n", .{});
+        try ui.windowStart(arena_allocator, ui.Grid2x2.getLayout(), 2560, @intToFloat(f32, globals.ui.state.window_height));
+
+        var slices_of_arrays: [4](?[]u8) = .{ null, null, null, null };
+        for (globals.ui.visiable_buffers) |buffer, i| {
+            var b = buffer orelse continue;
+
+            slices_of_arrays[i] = try b.getAllLines(arena_allocator);
+            var string = slices_of_arrays[i].?;
+
+            var dim = ui.stringDimension(string);
+            _ = try ui.textWithDim(arena_allocator, string, b.cursor_index, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
         }
 
-        var dim = ui.stringDimension(string);
-        _ = try ui.textWithDim(allocator, string, globals.editor.focused_buffer.cursor_index, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
+        try ui.windowEnd();
 
-        ui.endUI();
+        var w = @intToFloat(f32, globals.ui.state.window_width);
+        var string = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(arena_allocator) else null;
+        if (string) |s| {
+            var dim = math.Vec2(f32){
+                .x = w,
+                .y = globals.ui.state.font.newLineOffset() * 2,
+            };
+
+            _ = try ui.textWithDim(arena_allocator, s, globals.editor.command_line_buffer.cursor_index, dim, &.{ .clickable, .draggable, .highlight_text, .text_cursor });
+        }
 
         //
         // Render
         //
         {
-            var arena = std.heap.ArenaAllocator.init(globals.internal.allocator);
-            defer arena.deinit();
-            const arena_allocator = arena.allocator();
-
             c.glEnable(c.GL_BLEND);
             c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
             c.glBlendEquation(c.GL_FUNC_ADD);
@@ -164,6 +175,6 @@ pub fn main() !void {
 
         try window.swapBuffers();
         try glfw.pollEvents();
-        if (globals.editor.valid_buffers_count == 0) window.setShouldClose(true);
+        // if (globals.editor.valid_buffers_count == 0) window.setShouldClose(true);
     }
 }

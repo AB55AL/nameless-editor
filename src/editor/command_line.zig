@@ -6,13 +6,15 @@ const fmt = std.fmt;
 const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
 const ascii = std.ascii;
 
-const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
+const buffer_ui = @import("../ui/buffer.zig");
 
 const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
 
+const globals = @import("../globals.zig");
+const ui = globals.ui;
 const editor = globals.editor;
 const internal = globals.internal;
 
@@ -60,17 +62,25 @@ pub fn deinit() void {
 
 pub fn open() void {
     editor.command_line_is_open = true;
-    editor.previous_buffer_index = editor.focused_buffer.index;
+    if (editor.focused_buffer) |fb| editor.previous_buffer_index = fb.index;
     editor.focused_buffer = editor.command_line_buffer;
+    // buffer_ui.makeBufferVisable(editor.command_line_buffer);
 }
 
 pub fn close() void {
     editor.command_line_is_open = false;
-    editor.focused_buffer = buffer_ops.getBufferI(editor.previous_buffer_index).?;
+    editor.focused_buffer = buffer_ops.getBufferI(editor.previous_buffer_index);
+
     editor.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
     editor.command_line_buffer.moveAbsolute(1, 1);
+
+    // for (ui.visiable_buffers) |buffer, i| {
+    //     if (buffer == editor.command_line_buffer) {
+    //         ui.visiable_buffers[i] = null;
+    //     }
+    // }
 }
 
 pub fn run() !void {
@@ -89,7 +99,7 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
-    if (fn_info.args.len > 6)
+    if (fn_info.params.len > 6)
         @compileError("The command's function should have at most 6 arguments");
     if (fn_info.is_var_args)
         @compileError("The command's function cannot be variadic");
@@ -274,15 +284,15 @@ fn beholdMyFunctionInator(comptime fn_ptr: anytype) type {
 
     return struct {
         fn funcy(args: []PossibleValues) CommandRunError!void {
-            if (args.len > fn_info.args.len and args.len != 0) {
+            if (args.len > fn_info.params.len and args.len != 0) {
                 print("Command args are greater than the functions args", .{});
                 return;
             }
-            switch (fn_info.args.len) {
+            switch (fn_info.params.len) {
                 0 => fn_ptr(),
                 else => {
                     if (args.len == 0) return;
-                    switch (fn_info.args.len) {
+                    switch (fn_info.params.len) {
                         1 => fn_ptr(
                             try argHandler(fn_info, args[0], 0),
                         ),
@@ -324,8 +334,8 @@ fn beholdMyFunctionInator(comptime fn_ptr: anytype) type {
     };
 }
 
-fn argHandler(comptime fn_info: std.builtin.Type.Fn, value: PossibleValues, comptime index: usize) !fn_info.args[index].arg_type.? {
-    const arg_type = fn_info.args[index].arg_type.?;
+fn argHandler(comptime fn_info: std.builtin.Type.Fn, value: PossibleValues, comptime index: usize) !fn_info.params[index].type.? {
+    const arg_type = fn_info.params[index].type.?;
     const val = switch (value) {
         .string => |v| if (@TypeOf(v) == arg_type) return v else return CommandRunError.FunctionCommandMismatchedTypes,
         .bool => |v| if (@TypeOf(v) == arg_type) return v else return CommandRunError.FunctionCommandMismatchedTypes,

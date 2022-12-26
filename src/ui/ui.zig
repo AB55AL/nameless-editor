@@ -10,8 +10,6 @@ const Glyph = shape2d.Glyph;
 const editor = @import("../globals.zig").editor;
 const ui = @import("../globals.zig").ui;
 
-pub var focused_widget: ?*Widget = null;
-
 pub const Action = struct {
     /// User clicked but is still holding the mouse button
     half_click: bool = false,
@@ -41,6 +39,7 @@ pub const State = struct {
     window_width: u32 = 800,
     window_height: u32 = 800,
 
+    focused_widget: ?*Widget = null,
     first_widget_tree: ?*Widget = null,
     last_widget_tree: ?*Widget = null,
 
@@ -196,7 +195,7 @@ pub const Widget = struct {
 pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.Rect) !void {
     var id = newId();
     if (Widget.widgetExists(id)) |widget| {
-        focused_widget = widget;
+        ui.state.focused_widget = widget;
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
         return;
     }
@@ -216,15 +215,19 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
 
     if (ui.state.first_widget_tree == null) {
         ui.state.first_widget_tree = widget;
-        ui.state.last_widget_tree = widget;
+        ui.state.last_widget_tree = null;
     } else {
-        ui.state.last_widget_tree.?.next_sibling = widget;
-        widget.prev_sibling = ui.state.last_widget_tree;
+        if (ui.state.last_widget_tree) |lwt| {
+            lwt.next_sibling = widget;
+            widget.prev_sibling = lwt;
+        } else {
+            ui.state.first_widget_tree.?.next_sibling = widget;
+        }
 
         ui.state.last_widget_tree = widget;
     }
 
-    focused_widget = widget;
+    ui.state.focused_widget = widget;
     try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
@@ -240,10 +243,10 @@ pub fn widgetStart(args: struct {
     string: ?[]const u8 = null,
     cursor_index: u64 = 0,
 }) !Action {
-    utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
-    focused_widget = try focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.layout_hints, args.w, args.h, args.features_flags);
+    utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
+    ui.state.focused_widget = try ui.state.focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.layout_hints, args.w, args.h, args.features_flags);
 
-    var widget = focused_widget.?;
+    var widget = ui.state.focused_widget.?;
     var action = Action{};
 
     ////////////////////////////////////////////////////////////////////////////
@@ -261,7 +264,7 @@ pub fn widgetStart(args: struct {
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.render_background)) {
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0x0);
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -350,13 +353,31 @@ pub fn widgetStart(args: struct {
 }
 
 pub fn widgetEnd() !void {
-    utils.assert(focused_widget != null, "focused_widget must never be null for start and end calls. Make sure to call the container function");
+    utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
 
-    if (focused_widget.?.enabled(.clip)) {
+    if (ui.state.focused_widget.?.enabled(.clip)) {
         try shape2d.ShapeCommand.pushClip(0, 0, @intToFloat(f32, ui.state.window_width), @intToFloat(f32, ui.state.window_height));
     }
 
-    focused_widget = focused_widget.?.parent;
+    ui.state.focused_widget = ui.state.focused_widget.?.parent;
+}
+
+pub fn windowStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !void {
+    var id = newId();
+
+    _ = try widgetStart(.{
+        .allocator = allocator,
+        .id = id,
+        .layout = layout,
+        .layout_hints = layout,
+        .w = w,
+        .h = h,
+        .features_flags = &.{},
+    });
+}
+
+pub fn windowEnd() !void {
+    try widgetEnd();
 }
 
 pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bool {
@@ -371,7 +392,7 @@ pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bo
         .h = h,
         .features_flags = &.{ .clickable, .render_background },
     });
-    var widget = focused_widget.?;
+    var widget = ui.state.focused_widget.?;
 
     if (action.hover) {
         ui.state.hot = id;
@@ -394,7 +415,7 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
         .allocator = allocator,
         .id = id,
         .layout = RowFirst.columnWise(),
-        .layout_hints = RowFirst.columnWise(),
+        .layout_hints = RowFirst.rowWise(),
         .w = dim.x,
         .h = dim.y,
         .string = string,
@@ -402,7 +423,7 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
         .features_flags = features_flags,
     });
 
-    var widget = focused_widget.?;
+    var widget = ui.state.focused_widget.?;
     try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
 
     try widgetEnd();
@@ -425,7 +446,7 @@ pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, string: []const
     });
 
     if (action.hover) {
-        var widget = focused_widget.?;
+        var widget = ui.state.focused_widget.?;
         ui.state.hot = id;
         var color: u24 = 0x0000FF;
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
@@ -486,6 +507,9 @@ pub fn endUI() void {
     }
 
     ui.state.max_id = 1;
+    ui.state.first_widget_tree = null;
+    ui.state.last_widget_tree = null;
+    ui.state.focused_widget = null;
 }
 
 /// This function assumes the string is present in the provided region
@@ -660,6 +684,11 @@ pub const RowFirst = struct {
                 };
             },
             .row_wise => {
+                lc.rect.h -= height;
+                if (lc.first_child) |fc| {
+                    fc.rect.h -= height;
+                }
+
                 var x = lc.rect.x;
 
                 var y = parent.rect.y + lc.rect.h;
