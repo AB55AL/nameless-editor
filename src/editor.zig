@@ -5,3 +5,4 @@ pub const input = @import("editor/input.zig");
 
 const globals = @import("globals.zig");
 pub const editor = globals.editor;
+pub const ui = globals.ui;

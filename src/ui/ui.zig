@@ -47,6 +47,7 @@ pub const State = struct {
     max_id: u32 = 1,
 
     shape_cmds: ArrayList(shape2d.ShapeCommand),
+    pass: Pass = .layout,
 
     pub fn deinit(state: *State, allocator: std.mem.Allocator) void {
         state.font.deinit();
@@ -59,6 +60,11 @@ pub const State = struct {
             allocator.destroy(wt);
         }
     }
+
+    pub const Pass = enum {
+        layout,
+        input_and_render,
+    };
 };
 
 pub const Widget = struct {
@@ -108,6 +114,8 @@ pub const Widget = struct {
 
     pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, layout_hints: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
+            widget.rect.w = width;
+            widget.rect.h = height;
             return widget;
         }
 
@@ -135,6 +143,20 @@ pub const Widget = struct {
         }
 
         return false;
+    }
+
+    pub fn applyOffset(widget: *Widget, offset: shape2d.Rect) void {
+        widget.applyOffsetRecursive(offset);
+    }
+
+    fn applyOffsetRecursive(widget: *Widget, offset: shape2d.Rect) void {
+        if (widget.first_child) |fc| fc.applyOffsetRecursive(offset);
+        if (widget.next_sibling) |ns| ns.applyOffsetRecursive(offset);
+
+        widget.rect.x += offset.x;
+        widget.rect.y += offset.y;
+        widget.rect.w += offset.w;
+        widget.rect.h += offset.h;
     }
 
     fn widgetExists(id: u32) ?*Widget {
@@ -196,7 +218,10 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
     var id = newId();
     if (Widget.widgetExists(id)) |widget| {
         ui.state.focused_widget = widget;
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
+        widget.rect.w = region.w;
+        widget.rect.h = region.h;
+        if (ui.state.pass == .input_and_render)
+            try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
         return;
     }
 
@@ -228,7 +253,8 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
     }
 
     ui.state.focused_widget = widget;
-    try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
+    if (ui.state.pass == .input_and_render)
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
 pub fn widgetStart(args: struct {
@@ -248,6 +274,7 @@ pub fn widgetStart(args: struct {
 
     var widget = ui.state.focused_widget.?;
     var action = Action{};
+    if (ui.state.pass == .layout) return action;
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clickable) and contains(ui.state.mousex, ui.state.mousey, widget.rect)) {
@@ -260,11 +287,6 @@ pub fn widgetStart(args: struct {
 
         if (ui.state.active == args.id and !ui.state.mousedown)
             action.full_click = true;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    if (widget.enabled(.render_background)) {
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -282,6 +304,11 @@ pub fn widgetStart(args: struct {
                 action.drag_delta = widget.drag_end.sub(widget.drag_start);
             }
         }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    if (widget.enabled(.render_background)) {
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -355,7 +382,7 @@ pub fn widgetStart(args: struct {
 pub fn widgetEnd() !void {
     utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
 
-    if (ui.state.focused_widget.?.enabled(.clip)) {
+    if (ui.state.pass == .input_and_render and ui.state.focused_widget.?.enabled(.clip)) {
         try shape2d.ShapeCommand.pushClip(0, 0, @intToFloat(f32, ui.state.window_width), @intToFloat(f32, ui.state.window_height));
     }
 
@@ -394,7 +421,7 @@ pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bo
     });
     var widget = ui.state.focused_widget.?;
 
-    if (action.hover) {
+    if (ui.state.pass == .input_and_render and action.hover) {
         ui.state.hot = id;
         var color: u24 = 0xFF0000;
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
@@ -424,7 +451,8 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     });
 
     var widget = ui.state.focused_widget.?;
-    try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
+    if (ui.state.pass == .input_and_render)
+        try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
 
     try widgetEnd();
 
@@ -507,9 +535,6 @@ pub fn endUI() void {
     }
 
     ui.state.max_id = 1;
-    ui.state.first_widget_tree = null;
-    ui.state.last_widget_tree = null;
-    ui.state.focused_widget = null;
 }
 
 /// This function assumes the string is present in the provided region
@@ -684,11 +709,6 @@ pub const RowFirst = struct {
                 };
             },
             .row_wise => {
-                lc.rect.h -= height;
-                if (lc.first_child) |fc| {
-                    fc.rect.h -= height;
-                }
-
                 var x = lc.rect.x;
 
                 var y = parent.rect.y + lc.rect.h;
