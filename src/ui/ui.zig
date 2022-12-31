@@ -210,16 +210,32 @@ pub const Widget = struct {
         }
     }
 
-    pub fn capSubtreeToParentRect(parent: *Widget) void {
-        if (parent.first_child == null) return;
-        const function = struct {
-            fn capChildIfExceeds(widget: *Widget) void {
-                widget.rect.w = std.math.min(widget.rect.w, widget.parent.?.rect.w);
-                widget.rect.h = std.math.min(widget.rect.h, widget.parent.?.rect.h);
-            }
-        };
+    pub fn treeDepth(widget: *Widget, level: u32) u32 {
+        var res: u32 = level;
+        if (widget.first_child) |fc| {
+            res = fc.treeDepth(level + 1);
+        }
+        if (widget.next_sibling) |ns| {
+            res = std.math.max(res, ns.treeDepth(level));
+        }
 
-        parent.first_child.?.walkListForward(function.capChildIfExceeds);
+        return res;
+    }
+
+    pub fn capSubtreeToParentRect(widget: *Widget, level: u32) void {
+        if (level == 0) {
+            var current_widget: ?*Widget = widget;
+            while (current_widget) |w| {
+                if (widget.parent) |p| {
+                    widget.rect.w = std.math.min(widget.rect.w, p.rect.w);
+                    widget.rect.h = std.math.min(widget.rect.h, p.rect.h);
+                }
+                current_widget = w.next_sibling;
+            }
+        } else {
+            if (widget.first_child) |fc| fc.capSubtreeToParentRect(level - 1);
+            if (widget.next_sibling) |ns| ns.capSubtreeToParentRect(level);
+        }
     }
 
     fn widgetExists(id: u32) ?*Widget {
@@ -383,6 +399,8 @@ pub fn widgetStart(args: struct {
 
     string: ?[]const u8 = null,
     cursor_index: u64 = 0,
+
+    bg_color: u24 = 0,
 }) !Action {
     utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
     ui.state.focused_widget = try ui.state.focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.w, args.h, args.features_flags);
@@ -423,7 +441,7 @@ pub fn widgetStart(args: struct {
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.render_background)) {
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0);
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, args.bg_color);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -520,7 +538,7 @@ pub fn widgetEnd() !void {
     ui.state.focused_widget = ui.state.focused_widget.?.parent;
 }
 
-pub fn layoutStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !void {
+pub fn layoutStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32, color: u24) !void {
     var id = newId();
 
     _ = try widgetStart(.{
@@ -529,7 +547,8 @@ pub fn layoutStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32
         .layout = layout,
         .w = w,
         .h = h,
-        .features_flags = &.{},
+        .features_flags = &.{.render_background},
+        .bg_color = color,
     });
 }
 
@@ -538,7 +557,7 @@ pub fn layoutEnd(layout: Layouts) !void {
     try widgetEnd();
 }
 
-pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bool {
+pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32, color: u24) !bool {
     var id = newId();
 
     var action = try widgetStart(.{
@@ -548,13 +567,14 @@ pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bo
         .w = w,
         .h = h,
         .features_flags = &.{ .clickable, .render_background },
+        .bg_color = color,
     });
     var widget = ui.state.focused_widget.?;
 
     if (ui.state.pass == .input_and_render and action.hover) {
         ui.state.hot = id;
-        var color: u24 = 0xFF0000;
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
+        var colo: u24 = 0xFF0000;
+        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, colo);
     }
 
     try widgetEnd();
@@ -566,7 +586,7 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
     try textWithDim(allocator, string, dim, features_flags);
 }
 
-pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags, layout: Layouts) !Action {
+pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags, layout: Layouts, color: u24) !Action {
     const id = newId();
     var action = try widgetStart(.{
         .allocator = allocator,
@@ -577,10 +597,14 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
         .string = string,
         .cursor_index = cursor_index,
         .features_flags = features_flags,
+        .bg_color = color,
     });
 
     var widget = ui.state.focused_widget.?;
-    if (id == 1000) widget.rect.print();
+    // if (id == 1000 and ui.state.pass == .layout) {
+    // print("command line ", .{});
+    // widget.rect.print();
+    // }
     if (ui.state.pass == .input_and_render)
         try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
 
@@ -589,7 +613,7 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     return action;
 }
 
-pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: Layouts, string: []const u8) !bool {
+pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: Layouts, string: []const u8, color: u24) !bool {
     var id = newId();
     var dim = stringDimension(string);
     var action = try widgetStart(.{
@@ -601,15 +625,15 @@ pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: L
         .h = dim.y,
         .string = string,
         .features_flags = &.{.clickable},
+        .bg_color = color,
     });
 
     if (action.hover) {
         var widget = ui.state.focused_widget.?;
         ui.state.hot = id;
-        var color: u24 = 0x0000FF;
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
     }
-    _ = try textWithDim(allocator, string, 0, dim, &.{});
+    _ = try textWithDim(allocator, string, 0, dim, &.{}, color);
 
     try widgetEnd();
     return action.full_click;
@@ -778,6 +802,8 @@ pub const Layouts = union(enum) {
     column: Column,
     row: Row,
     grid2x2: Grid2x2,
+    dynamic_row: DynamicRow,
+    dynamic_column: DynamicColumn,
 
     pub fn applyLayout(layout: Layouts, parent: *Widget, child: *Widget, width: f32, height: f32) void {
         switch (layout) {
@@ -864,107 +890,114 @@ pub const Row = struct {
     }
 };
 
-// pub const DynamicRowFirst = struct {
-//     layout_type: LayoutType,
-//     full_width: bool,
-//     full_height: bool,
-//     // REMEMBER THIS
+pub const DynamicRow = struct {
+    pub fn getLayout() Layouts {
+        return .{ .dynamic_row = DynamicRow{} };
+    }
 
-//     pub fn getRect(self: DynamicRowFirst, layout_hints: Layouts, parent: *Widget, child: *Widget, const_width: f32, const_height: f32) shape2d.Rect {
-//         _ = child;
-//         _ = self;
-//         var layout_type = LayoutType.column_wise;
-//         var width: f32 = const_width;
-//         var height: f32 = const_height;
+    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+        if (parent.first_child == null or parent.active_children == 0) {
+            child.rect = .{
+                .x = parent.rect.x,
+                .y = parent.rect.y,
+                .w = width,
+                .h = height,
+            };
 
-//         switch (layout_hints) {
-//             .dynamic_row_first => |drf| {
-//                 layout_type = drf.layout_type;
-//                 if (drf.full_width) width = parent.rect.w;
-//                 if (drf.full_height) height = parent.rect.h;
-//             },
-//             else => {},
-//         }
+            return;
+        }
+        var lc = parent.lastActiveChild();
+        if (!contains(lc.rect.x, lc.rect.bottom() + height, parent.rect)) {
+            // must offset all previous children
+            var sibling_count = @intToFloat(f32, parent.active_children);
+            var offset_height = -(height / sibling_count);
+            const functions = struct {
+                fn func(widget: *Widget, args: anytype) void {
+                    if (widget.rect.y != widget.parent.?.rect.y)
+                        widget.rect.y += args.@"0";
+                    widget.rect.h += args.@"0";
+                }
+            };
+            lc.walkListBackwords(functions.func, .{offset_height});
+            const depth = parent.treeDepth(0);
+            var i: u32 = 0;
+            while (i <= depth) : (i += 1)
+                parent.capSubtreeToParentRect(i);
+        }
 
-//         if (parent.first_child == null or parent.active_children == 0) {
-//             return .{
-//                 .x = parent.rect.x,
-//                 .y = parent.rect.y,
-//                 .w = width,
-//                 .h = height,
-//             };
-//         }
+        var x = lc.rect.x;
 
-//         var lc = parent.lastActiveChild();
-//         switch (layout_type) {
-//             .column_wise => {
-//                 // lc = lc.prev_sibling.?;
-//                 if (!contains(lc.rect.right() + width, lc.rect.y, parent.rect)) {
-//                     // must offset all previous children
-//                     // var sibling_count = @intToFloat(f32, lc.sameYSiblingCount());
-//                     // var sibling_count = @intToFloat(f32, parent.active_children);
-//                     var sibling_count = @intToFloat(f32, 1);
-//                     if (sibling_count == 0) sibling_count += 1;
-//                     var offset_width = -(width / sibling_count);
-//                     const functions = struct {
-//                         fn func(widget: *Widget, args: anytype) void {
-//                             if (widget.rect.x != widget.parent.?.rect.x)
-//                                 widget.rect.x += args.@"0";
-//                             widget.rect.w += args.@"0";
-//                         }
-//                     };
-//                     lc.walkListBackwords(functions.func, .{offset_width});
-//                     parent.capSubtreeToParentRect();
-//                 }
+        var y = parent.rect.y + lc.rect.h;
 
-//                 var x = lc.rect.x + lc.rect.w;
-//                 print("{d}\n", .{x});
-//                 const y = parent.rect.y;
+        var widget = lc.prev_sibling;
+        while (widget) |w| {
+            if (w.rect.x == lc.rect.x) y += w.rect.h;
+            widget = w.prev_sibling;
+        }
 
-//                 var widget = lc.prev_sibling;
-//                 while (widget) |w| {
-//                     if (w.rect.x == lc.rect.x) {
-//                         x = std.math.max(x, w.rect.x + w.rect.w);
-//                     } else break;
-//                     widget = w.prev_sibling;
-//                 }
+        child.rect = .{
+            .x = x,
+            .y = y,
+            .w = width,
+            .h = height,
+        };
+    }
+};
 
-//                 // print("{d}\n", .{x});
-//                 return .{
-//                     .x = x,
-//                     .y = y,
-//                     .w = width,
-//                     .h = height,
-//                 };
-//             },
-//             .row_wise => {
-//                 if (!contains(lc.rect.x, lc.rect.bottom() + height, parent.rect)) {
-//                     // must offset all previous children
-//                     // var sibling_count = @intToFloat(f32, lc.sameXSiblingCount());
-//                     var sibling_count = @intToFloat(f32, parent.active_children);
-//                     if (sibling_count == 0) sibling_count += 1;
-//                     var offset_height = -(height / sibling_count);
-//                     const functions = struct {
-//                         fn func(widget: *Widget, args: anytype) void {
-//                             if (widget.rect.y != widget.parent.?.rect.y)
-//                                 widget.rect.y += args.@"0";
-//                             widget.rect.h += args.@"0";
-//                         }
-//                     };
-//                     lc.walkListBackwords(functions.func, .{offset_height});
-//                     parent.capSubtreeToParentRect();
-//                 }
+pub const DynamicColumn = struct {
+    pub fn getLayout() Layouts {
+        return .{ .dynamic_column = DynamicColumn{} };
+    }
 
-//                 return .{
-//                     .x = lc.rect.x,
-//                     .y = lc.rect.bottom(),
-//                     .w = width,
-//                     .h = height,
-//                 };
-//             },
-//         }
-//     }
-// };
+    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+        if (parent.first_child == null or parent.active_children == 0) {
+            child.rect = .{
+                .x = parent.rect.x,
+                .y = parent.rect.y,
+                .w = width,
+                .h = height,
+            };
+
+            return;
+        }
+        var lc = parent.lastActiveChild();
+        if (!contains(lc.rect.right() + width, lc.rect.y, parent.rect)) {
+            // must offset all previous children
+            var sibling_count = @intToFloat(f32, parent.active_children);
+            var offset_width = -(width / sibling_count);
+            const functions = struct {
+                fn func(widget: *Widget, args: anytype) void {
+                    if (widget.rect.x != widget.parent.?.rect.x)
+                        widget.rect.x += args.@"0";
+                    widget.rect.w += args.@"0";
+                }
+            };
+            lc.walkListBackwords(functions.func, .{offset_width});
+            const depth = parent.treeDepth(0);
+            var i: u32 = 0;
+            while (i <= depth) : (i += 1)
+                parent.capSubtreeToParentRect(i);
+        }
+
+        var x = lc.rect.x + lc.rect.w;
+        const y = parent.rect.y;
+
+        var widget = lc.prev_sibling;
+        while (widget) |w| {
+            if (w.rect.x == lc.rect.x) {
+                x = std.math.max(x, w.rect.x + w.rect.w);
+            } else break;
+            widget = w.prev_sibling;
+        }
+
+        child.rect = .{
+            .x = x,
+            .y = y,
+            .w = width,
+            .h = height,
+        };
+    }
+};
 
 pub const Grid2x2 = struct {
     pub fn getLayout() Layouts {

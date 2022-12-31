@@ -92,13 +92,13 @@ pub fn main() !void {
 
             const ww = @intToFloat(f32, globals.ui.state.window_width);
             const wh = @intToFloat(f32, globals.ui.state.window_height);
-            try ui_lib.container(allocator, ui_lib.Row.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
+            try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
 
-            var buffer_window_dim = math.Vec2(f32){ .x = 1000, .y = 1000 };
-            try ui_lib.layoutStart(allocator, ui_lib.Column.getLayout(), ww, buffer_window_dim.y);
+            var buffer_window_dim = math.Vec2(f32){ .x = ww, .y = wh };
+            try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
             { // buffer windows
 
-                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y);
+                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x00AA00);
 
                 globals.ui.state.max_id = 100;
                 for (globals.ui.visiable_buffers) |buffer, i| {
@@ -112,23 +112,23 @@ pub fn main() !void {
                         string,
                         b.cursor_index,
                         buffer_window_dim,
-                        &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip },
+                        &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip, .render_background },
                         ui_lib.Column.getLayout(),
+                        0x0000AA,
                     );
                 }
                 try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
             }
 
             globals.ui.state.max_id = 500;
-            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50)) {
+            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50, 0x990099)) {
                 print("clicked\n", .{});
             }
-            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50)) {
+            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50, 0x990099)) {
                 print("clicked\n", .{});
             }
 
-            globals.ui.state.focused_widget.?.rect.print();
-            try ui_lib.layoutEnd(ui_lib.Column.getLayout());
+            try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
             slices_of_arrays[4] = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(allocator) else null;
             var string = slices_of_arrays[4];
@@ -146,6 +146,7 @@ pub fn main() !void {
                     dim,
                     &.{ .clickable, .draggable, .highlight_text, .text_cursor },
                     ui_lib.Column.getLayout(),
+                    0xAAAAAA,
                 );
             }
 
