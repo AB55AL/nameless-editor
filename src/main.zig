@@ -120,14 +120,6 @@ pub fn main() !void {
                 try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
             }
 
-            globals.ui.state.max_id = 500;
-            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50, 0x990099)) {
-                print("clicked\n", .{});
-            }
-            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50, 0x990099)) {
-                print("clicked\n", .{});
-            }
-
             try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
             slices_of_arrays[4] = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(allocator) else null;
