@@ -789,9 +789,9 @@ pub const PieceNode = struct {
         if (index >= newlines.len)
             index = newlines.len - 1;
 
-        var res: u64 = 0;
-        _ = @subWithOverflow(u64, newlines[index], piece.start, &res);
-        return res;
+        // var res: u64 = 0;
+        // _ = @subWithOverflow(u64, newlines[index], piece.start, &res);
+        return @subWithOverflow(newlines[index], piece.start).@"0";
     }
 
     fn bubbleUpChangedInfo(piece: *PieceNode, length: i64, newline_count: i64) void {
