@@ -61,8 +61,8 @@ pub fn main() !void {
     }
 
     while (!window.shouldClose()) {
-        // defer std.time.sleep(1000000 * 17); // 60-ish FPS
-        defer std.time.sleep(1000000 * 50);
+        defer std.time.sleep(1000000 * 17); // 60-ish FPS
+        // defer std.time.sleep(1000000 * 50);
         c.glClearColor(0.5, 0.5, 0.5, 1);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
@@ -98,7 +98,7 @@ pub fn main() !void {
             try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
             { // buffer windows
 
-                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x00AA00);
+                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
 
                 globals.ui.state.max_id = 100;
                 for (globals.ui.visiable_buffers) |buffer, i| {
@@ -114,7 +114,7 @@ pub fn main() !void {
                         buffer_window_dim,
                         &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip, .render_background },
                         ui_lib.Column.getLayout(),
-                        0x0000AA,
+                        0x272822,
                     );
                 }
                 try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
@@ -136,16 +136,16 @@ pub fn main() !void {
                     s,
                     globals.editor.command_line_buffer.cursor_index,
                     dim,
-                    &.{ .clickable, .draggable, .highlight_text, .text_cursor },
+                    &.{ .clickable, .draggable, .highlight_text, .text_cursor, .render_background },
                     ui_lib.Column.getLayout(),
-                    0xAAAAAA,
+                    0x272822,
                 );
             }
 
             ui_lib.containerEnd();
         }
         ui_lib.endUI();
-        print("======================================================UI END=======================================================\n", .{});
+        // print("======================================================UI END=======================================================\n", .{});
 
         //
         // Render

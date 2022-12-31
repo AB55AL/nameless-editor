@@ -87,8 +87,8 @@ pub const Widget = struct {
     /// When ever a widget is added to the tree it is placed at the end of the children list,
     /// but when it already exists it will be placed in the list at index active_children.
     /// splitting the list into two sections of widgets, active and non-active.
-    /// This indicates the number of children that called widgetStart(). It is reset
-    /// every frame.
+    /// This indicates the number of children that called widgetStart().
+    /// It is reset every frame.
     active_children: u8 = 0,
 
     pub fn deinitTree(widget: *Widget, allocator: std.mem.Allocator) void {
@@ -601,12 +601,8 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     });
 
     var widget = ui.state.focused_widget.?;
-    // if (id == 1000 and ui.state.pass == .layout) {
-    // print("command line ", .{});
-    // widget.rect.print();
-    // }
     if (ui.state.pass == .input_and_render)
-        try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
+        try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0xFFFFFF, string);
 
     try widgetEnd();
 
