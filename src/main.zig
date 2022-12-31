@@ -61,6 +61,8 @@ pub fn main() !void {
     }
 
     while (!window.shouldClose()) {
+        // defer std.time.sleep(1000000 * 17); // 60-ish FPS
+        defer std.time.sleep(1000000 * 50);
         c.glClearColor(0.5, 0.5, 0.5, 1);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
@@ -77,7 +79,6 @@ pub fn main() !void {
         }
         ui_lib.beginUI();
         var passes = [_]ui_lib.State.Pass{ .layout, .input_and_render };
-        // var passes = [_]ui_lib.State.Pass{.layout};
         for (passes) |pass| {
             defer {
                 if (pass == .layout) {
@@ -89,41 +90,69 @@ pub fn main() !void {
             globals.ui.state.pass = pass;
             defer globals.ui.state.max_id = 1;
 
-            try ui_lib.container(allocator, ui_lib.RowFirst.columnWise(), .{ .x = 0, .y = 0, .w = @intToFloat(f32, globals.ui.state.window_width), .h = @intToFloat(f32, globals.ui.state.window_height) });
+            const ww = @intToFloat(f32, globals.ui.state.window_width);
+            const wh = @intToFloat(f32, globals.ui.state.window_height);
+            try ui_lib.container(allocator, ui_lib.Row.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
 
-            if (try ui_lib.button(allocator, ui_lib.RowFirst.columnWise(), 50, 50)) {
+            var buffer_window_dim = math.Vec2(f32){ .x = 1000, .y = 1000 };
+            try ui_lib.layoutStart(allocator, ui_lib.Column.getLayout(), ww, buffer_window_dim.y);
+            { // buffer windows
+
+                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y);
+
+                globals.ui.state.max_id = 100;
+                for (globals.ui.visiable_buffers) |buffer, i| {
+                    var b = buffer orelse continue;
+
+                    slices_of_arrays[i] = try b.getAllLines(allocator);
+                    var string = slices_of_arrays[i].?;
+
+                    _ = try ui_lib.textWithDim(
+                        allocator,
+                        string,
+                        b.cursor_index,
+                        buffer_window_dim,
+                        &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip },
+                        ui_lib.Column.getLayout(),
+                    );
+                }
+                try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
+            }
+
+            globals.ui.state.max_id = 500;
+            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50)) {
+                print("clicked\n", .{});
+            }
+            if (try ui_lib.button(allocator, ui_lib.Column.getLayout(), 50, 50)) {
                 print("clicked\n", .{});
             }
 
-            try ui_lib.windowStart(allocator, ui_lib.Grid2x2.getLayout(), @intToFloat(f32, globals.ui.state.window_width), @intToFloat(f32, globals.ui.state.window_height));
+            globals.ui.state.focused_widget.?.rect.print();
+            try ui_lib.layoutEnd(ui_lib.Column.getLayout());
 
-            for (globals.ui.visiable_buffers) |buffer, i| {
-                var b = buffer orelse continue;
-
-                slices_of_arrays[i] = try b.getAllLines(allocator);
-                var string = slices_of_arrays[i].?;
-
-                globals.ui.state.max_id = 100;
-                var dim = ui_lib.stringDimension(string);
-                _ = try ui_lib.textWithDim(allocator, string, b.cursor_index, dim, &.{ .clickable, .draggable, .clip, .highlight_text, .text_cursor });
-            }
-
-            try ui_lib.windowEnd();
-
-            var w = @intToFloat(f32, globals.ui.state.window_width);
             slices_of_arrays[4] = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(allocator) else null;
             var string = slices_of_arrays[4];
             if (string) |s| {
                 var dim = math.Vec2(f32){
-                    .x = w,
+                    .x = 5000,
                     .y = globals.ui.state.font.newLineOffset() * 2,
                 };
 
                 globals.ui.state.max_id = 1000;
-                _ = try ui_lib.textWithDim(allocator, s, globals.editor.command_line_buffer.cursor_index, dim, &.{ .clickable, .draggable, .highlight_text, .text_cursor });
+                _ = try ui_lib.textWithDim(
+                    allocator,
+                    s,
+                    globals.editor.command_line_buffer.cursor_index,
+                    dim,
+                    &.{ .clickable, .draggable, .highlight_text, .text_cursor },
+                    ui_lib.Column.getLayout(),
+                );
             }
+
+            ui_lib.containerEnd();
         }
         ui_lib.endUI();
+        print("======================================================UI END=======================================================\n", .{});
 
         //
         // Render

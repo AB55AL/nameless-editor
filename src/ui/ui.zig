@@ -5,6 +5,7 @@ const ArrayList = std.ArrayList;
 
 const math = @import("math.zig");
 const shape2d = @import("shape2d.zig");
+const Rect = shape2d.Rect;
 const utils = @import("../utils.zig");
 const Glyph = shape2d.Glyph;
 const editor = @import("../globals.zig").editor;
@@ -18,7 +19,6 @@ pub const Action = struct {
     hover: bool = false,
     drag_delta: math.Vec2(i16) = .{ .x = 0, .y = 0 },
     string_selection_range: ?(struct { start: u64, end: u64 }) = null,
-    // string_glyph_index: ?u64 = null,
 };
 
 pub const Flags = enum(u32) {
@@ -84,6 +84,12 @@ pub const Widget = struct {
     drag_end: math.Vec2(i16) = .{ .x = -2, .y = -2 },
 
     features_flags: u32,
+    /// When ever a widget is added to the tree it is placed at the end of the children list,
+    /// but when it already exists it will be placed in the list at index active_children.
+    /// splitting the list into two sections of widgets, active and non-active.
+    /// This indicates the number of children that called widgetStart(). It is reset
+    /// every frame.
+    active_children: u8 = 0,
 
     pub fn deinitTree(widget: *Widget, allocator: std.mem.Allocator) void {
         if (widget.first_child) |fc| fc.deinitTree(allocator);
@@ -91,45 +97,36 @@ pub const Widget = struct {
         allocator.destroy(widget);
     }
 
-    fn addChild(widget: *Widget, allocator: std.mem.Allocator, new_child: Widget) !*Widget {
-        var child = try allocator.create(Widget);
-        child.* = new_child;
-        child.parent = widget;
-        child.next_sibling = null;
-
-        if (widget.first_child == null) {
-            child.prev_sibling = null;
-
-            widget.first_child = child;
-            widget.last_child = child;
-        } else {
-            var last_sibling = widget.last_child.?;
-            child.prev_sibling = last_sibling;
-            last_sibling.next_sibling = child;
-            widget.last_child = child;
-        }
-
-        return child;
+    pub fn lastActiveChild(parent: *Widget) *Widget {
+        utils.assert(parent.active_children > 0, utils.fileLocation(@src()) ++ "active_children count must be > 0");
+        return parent.getChildAt(parent.active_children - 1);
     }
 
-    pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, layout_hints: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
+    pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
-            widget.rect.w = width;
-            widget.rect.h = height;
+            if (ui.state.pass == .layout) {
+                widget.rect.w = width;
+                widget.rect.h = height;
+                parent.layout_of_children.applyLayout(parent, widget, width, height);
+                parent.repositonChild(widget);
+            }
             return widget;
         }
-
-        const new_rect = parent.layout_of_children.getRect(layout_hints, parent, width, height);
 
         var flags: u32 = 0;
         for (features_flags) |f| flags |= @enumToInt(f);
 
-        return parent.addChild(allocator, .{
+        var widget = try parent.addChild(allocator, .{
             .layout_of_children = layout,
             .id = child_id,
-            .rect = .{ .x = new_rect.x, .y = new_rect.y, .w = new_rect.w, .h = new_rect.h },
+            .rect = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
             .features_flags = flags,
         });
+
+        parent.layout_of_children.applyLayout(parent, widget, width, height);
+
+        parent.active_children += 1;
+        return widget;
     }
 
     pub fn isChildOf(widget: *Widget, id: u32) bool {
@@ -145,37 +142,21 @@ pub const Widget = struct {
         return false;
     }
 
-    pub fn applyOffset(widget: *Widget, offset: shape2d.Rect) void {
-        widget.applyOffsetRecursive(offset);
+    pub fn resetActiveChildrenCount(widget: *Widget) void {
+        if (widget.first_child) |fc| fc.resetActiveChildrenCount();
+        if (widget.next_sibling) |ns| ns.resetActiveChildrenCount();
+
+        widget.active_children = 0;
     }
 
-    fn applyOffsetRecursive(widget: *Widget, offset: shape2d.Rect) void {
-        if (widget.first_child) |fc| fc.applyOffsetRecursive(offset);
-        if (widget.next_sibling) |ns| ns.applyOffsetRecursive(offset);
+    pub fn applyOffset(widget: *Widget, offset: shape2d.Rect) void {
+        if (widget.first_child) |fc| fc.applyOffset(offset);
+        if (widget.next_sibling) |ns| ns.applyOffset(offset);
 
         widget.rect.x += offset.x;
         widget.rect.y += offset.y;
         widget.rect.w += offset.w;
         widget.rect.h += offset.h;
-    }
-
-    fn widgetExists(id: u32) ?*Widget {
-        if (ui.state.first_widget_tree == null) return null;
-        return widgetExistsRecursive(ui.state.first_widget_tree.?, id);
-    }
-
-    fn widgetExistsRecursive(widget: *Widget, wanted_id: u32) ?*Widget {
-        var result: ?*Widget = null;
-        if (widget.id == wanted_id) result = widget;
-        if (result) |r| return r;
-
-        if (widget.first_child) |fc| result = fc.widgetExistsRecursive(wanted_id);
-        if (result) |r| return r;
-
-        if (widget.next_sibling) |ns| result = ns.widgetExistsRecursive(wanted_id);
-        if (result) |r| return r;
-
-        return result;
     }
 
     pub fn numOfChildren(widget: *Widget) u32 {
@@ -211,6 +192,136 @@ pub const Widget = struct {
     pub fn enabled(widget: *Widget, flag: Flags) bool {
         const f = @enumToInt(flag);
         return (widget.features_flags & f == f);
+    }
+
+    pub fn walkListForward(widget: *Widget, function: *const fn (*Widget) void) void {
+        var current_widget: ?*Widget = widget;
+        while (current_widget) |w| {
+            function(w);
+            current_widget = w.next_sibling;
+        }
+    }
+
+    pub fn walkListBackwords(widget: *Widget, function: *const fn (*Widget, anytype) void, args: anytype) void {
+        var current_widget: ?*Widget = widget;
+        while (current_widget) |w| {
+            function(w, args);
+            current_widget = w.prev_sibling;
+        }
+    }
+
+    pub fn capSubtreeToParentRect(parent: *Widget) void {
+        if (parent.first_child == null) return;
+        const function = struct {
+            fn capChildIfExceeds(widget: *Widget) void {
+                widget.rect.w = std.math.min(widget.rect.w, widget.parent.?.rect.w);
+                widget.rect.h = std.math.min(widget.rect.h, widget.parent.?.rect.h);
+            }
+        };
+
+        parent.first_child.?.walkListForward(function.capChildIfExceeds);
+    }
+
+    fn widgetExists(id: u32) ?*Widget {
+        if (ui.state.first_widget_tree == null) return null;
+        return widgetExistsRecursive(ui.state.first_widget_tree.?, id);
+    }
+
+    fn widgetExistsRecursive(widget: *Widget, wanted_id: u32) ?*Widget {
+        var result: ?*Widget = null;
+        if (widget.id == wanted_id) result = widget;
+        if (result) |r| return r;
+
+        if (widget.first_child) |fc| result = fc.widgetExistsRecursive(wanted_id);
+        if (result) |r| return r;
+
+        if (widget.next_sibling) |ns| result = ns.widgetExistsRecursive(wanted_id);
+        if (result) |r| return r;
+
+        return result;
+    }
+
+    fn addChild(widget: *Widget, allocator: std.mem.Allocator, new_child: Widget) !*Widget {
+        var child = try allocator.create(Widget);
+        child.* = new_child;
+        child.parent = widget;
+        child.next_sibling = null;
+
+        if (widget.first_child == null) {
+            child.prev_sibling = null;
+
+            widget.first_child = child;
+            widget.last_child = child;
+        } else {
+            var last_sibling = widget.last_child.?;
+            child.prev_sibling = last_sibling;
+            last_sibling.next_sibling = child;
+            widget.last_child = child;
+        }
+
+        return child;
+    }
+
+    fn removeSubtree(widget: *Widget) *Widget {
+        utils.assert(widget.parent != null, "A widget subtree must have a parent in order to remove it from the list");
+        var parent = widget.parent.?;
+        if (widget == parent.first_child) {
+            parent.first_child = widget.next_sibling;
+        } else if (widget == parent.last_child) {
+            parent.last_child = widget.prev_sibling;
+        }
+
+        if (widget.prev_sibling) |ps| ps.next_sibling = widget.next_sibling;
+        if (widget.next_sibling) |ns| ns.prev_sibling = widget.prev_sibling;
+
+        widget.parent = null;
+        widget.next_sibling = null;
+        widget.prev_sibling = null;
+
+        return widget;
+    }
+
+    fn insertAt(parent: *Widget, widget_to_be_inserted: *Widget, index: u32) void {
+        if (index == 0) {
+            if (parent.first_child) |fc| fc.prev_sibling = widget_to_be_inserted;
+            widget_to_be_inserted.next_sibling = parent.first_child;
+            parent.first_child = widget_to_be_inserted;
+        } else if (index >= parent.numOfChildren()) {
+            if (parent.last_child) |lc| lc.next_sibling = widget_to_be_inserted;
+            widget_to_be_inserted.prev_sibling = parent.last_child;
+            parent.last_child = widget_to_be_inserted;
+        } else {
+            var widget = parent.getChildAt(index);
+
+            if (widget.prev_sibling) |ps| ps.next_sibling = widget_to_be_inserted;
+
+            widget_to_be_inserted.prev_sibling = widget.prev_sibling;
+            widget.prev_sibling = widget_to_be_inserted;
+            widget_to_be_inserted.next_sibling = widget;
+            widget_to_be_inserted.parent = parent;
+        }
+
+        widget_to_be_inserted.parent = parent;
+    }
+
+    fn getChildAt(parent: *Widget, index: u32) *Widget {
+        var widget = parent.first_child;
+        var i: u32 = 0;
+        while (widget) |w| {
+            if (i == index) {
+                return w;
+            }
+            widget = w.next_sibling;
+            i += 1;
+        }
+
+        return parent.first_child.?;
+    }
+
+    fn repositonChild(parent: *Widget, child: *Widget) void {
+        var widget = child.removeSubtree();
+        parent.insertAt(widget, parent.active_children);
+        parent.active_children += 1;
     }
 };
 
@@ -257,11 +368,15 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
         try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
 }
 
+pub fn containerEnd() void {
+    utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
+    ui.state.focused_widget = ui.state.focused_widget.?.parent;
+}
+
 pub fn widgetStart(args: struct {
     allocator: std.mem.Allocator,
     id: u32,
     layout: Layouts,
-    layout_hints: Layouts,
     w: f32,
     h: f32,
     features_flags: []const Flags,
@@ -270,7 +385,7 @@ pub fn widgetStart(args: struct {
     cursor_index: u64 = 0,
 }) !Action {
     utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
-    ui.state.focused_widget = try ui.state.focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.layout_hints, args.w, args.h, args.features_flags);
+    ui.state.focused_widget = try ui.state.focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.w, args.h, args.features_flags);
 
     var widget = ui.state.focused_widget.?;
     var action = Action{};
@@ -383,27 +498,43 @@ pub fn widgetEnd() !void {
     utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
 
     if (ui.state.pass == .input_and_render and ui.state.focused_widget.?.enabled(.clip)) {
-        try shape2d.ShapeCommand.pushClip(0, 0, @intToFloat(f32, ui.state.window_width), @intToFloat(f32, ui.state.window_height));
+        var parent = ui.state.focused_widget.?.parent;
+        var x: f32 = 0;
+        var y: f32 = 0;
+        var width = @intToFloat(f32, ui.state.window_width);
+        var height = @intToFloat(f32, ui.state.window_height);
+
+        while (parent) |p| {
+            if (p.enabled(.clip)) {
+                x = p.rect.x;
+                y = p.rect.y;
+                width = p.rect.w;
+                height = p.rect.h;
+                break;
+            }
+            parent = p.parent;
+        }
+        try shape2d.ShapeCommand.pushClip(x, y, width, height);
     }
 
     ui.state.focused_widget = ui.state.focused_widget.?.parent;
 }
 
-pub fn windowStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !void {
+pub fn layoutStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !void {
     var id = newId();
 
     _ = try widgetStart(.{
         .allocator = allocator,
         .id = id,
         .layout = layout,
-        .layout_hints = layout,
         .w = w,
         .h = h,
         .features_flags = &.{},
     });
 }
 
-pub fn windowEnd() !void {
+pub fn layoutEnd(layout: Layouts) !void {
+    utils.assert(ui.state.focused_widget.?.layout_of_children.eql(layout), "When ending a layout widget the ended layout must be the same as the started layout");
     try widgetEnd();
 }
 
@@ -414,7 +545,6 @@ pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32) !bo
         .allocator = allocator,
         .id = id,
         .layout = layout,
-        .layout_hints = layout,
         .w = w,
         .h = h,
         .features_flags = &.{ .clickable, .render_background },
@@ -436,13 +566,12 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
     try textWithDim(allocator, string, dim, features_flags);
 }
 
-pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags) !Action {
+pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags, layout: Layouts) !Action {
     const id = newId();
     var action = try widgetStart(.{
         .allocator = allocator,
         .id = id,
-        .layout = RowFirst.columnWise(),
-        .layout_hints = RowFirst.rowWise(),
+        .layout = layout,
         .w = dim.x,
         .h = dim.y,
         .string = string,
@@ -451,6 +580,7 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     });
 
     var widget = ui.state.focused_widget.?;
+    if (id == 1000) widget.rect.print();
     if (ui.state.pass == .input_and_render)
         try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0x0, string);
 
@@ -459,14 +589,14 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     return action;
 }
 
-pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, string: []const u8) !bool {
+pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: Layouts, string: []const u8) !bool {
     var id = newId();
     var dim = stringDimension(string);
     var action = try widgetStart(.{
         .allocator = allocator,
         .id = id,
         .layout = layout,
-        .layout_hints = layout,
+        .layout_hints = layout_hints,
         .w = dim.x,
         .h = dim.y,
         .string = string,
@@ -530,11 +660,15 @@ pub fn beginUI() void {
 }
 
 pub fn endUI() void {
+    utils.assert(ui.state.focused_widget == null, "At the end of the UI loop the focused_widget must be null");
+
     if (!ui.state.mousedown) {
         ui.state.active = 0;
     }
 
     ui.state.max_id = 1;
+    // FIXME: Make this work for all the widget trees
+    if (ui.state.first_widget_tree) |fwt| fwt.resetActiveChildrenCount();
 }
 
 /// This function assumes the string is present in the provided region
@@ -641,94 +775,196 @@ pub fn locateGlyphCoordsByIndex(index: u64, string: []const u8, region: shape2d.
 ////////////////////////////////////////////////////////////////////////////////
 
 pub const Layouts = union(enum) {
-    row_first: RowFirst,
+    column: Column,
+    row: Row,
     grid2x2: Grid2x2,
 
-    pub fn getRect(layout: Layouts, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
+    pub fn applyLayout(layout: Layouts, parent: *Widget, child: *Widget, width: f32, height: f32) void {
         switch (layout) {
-            inline else => |lo| return lo.getRect(layout_hints, parent, width, height),
+            inline else => |lo| @TypeOf(lo).applyLayout(parent, child, width, height),
         }
+    }
+
+    pub fn eql(layout_1: Layouts, layout_2: Layouts) bool {
+        return std.meta.eql(layout_1, layout_2);
     }
 };
 
-pub const RowFirst = struct {
-    pub const LayoutType = enum {
-        column_wise,
-        row_wise,
-    };
-
-    layout_type: LayoutType,
-
-    pub fn columnWise() Layouts {
-        return .{ .row_first = .{
-            .layout_type = .column_wise,
-        } };
+pub const Column = struct {
+    pub fn getLayout() Layouts {
+        return .{ .column = Column{} };
     }
 
-    pub fn rowWise() Layouts {
-        return .{ .row_first = .{
-            .layout_type = .row_wise,
-        } };
-    }
-
-    pub fn getRect(self: RowFirst, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
-        _ = self;
-        var layout_type = switch (layout_hints) {
-            .row_first => |rf| rf.layout_type,
-            else => .column_wise,
-        };
-
-        if (parent.first_child == null) {
-            return .{
+    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+        if (parent.first_child == null or parent.active_children == 0) {
+            child.rect = .{
                 .x = parent.rect.x,
                 .y = parent.rect.y,
                 .w = width,
                 .h = height,
             };
+
+            return;
         }
 
-        var lc = parent.last_child.?;
-        switch (layout_type) {
-            .column_wise => {
-                var x = lc.rect.x + lc.rect.w;
-                const y = parent.rect.y;
+        var lc = parent.lastActiveChild();
+        var x = lc.rect.x + lc.rect.w;
+        const y = parent.rect.y;
 
-                var widget = lc.prev_sibling;
-                while (widget) |w| {
-                    if (w.rect.x == lc.rect.x) {
-                        x = std.math.max(x, w.rect.x + w.rect.w);
-                    } else break;
-                    widget = w.prev_sibling;
-                }
-
-                return .{
-                    .x = x,
-                    .y = y,
-                    .w = width,
-                    .h = height,
-                };
-            },
-            .row_wise => {
-                var x = lc.rect.x;
-
-                var y = parent.rect.y + lc.rect.h;
-
-                var widget = lc.prev_sibling;
-                while (widget) |w| {
-                    if (w.rect.x == lc.rect.x) y += w.rect.h;
-                    widget = w.prev_sibling;
-                }
-
-                return .{
-                    .x = x,
-                    .y = y,
-                    .w = width,
-                    .h = height,
-                };
-            },
+        var widget = lc.prev_sibling;
+        while (widget) |w| {
+            if (w.rect.x == lc.rect.x) {
+                x = std.math.max(x, w.rect.x + w.rect.w);
+            } else break;
+            widget = w.prev_sibling;
         }
+
+        child.rect = .{
+            .x = x,
+            .y = y,
+            .w = width,
+            .h = height,
+        };
     }
 };
+
+pub const Row = struct {
+    pub fn getLayout() Layouts {
+        return .{ .row = Row{} };
+    }
+
+    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+        if (parent.first_child == null or parent.active_children == 0) {
+            child.rect = .{
+                .x = parent.rect.x,
+                .y = parent.rect.y,
+                .w = width,
+                .h = height,
+            };
+
+            return;
+        }
+        var lc = parent.lastActiveChild();
+        var x = lc.rect.x;
+
+        var y = parent.rect.y + lc.rect.h;
+
+        var widget = lc.prev_sibling;
+        while (widget) |w| {
+            if (w.rect.x == lc.rect.x) y += w.rect.h;
+            widget = w.prev_sibling;
+        }
+
+        child.rect = .{
+            .x = x,
+            .y = y,
+            .w = width,
+            .h = height,
+        };
+    }
+};
+
+// pub const DynamicRowFirst = struct {
+//     layout_type: LayoutType,
+//     full_width: bool,
+//     full_height: bool,
+//     // REMEMBER THIS
+
+//     pub fn getRect(self: DynamicRowFirst, layout_hints: Layouts, parent: *Widget, child: *Widget, const_width: f32, const_height: f32) shape2d.Rect {
+//         _ = child;
+//         _ = self;
+//         var layout_type = LayoutType.column_wise;
+//         var width: f32 = const_width;
+//         var height: f32 = const_height;
+
+//         switch (layout_hints) {
+//             .dynamic_row_first => |drf| {
+//                 layout_type = drf.layout_type;
+//                 if (drf.full_width) width = parent.rect.w;
+//                 if (drf.full_height) height = parent.rect.h;
+//             },
+//             else => {},
+//         }
+
+//         if (parent.first_child == null or parent.active_children == 0) {
+//             return .{
+//                 .x = parent.rect.x,
+//                 .y = parent.rect.y,
+//                 .w = width,
+//                 .h = height,
+//             };
+//         }
+
+//         var lc = parent.lastActiveChild();
+//         switch (layout_type) {
+//             .column_wise => {
+//                 // lc = lc.prev_sibling.?;
+//                 if (!contains(lc.rect.right() + width, lc.rect.y, parent.rect)) {
+//                     // must offset all previous children
+//                     // var sibling_count = @intToFloat(f32, lc.sameYSiblingCount());
+//                     // var sibling_count = @intToFloat(f32, parent.active_children);
+//                     var sibling_count = @intToFloat(f32, 1);
+//                     if (sibling_count == 0) sibling_count += 1;
+//                     var offset_width = -(width / sibling_count);
+//                     const functions = struct {
+//                         fn func(widget: *Widget, args: anytype) void {
+//                             if (widget.rect.x != widget.parent.?.rect.x)
+//                                 widget.rect.x += args.@"0";
+//                             widget.rect.w += args.@"0";
+//                         }
+//                     };
+//                     lc.walkListBackwords(functions.func, .{offset_width});
+//                     parent.capSubtreeToParentRect();
+//                 }
+
+//                 var x = lc.rect.x + lc.rect.w;
+//                 print("{d}\n", .{x});
+//                 const y = parent.rect.y;
+
+//                 var widget = lc.prev_sibling;
+//                 while (widget) |w| {
+//                     if (w.rect.x == lc.rect.x) {
+//                         x = std.math.max(x, w.rect.x + w.rect.w);
+//                     } else break;
+//                     widget = w.prev_sibling;
+//                 }
+
+//                 // print("{d}\n", .{x});
+//                 return .{
+//                     .x = x,
+//                     .y = y,
+//                     .w = width,
+//                     .h = height,
+//                 };
+//             },
+//             .row_wise => {
+//                 if (!contains(lc.rect.x, lc.rect.bottom() + height, parent.rect)) {
+//                     // must offset all previous children
+//                     // var sibling_count = @intToFloat(f32, lc.sameXSiblingCount());
+//                     var sibling_count = @intToFloat(f32, parent.active_children);
+//                     if (sibling_count == 0) sibling_count += 1;
+//                     var offset_height = -(height / sibling_count);
+//                     const functions = struct {
+//                         fn func(widget: *Widget, args: anytype) void {
+//                             if (widget.rect.y != widget.parent.?.rect.y)
+//                                 widget.rect.y += args.@"0";
+//                             widget.rect.h += args.@"0";
+//                         }
+//                     };
+//                     lc.walkListBackwords(functions.func, .{offset_height});
+//                     parent.capSubtreeToParentRect();
+//                 }
+
+//                 return .{
+//                     .x = lc.rect.x,
+//                     .y = lc.rect.bottom(),
+//                     .w = width,
+//                     .h = height,
+//                 };
+//             },
+//         }
+//     }
+// };
 
 pub const Grid2x2 = struct {
     pub fn getLayout() Layouts {
@@ -737,19 +973,19 @@ pub const Grid2x2 = struct {
         };
     }
 
-    pub fn getRect(self: Grid2x2, layout_hints: Layouts, parent: *Widget, width: f32, height: f32) shape2d.Rect {
-        _ = self;
-        _ = layout_hints;
+    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
         _ = width;
         _ = height;
 
-        switch (parent.numOfChildren()) {
-            0 => return parent.rect,
+        switch (parent.active_children) {
+            0 => {
+                child.rect = parent.rect;
+            },
             1 => {
-                var first_child = parent.first_child.?;
+                var first_child = parent.lastActiveChild();
                 first_child.rect.w /= 2;
 
-                return .{
+                child.rect = .{
                     .x = parent.rect.x + first_child.rect.w,
                     .y = parent.rect.y,
                     .w = first_child.rect.w,
@@ -759,7 +995,7 @@ pub const Grid2x2 = struct {
             2 => {
                 var first_child = parent.first_child.?;
                 first_child.rect.h /= 2;
-                return .{
+                child.rect = .{
                     .x = first_child.rect.x,
                     .y = first_child.rect.y + first_child.rect.h,
                     .w = first_child.rect.w,
@@ -769,7 +1005,7 @@ pub const Grid2x2 = struct {
             3 => {
                 var second_child = parent.first_child.?.next_sibling.?;
                 second_child.rect.h /= 2;
-                return .{
+                child.rect = .{
                     .x = second_child.rect.x,
                     .y = second_child.rect.y + second_child.rect.h,
                     .w = second_child.rect.w,

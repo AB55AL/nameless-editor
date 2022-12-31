@@ -1,5 +1,4 @@
 const std = @import("std");
-const print = std.debug.print;
 const AutoHashMap = std.AutoHashMap;
 const ArrayList = std.ArrayList;
 
@@ -22,6 +21,18 @@ pub const Rect = struct {
             rect_1.y == rect_2.y and
             rect_1.w == rect_2.w and
             rect_1.h == rect_2.h);
+    }
+
+    pub fn bottom(rect: Rect) f32 {
+        return rect.y + rect.h;
+    }
+
+    pub fn right(rect: Rect) f32 {
+        return rect.x + rect.w;
+    }
+
+    pub fn print(rect: Rect) void {
+        std.debug.print("{d} {d} {d} {d}\n", .{ rect.x, rect.y, rect.w, rect.h });
     }
 };
 
