@@ -2,12 +2,12 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
-const State = @import("ui/ui.zig").State;
+const State = @import("ui/ui_lib.zig").State;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
 const BufferNode = buffer_ops.BufferNode;
 const shape2d = @import("ui/shape2d.zig");
-const ui_lib = @import("ui/ui.zig");
+const ui_lib = @import("ui/ui_lib.zig");
 
 pub const editor = struct {
     /// A Pointer to the currently focused buffer
