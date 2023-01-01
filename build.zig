@@ -31,7 +31,7 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_root_path: []const u8, co
     const input_layer_pkg = .{
         .name = "input_layer",
         .source = .{ .path = input_layer_root_path },
-        .dependencies = &.{core_pkg},
+        .dependencies = &.{ core_pkg, glfw.pkg },
     };
 
     exe.addPackage(input_layer_pkg);

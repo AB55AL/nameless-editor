@@ -6,6 +6,8 @@ const StringArrayHashMap = std.StringArrayHashMap;
 const StringHashMap = std.StringHashMap;
 const AutoHashMap = std.AutoHashMap;
 
+const glfw = @import("glfw");
+
 const core = @import("core");
 const editor = core.editor;
 const input = core.input;
@@ -133,7 +135,9 @@ pub fn fileTypeMap(file_type: []const u8, key: Key, function: Table.FunctionType
 
 fn setDefaultMappnigs() void {
     const f = input.functionKey;
+    const a = input.asciiKey;
 
+    map(a(.control, .v), paste);
     map(f(.none, .backspace), deleteBackward);
     map(f(.none, .delete), deleteForward);
 
@@ -158,6 +162,15 @@ fn logKey(key: Key) void {
 ////////////////////////////////////////////////////////////////////////////////
 // Function wrappers
 ////////////////////////////////////////////////////////////////////////////////
+
+fn paste() void {
+    var fb = core.editor.focused_buffer orelse return;
+
+    var clipboard = glfw.getClipboardString() catch unreachable;
+    fb.insertBeforeCursor(clipboard) catch |err| {
+        print("input_layer.paste()\n\t{}\n", .{err});
+    };
+}
 
 fn deleteBackward() void {
     var fb = core.editor.focused_buffer orelse return;
