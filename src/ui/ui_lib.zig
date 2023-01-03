@@ -835,9 +835,7 @@ pub const Column = struct {
 
         var widget = lc.prev_sibling;
         while (widget) |w| {
-            if (w.rect.x == lc.rect.x) {
-                x = std.math.max(x, w.rect.x + w.rect.w);
-            } else break;
+            x += w.rect.right();
             widget = w.prev_sibling;
         }
 
@@ -873,7 +871,7 @@ pub const Row = struct {
 
         var widget = lc.prev_sibling;
         while (widget) |w| {
-            if (w.rect.x == lc.rect.x) y += w.rect.h;
+            y += w.rect.h;
             widget = w.prev_sibling;
         }
 
@@ -927,7 +925,7 @@ pub const DynamicRow = struct {
 
         var widget = lc.prev_sibling;
         while (widget) |w| {
-            if (w.rect.x == lc.rect.x) y += w.rect.h;
+            y += w.rect.h;
             widget = w.prev_sibling;
         }
 
@@ -980,9 +978,7 @@ pub const DynamicColumn = struct {
 
         var widget = lc.prev_sibling;
         while (widget) |w| {
-            if (w.rect.x == lc.rect.x) {
-                x = std.math.max(x, w.rect.x + w.rect.w);
-            } else break;
+            x += w.rect.right();
             widget = w.prev_sibling;
         }
 
