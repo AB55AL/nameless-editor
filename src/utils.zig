@@ -3,6 +3,63 @@ const print = std.debug.print;
 
 const utf8 = @import("utf8.zig");
 
+pub fn FixedArray(comptime T: type) type {
+    return struct {
+        const Self = @This();
+
+        array: []T,
+        capacity: u64,
+
+        pub fn init(array: []T) Self {
+            return Self{
+                .array = array,
+                .capacity = array.len,
+            };
+        }
+
+        pub fn slice(fixed_array: *Self) []T {
+            return fixed_array.array[0..fixed_array.lastElementIndex()];
+        }
+
+        pub fn append(fixed_array: *Self, element: T) !void {
+            if (fixed_array.capacity == 0) return error.NoMoreSpaceInArray;
+
+            fixed_array.array[fixed_array.lastElementIndex()] = element;
+            fixed_array.capacity -= 1;
+        }
+
+        pub fn pop(fixed_array: *Self) !T {
+            if (fixed_array.empty()) return error.EmptyArray;
+
+            const index = fixed_array.lastElementIndex();
+            fixed_array.capacity += 1;
+            return fixed_array.array[index];
+        }
+
+        pub fn remove(fixed_array: *Self, index: u64) T {
+            if (index >= fixed_array.lastElementIndex()) return fixed_array.pop() catch unreachable;
+            var element = fixed_array.array[index];
+            for (fixed_array.array[index + 1 ..]) |e, i|
+                fixed_array.array[index + i] = e;
+
+            fixed_array.capacity += 1;
+            return element;
+        }
+
+        pub fn lastElementIndex(fixed_array: *Self) u64 {
+            return fixed_array.array.len - fixed_array.capacity;
+        }
+
+        pub fn empty(fixed_array: *Self) bool {
+            return fixed_array.capacity == fixed_array.array.len;
+        }
+
+        pub fn full(fixed_array: *Self) bool {
+            return fixed_array.capacity == 0;
+        }
+    };
+}
+
 pub fn assert(ok: bool, comptime message: []const u8) void {
     if (!ok) {
         print("{s}\n", .{message});
