@@ -696,8 +696,12 @@ pub fn endUI() void {
     }
 
     ui.state.max_id = 1;
-    // FIXME: Make this work for all the widget trees
-    if (ui.state.first_widget_tree) |fwt| fwt.resetActiveChildrenCount();
+
+    var widget_tree = ui.state.first_widget_tree;
+    while (widget_tree) |wt| {
+        wt.resetActiveChildrenCount();
+        widget_tree = wt.next_sibling;
+    }
 }
 
 /// This function assumes the string is present in the provided region
