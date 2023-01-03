@@ -124,7 +124,7 @@ pub fn main() !void {
                     slices_of_arrays[i] = try b.getAllLines(allocator);
                     var string = slices_of_arrays[i].?;
 
-                    _ = try ui_lib.textWithDim(
+                    var action = try ui_lib.textWithDim(
                         allocator,
                         string,
                         b.cursor_index,
@@ -133,6 +133,9 @@ pub fn main() !void {
                         ui_lib.Column.getLayout(),
                         0x272822,
                     );
+
+                    if (action.half_click and action.string_selection_range != null)
+                        b.cursor_index = action.string_selection_range.?.start;
                 }
                 try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
             }
