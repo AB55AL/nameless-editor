@@ -273,7 +273,7 @@ pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
     return buffer.lines.getLine(allocator, row - 1);
 }
 
-pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u32, last_line: u32) ![]u8 {
+pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
     assert(last_line >= first_line);
     assert(first_line > 0);
     assert(last_line <= buffer.lines.newlines_count);
@@ -321,6 +321,18 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
         0
     else
         buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
+}
+
+pub fn getLineLength(buffer: *Buffer, row: u64) u64 {
+    return buffer.getLinesLength(row, row);
+}
+
+pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
+    utils.assert(first_row <= last_row, "first_row must me <= last_row");
+    var i = buffer.indexOfFirstByteAtRow(first_row);
+    var j = buffer.indexOfFirstByteAtRow(last_row + 1);
+
+    return j - i;
 }
 
 pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } {
