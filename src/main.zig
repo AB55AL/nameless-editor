@@ -8,6 +8,7 @@ const Buffer = @import("editor/buffer.zig");
 const command_line = @import("editor/command_line.zig");
 const glfw_window = @import("ui/glfw.zig");
 const buffer_ops = @import("editor/buffer_ops.zig");
+const buffer_ui = @import("ui/buffer.zig");
 const globals = @import("globals.zig");
 const Device = @import("ui/device.zig");
 const ui_lib = @import("ui/ui_lib.zig");
@@ -111,35 +112,8 @@ pub fn main() !void {
             const wh = @intToFloat(f32, globals.ui.state.window_height);
             try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
 
-            var buffer_window_dim = math.Vec2(f32){ .x = ww, .y = wh };
             try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
-            { // buffer windows
-
-                try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
-
-                globals.ui.state.max_id = 100;
-                for (globals.ui.visiable_buffers) |buffer, i| {
-                    var b = buffer orelse continue;
-
-                    slices_of_arrays[i] = try b.getAllLines(allocator);
-                    var string = slices_of_arrays[i].?;
-
-                    var action = try ui_lib.textWithDim(
-                        allocator,
-                        string,
-                        b.cursor_index,
-                        buffer_window_dim,
-                        &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip, .render_background },
-                        ui_lib.Column.getLayout(),
-                        0x272822,
-                    );
-
-                    if (action.half_click and action.string_selection_range != null)
-                        b.cursor_index = action.string_selection_range.?.start;
-                }
-                try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
-            }
-
+            try buffer_ui.buffers(allocator, &slices_of_arrays);
             try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
             slices_of_arrays[4] = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(allocator) else null;
