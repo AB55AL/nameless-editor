@@ -587,6 +587,13 @@ pub fn text(allocator: std.mem.Allocator, string: []const u8, features_flags: []
 }
 
 pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags, layout: Layouts, color: u24) !Action {
+    var action = try textWithDimStart(allocator, string, cursor_index, dim, features_flags, layout, color);
+    try widgetEnd();
+
+    return action;
+}
+
+pub fn textWithDimStart(allocator: std.mem.Allocator, string: []const u8, cursor_index: u64, dim: math.Vec2(f32), features_flags: []const Flags, layout: Layouts, color: u24) !Action {
     const id = newId();
     var action = try widgetStart(.{
         .allocator = allocator,
@@ -604,9 +611,11 @@ pub fn textWithDim(allocator: std.mem.Allocator, string: []const u8, cursor_inde
     if (ui.state.pass == .input_and_render)
         try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0xFFFFFF, string);
 
-    try widgetEnd();
-
     return action;
+}
+
+pub fn textWithDimEnd() !void {
+    try widgetEnd();
 }
 
 pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: Layouts, string: []const u8, color: u24) !bool {
