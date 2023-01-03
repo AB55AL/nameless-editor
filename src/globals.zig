@@ -8,6 +8,8 @@ const Buffer = @import("editor/buffer.zig");
 const BufferNode = buffer_ops.BufferNode;
 const shape2d = @import("ui/shape2d.zig");
 const ui_lib = @import("ui/ui_lib.zig");
+const notify = @import("ui/notify.zig");
+const utils = @import("utils.zig");
 
 pub const editor = struct {
     /// A Pointer to the currently focused buffer
@@ -27,6 +29,8 @@ pub const editor = struct {
 pub const ui = struct {
     pub var state: State = undefined;
     pub var visiable_buffers: [4]?*Buffer = .{ null, null, null, null };
+    var notify_array: [100]notify.Notify = undefined;
+    pub var notifications = utils.FixedArray(notify.Notify).init(&notify_array);
 };
 
 pub const internal = struct {

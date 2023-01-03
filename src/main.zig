@@ -14,6 +14,7 @@ const ui_lib = @import("ui/ui_lib.zig");
 const shape2d = @import("ui/shape2d.zig");
 const c = @import("ui/c.zig");
 const draw_command = @import("ui/draw_command.zig");
+const notify = @import("ui/notify.zig");
 const math = @import("ui/math.zig");
 
 const input_layer = @import("input_layer");
@@ -61,6 +62,22 @@ pub fn main() !void {
     }
 
     while (!window.shouldClose()) {
+        const current_frame_start_time = std.time.nanoTimestamp();
+        defer {
+            var loop_time = std.time.nanoTimestamp() - current_frame_start_time;
+            for (globals.ui.notifications.slice()) |*n|
+                n.remaining_time -= (@intToFloat(f32, loop_time) / 1000000);
+
+            var slice = globals.ui.notifications.slice();
+            if (slice.len > 0) {
+                var i: i64 = @intCast(i64, slice.len - 1);
+                while (i >= 0) : (i -= 1) {
+                    var n = slice[@intCast(u64, i)];
+                    if (n.remaining_time <= 0)
+                        _ = globals.ui.notifications.remove(@intCast(u64, i));
+                }
+            }
+        }
         defer std.time.sleep(1000000 * 17); // 60-ish FPS
         // defer std.time.sleep(1000000 * 50);
         c.glClearColor(0.5, 0.5, 0.5, 1);
@@ -143,9 +160,16 @@ pub fn main() !void {
             }
 
             ui_lib.containerEnd();
+
+            if (!globals.ui.notifications.empty()) {
+                globals.ui.state.max_id = 2000;
+                try ui_lib.container(allocator, ui_lib.Row.getLayout(), .{ .x = ww, .y = 0, .w = 50, .h = wh });
+                try notify.notifyWidget(allocator);
+                ui_lib.containerEnd();
+            }
         }
         ui_lib.endUI();
-        // print("======================================================UI END=======================================================\n", .{});
+        print("======================================================UI END=======================================================\n", .{});
 
         //
         // Render

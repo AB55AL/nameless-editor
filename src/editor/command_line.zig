@@ -10,6 +10,7 @@ const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
 const buffer_ui = @import("../ui/buffer.zig");
+const notify = @import("../ui/notify.zig");
 
 const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
 
@@ -118,7 +119,7 @@ fn runCommand(command_string: []const u8) void {
     const alloc = arena.allocator();
 
     var parsed_string = parse(alloc, command_string) catch |err| {
-        // TODO: Notify user instead of printing
+        notify.notify("Command Line Error:", "error", 2000);
         print("{}\n", .{err});
         return;
     };
@@ -146,13 +147,13 @@ fn call(command: []const u8, args: []PossibleValues) void {
 
     if (function) |f| {
         f(args) catch |err| {
-            // TODO: Notify user instead of printing
-            if (err == CommandRunError.FunctionCommandMismatchedTypes)
+            if (err == CommandRunError.FunctionCommandMismatchedTypes) {
                 print("The command args do not match the function\n", .{});
+                notify.notify("Command Line Error:", "The command args do not match the function", 3000);
+            }
         };
     } else {
-        // TODO: Notify user instead of printing
-        print("The command doesn't exist\n", .{});
+        notify.notify("Command Line Error:", "The command doesn't exist", 3000);
     }
 }
 
