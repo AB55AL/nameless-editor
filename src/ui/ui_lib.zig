@@ -464,6 +464,9 @@ pub fn widgetStart(args: struct {
         var end_glyph = locateGlyphCoords(widget.drag_end, s, widget.rect);
         var start_glyph = if (widget.drag_start.eql(widget.drag_end)) end_glyph else locateGlyphCoords(widget.drag_start, s, widget.rect);
 
+        if (start_glyph.index != null and end_glyph.index != null)
+            action.string_selection_range = .{ .start = start_glyph.index.?, .end = end_glyph.index.? };
+
         if (!start_glyph.location.eql(end_glyph.location)) {
             var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
             var end_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point furthest away from 0,0
