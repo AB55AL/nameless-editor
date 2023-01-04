@@ -11,146 +11,141 @@ const Glyph = @import("shape2d.zig").Glyph;
 const Device = @import("device.zig");
 const Vertex = Device.Vertex;
 
-pub const Batches = struct {
-    pub const Batch = struct {
-        clip: shape2d.Rect,
-        vertices_end_index: u64,
-        elements_end_index: u64,
-        texture: u32,
-        is_text: bool = false,
-    };
+pub const Batch = struct {
+    clip: shape2d.Rect,
+    elements_count: u64,
+    texture: u32,
+    is_text: bool = false,
+};
 
-    vertices: []Vertex,
-    elements: []u16,
-    batches: []Batch,
+pub const DrawList = struct {
+    vertices: ArrayList(Vertex),
+    elements: ArrayList(u16),
+    batches: ArrayList(Batch),
+    max_element: u16 = 0,
 
-    pub fn shapeCommandToBatches(arena_allocator: std.mem.Allocator, screen_width: f32, screen_height: f32, shape_cmds: ArrayList(ShapeCommand), font: shape2d.Font, null_texture: u32, text_atlas_texture: u32) !Batches {
-        var all_vertices = ArrayList(Vertex).init(arena_allocator);
-        var all_elements = ArrayList(u16).init(arena_allocator);
-        var batches = ArrayList(Batch).init(arena_allocator);
+    pub fn init(allocator: std.mem.Allocator) DrawList {
+        return .{
+            .vertices = ArrayList(Vertex).init(allocator),
+            .elements = ArrayList(u16).init(allocator),
+            .batches = ArrayList(Batch).init(allocator),
+        };
+    }
 
-        defer {
-            all_vertices.deinit();
-            all_elements.deinit();
-            batches.deinit();
+    pub fn deinit(draw_list: *DrawList) void {
+        draw_list.vertices.deinit();
+        draw_list.elements.deinit();
+        draw_list.batches.deinit();
+    }
+
+    fn endTheBatch(draw_list: *DrawList, texture: u32, clip: ?shape2d.Rect) bool {
+        if (draw_list.batches.items.len == 0) return true;
+
+        var last_batch = draw_list.batches.items[draw_list.batches.items.len - 1];
+
+        const same_texture = last_batch.texture == texture;
+        const same_clip = if (clip) |clp| last_batch.clip.eql(clp) else true;
+
+        return !same_texture or !same_clip;
+    }
+
+    pub fn pushText(draw_list: *DrawList, font: shape2d.Font, const_x: f32, const_y: f32, color: u24, string: []const u8, clip: ?shape2d.Rect) !void {
+        var elements_count: u64 = 0;
+
+        var x = const_x;
+        var y = const_y;
+        var space_to_next_line: f32 = 0;
+        for (string) |char| {
+            var g = font.glyphs.get(char) orelse continue;
+            var gw = @intToFloat(f32, g.size.x);
+            var gh = @intToFloat(f32, g.size.y);
+
+            space_to_next_line = std.math.max(space_to_next_line, @intToFloat(f32, g.decent()) + font.yBaseLine());
+
+            const glyph_offset_to_baseline = ((font.yBaseLine() - @intToFloat(f32, g.size.y)) + @intToFloat(f32, g.decent()));
+
+            var vs = Vertex.createQuadUV(
+                x,
+                y + glyph_offset_to_baseline,
+                gw,
+                gh,
+                g.uv_bottom_left,
+                g.uv_top_right,
+                color,
+            );
+            try draw_list.vertices.appendSlice(&vs);
+
+            var elements = Vertex.quadIndices();
+            elements_count += elements.len;
+            var max_element = Device.offsetElementsBy(draw_list.max_element, &elements) + 1;
+            draw_list.max_element = max_element;
+
+            try draw_list.elements.appendSlice(&elements);
+
+            x += @intToFloat(f32, g.advance);
+
+            if (char == '\n') {
+                x = const_x;
+                y += font.newLineOffset();
+            }
         }
 
-        // var shape_cmd: ?*ShapeCommand = first_shape_cmd;
-        var current_clip: shape2d.Rect = .{
-            .x = 0,
-            .y = 0,
-            .w = screen_width,
-            .h = screen_height,
-        };
+        var last_batch_clip = if (draw_list.batches.items.len > 0) draw_list.batches.items[draw_list.batches.items.len - 1].clip else if (draw_list.batches.items.len != 0) draw_list.batches.items[0].clip else null;
 
-        var max_element: u16 = 0;
-        var current_texture = null_texture;
-        var is_text = false;
-        for (shape_cmds.items) |sc, sc_index| {
-            // while (shape_cmd) |sc| {
-            switch (sc.command) {
-                .clip => |clp| {
-                    current_clip = clp;
-                    // shape_cmd = sc.next;
-                    continue;
-                },
-                .line => @panic("line not implemented"),
-                .triangle => |tri| {
-                    current_texture = null_texture;
-                    is_text = false;
-                    _ = tri;
-                    @panic("triangle not implemented");
-                },
-                .rectangle => |rect| {
-                    current_texture = null_texture;
-                    is_text = false;
+        if (!draw_list.endTheBatch(font.atlas.texture_id, clip)) {
+            var last_batch = &draw_list.batches.items[draw_list.batches.items.len - 1];
+            last_batch.elements_count += elements_count;
+        } else {
+            try draw_list.batches.append(.{
+                .clip = if (clip) |clp| clp else if (last_batch_clip) |lsc| lsc else .{ .x = const_x, .y = const_y, .w = 5000, .h = 5000 },
+                .is_text = true,
+                .texture = font.atlas.texture_id,
+                .elements_count = elements_count,
+            });
+        }
+    }
 
-                    try all_vertices.appendSlice(&Vertex.createQuad(rect.dim.x, rect.dim.y, rect.dim.w, rect.dim.h, rect.color));
-                    var elements = Vertex.quadIndices();
-                    max_element = Device.offsetElementsBy(max_element, &elements) + 1;
-                    try all_elements.appendSlice(&elements);
-                },
-                .circle => |cir| {
-                    current_texture = null_texture;
-                    is_text = false;
-                    _ = cir;
-                    @panic("circle not implemented");
-                },
-                .text => |txt| {
-                    current_texture = text_atlas_texture;
-                    is_text = true;
+    pub fn pushRect(draw_list: *DrawList, x: f32, y: f32, w: f32, h: f32, color: u24, clip: ?shape2d.Rect) !void {
+        try draw_list.vertices.appendSlice(&Vertex.createQuad(x, y, w, h, color));
+        var elements = Vertex.quadIndices();
+        var max_element = Device.offsetElementsBy(draw_list.max_element, &elements) + 1;
+        try draw_list.elements.appendSlice(&elements);
+        draw_list.max_element = max_element;
 
-                    var vertices = try arena_allocator.alloc(Vertex, 4 * txt.string.len);
-                    var elements = try arena_allocator.alloc(u16, txt.string.len * 6);
-                    _ = Vertex.manyQuadIndices(@intCast(u16, txt.string.len), elements);
-                    var vertex_index: u64 = 0;
-                    var x = txt.x;
-                    var y = txt.y;
-                    var space_to_next_line: f32 = 0;
-                    for (txt.string) |char| {
-                        var g = font.glyphs.get(char) orelse continue;
-                        var gw = @intToFloat(f32, g.size.x);
-                        var gh = @intToFloat(f32, g.size.y);
+        if (!draw_list.endTheBatch(0, clip)) {
+            var last_batch = &draw_list.batches.items[draw_list.batches.items.len - 1];
+            last_batch.elements_count += elements.len;
+        } else {
+            var last_batch_clip = if (draw_list.batches.items.len > 0) draw_list.batches.items[draw_list.batches.items.len - 1].clip else if (draw_list.batches.items.len != 0) draw_list.batches.items[0].clip else null;
+            try draw_list.batches.append(.{
+                .clip = if (clip) |clp| clp else if (last_batch_clip) |lsc| lsc else .{ .x = x, .y = y, .w = w, .h = h },
+                .is_text = false,
+                .texture = 0,
+                .elements_count = elements.len,
+            });
+        }
+    }
 
-                        space_to_next_line = std.math.max(space_to_next_line, @intToFloat(f32, g.decent()) + font.yBaseLine());
+    pub fn pushClip(draw_list: *DrawList, x: f32, y: f32, w: f32, h: f32) !void {
+        var clip = shape2d.Rect{ .x = x, .y = y, .w = w, .h = h };
 
-                        const glyph_offset_to_baseline = ((font.yBaseLine() - @intToFloat(f32, g.size.y)) + @intToFloat(f32, g.decent()));
-
-                        var vs = Vertex.createQuadUV(
-                            x,
-                            y + glyph_offset_to_baseline,
-                            gw,
-                            gh,
-                            g.uv_bottom_left,
-                            g.uv_top_right,
-                            txt.color,
-                        );
-                        std.mem.copy(Vertex, vertices[vertex_index..], &vs);
-                        vertex_index += vs.len;
-
-                        x += @intToFloat(f32, g.advance);
-
-                        if (char == '\n') {
-                            x = txt.x;
-                            y += font.newLineOffset();
-                        }
-                    }
-
-                    max_element = Device.offsetElementsBy(max_element, elements) + 1;
-                    try all_vertices.appendSlice(vertices);
-                    try all_elements.appendSlice(elements);
-                },
-            }
-
-            var end_the_batch = false;
-            if (sc_index == shape_cmds.items.len - 1) end_the_batch = true else {
-                var next_texture = switch (shape_cmds.items[sc_index + 1].command) {
-                    .text => text_atlas_texture,
-                    else => null_texture,
-                };
-
-                const same_clip = switch (shape_cmds.items[sc_index + 1].command) {
-                    .clip => |next_clp| current_clip.eql(next_clp),
-                    else => true,
-                };
-                if (current_texture != next_texture or !same_clip)
-                    end_the_batch = true;
-            }
-
-            if (end_the_batch) {
-                try batches.append(.{
-                    .clip = current_clip,
-                    .vertices_end_index = all_vertices.items.len,
-                    .elements_end_index = all_elements.items.len,
-                    .texture = current_texture,
-                    .is_text = is_text,
+        if (draw_list.batches.items.len == 0) {
+            try draw_list.batches.append(.{
+                .clip = clip,
+                .is_text = false,
+                .texture = 0,
+                .elements_count = 0,
+            });
+        } else {
+            var last_batch = draw_list.batches.items[draw_list.batches.items.len - 1];
+            if (!last_batch.clip.eql(clip)) {
+                try draw_list.batches.append(.{
+                    .clip = clip,
+                    .is_text = false,
+                    .texture = 0,
+                    .elements_count = 0,
                 });
             }
         }
-        return .{
-            .vertices = try all_vertices.toOwnedSlice(),
-            .elements = try all_elements.toOwnedSlice(),
-            .batches = try batches.toOwnedSlice(),
-        };
     }
 };

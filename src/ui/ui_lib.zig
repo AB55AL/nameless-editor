@@ -10,6 +10,7 @@ const utils = @import("../utils.zig");
 const Glyph = shape2d.Glyph;
 const editor = @import("../globals.zig").editor;
 const ui = @import("../globals.zig").ui;
+const DrawList = @import("draw_command.zig").DrawList;
 
 pub const Action = struct {
     /// User clicked but is still holding the mouse button
@@ -46,12 +47,12 @@ pub const State = struct {
     font: shape2d.Font,
     max_id: u32 = 1,
 
-    shape_cmds: ArrayList(shape2d.ShapeCommand),
+    draw_list: DrawList,
     pass: Pass = .layout,
 
     pub fn deinit(state: *State, allocator: std.mem.Allocator) void {
         state.font.deinit();
-        state.shape_cmds.deinit();
+        state.draw_list.deinit();
 
         var widget_tree = ui.state.first_widget_tree;
         while (widget_tree) |wt| {
@@ -348,7 +349,7 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
         widget.rect.w = region.w;
         widget.rect.h = region.h;
         if (ui.state.pass == .input_and_render)
-            try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
+            try ui.state.draw_list.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF, null);
         return;
     }
 
@@ -381,7 +382,7 @@ pub fn container(allocator: std.mem.Allocator, layout: Layouts, region: shape2d.
 
     ui.state.focused_widget = widget;
     if (ui.state.pass == .input_and_render)
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF);
+        try ui.state.draw_list.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, 0xFFFFFF, null);
 }
 
 pub fn containerEnd() void {
@@ -441,12 +442,12 @@ pub fn widgetStart(args: struct {
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.render_background)) {
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, args.bg_color);
+        try ui.state.draw_list.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, args.bg_color, null);
     }
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clip)) {
-        try shape2d.ShapeCommand.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
+        try ui.state.draw_list.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -484,24 +485,24 @@ pub fn widgetStart(args: struct {
             var next_line_start: f32 = start_point.y + line_height;
             if (start_point.y == end_point.y) { // same line
                 const width = end_point.x - start_point.x;
-                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00);
+                try ui.state.draw_list.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00, null);
             } else if (next_line_start == end_point.y) { // two lines
                 const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
+                try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
 
                 const second_line_w = utils.abs(widget.rect.x - end_point.x);
-                try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00);
+                try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00, null);
             } else { // at least three lines
 
                 const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-                try shape2d.ShapeCommand.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00);
+                try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
 
                 while (next_line_start < end_point.y) : (next_line_start += line_height) {
-                    try shape2d.ShapeCommand.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00);
+                    try ui.state.draw_list.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00, null);
                 }
 
                 const last_line_w = utils.abs(widget.rect.x - end_point.x);
-                try shape2d.ShapeCommand.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00);
+                try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00, null);
             }
         }
     }
@@ -509,7 +510,7 @@ pub fn widgetStart(args: struct {
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.text_cursor) and args.string != null) {
         var rect = locateGlyphCoordsByIndex(args.cursor_index, args.string.?, widget.rect);
-        try shape2d.ShapeCommand.pushRect(rect.x, rect.y, rect.w, rect.h, 0xFF00AA);
+        try ui.state.draw_list.pushRect(rect.x, rect.y, rect.w, rect.h, 0xFF00AA, null);
     }
 
     return action;
@@ -535,7 +536,7 @@ pub fn widgetEnd() !void {
             }
             parent = p.parent;
         }
-        try shape2d.ShapeCommand.pushClip(x, y, width, height);
+        try ui.state.draw_list.pushClip(x, y, width, height);
     }
 
     ui.state.focused_widget = ui.state.focused_widget.?.parent;
@@ -577,7 +578,7 @@ pub fn button(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32, col
     if (ui.state.pass == .input_and_render and action.hover) {
         ui.state.hot = id;
         var colo: u24 = 0xFF0000;
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, colo);
+        try ui.state.draw_list.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, colo, null);
     }
 
     try widgetEnd();
@@ -612,7 +613,7 @@ pub fn textWithDimStart(allocator: std.mem.Allocator, string: []const u8, cursor
 
     var widget = ui.state.focused_widget.?;
     if (ui.state.pass == .input_and_render)
-        try shape2d.ShapeCommand.pushText(widget.rect.x, widget.rect.y, 0xFFFFFF, string);
+        try ui.state.draw_list.pushText(ui.state.font, widget.rect.x, widget.rect.y, 0xFFFFFF, string, null);
 
     return action;
 }
@@ -639,7 +640,7 @@ pub fn buttonText(allocator: std.mem.Allocator, layout: Layouts, layout_hints: L
     if (action.hover) {
         var widget = ui.state.focused_widget.?;
         ui.state.hot = id;
-        try shape2d.ShapeCommand.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color);
+        try ui.state.draw_list.pushRect(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h, color, null);
     }
     _ = try textWithDim(allocator, string, 0, dim, &.{}, color);
 

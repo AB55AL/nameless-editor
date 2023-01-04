@@ -5,6 +5,7 @@ const c = @import("c.zig");
 const math = @import("math.zig");
 const DrawCommand = @import("draw_command.zig").DrawCommand;
 const Batches = @import("draw_command.zig").Batches;
+const DrawList = @import("draw_command.zig").DrawList;
 
 pub const Device = @This();
 
@@ -265,16 +266,16 @@ fn checkCompileErrors(shader: u32, pt: ProgramType) void {
     }
 }
 
-pub fn copyVerticesAndElementsToOpenGL(device: *Device, batches: Batches) void {
+pub fn copyVerticesAndElementsToOpenGL(device: *Device, list: *DrawList) void {
     c.glBindVertexArray(device.vao);
     c.glBindBuffer(c.GL_ARRAY_BUFFER, device.vbo);
     c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, device.ebo);
 
-    const v_size = @intCast(c_long, @sizeOf(Vertex) * batches.vertices.len);
-    const e_size = @intCast(c_long, @sizeOf(u16) * batches.elements.len);
+    const v_size = @intCast(c_long, @sizeOf(Vertex) * list.vertices.items.len);
+    const e_size = @intCast(c_long, @sizeOf(u16) * list.elements.items.len);
 
-    c.glBufferData(c.GL_ARRAY_BUFFER, v_size, batches.vertices.ptr, c.GL_DYNAMIC_DRAW);
-    c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, e_size, batches.elements.ptr, c.GL_DYNAMIC_DRAW);
+    c.glBufferData(c.GL_ARRAY_BUFFER, v_size, list.vertices.items.ptr, c.GL_DYNAMIC_DRAW);
+    c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, e_size, list.elements.items.ptr, c.GL_DYNAMIC_DRAW);
 
     _ = c.glUnmapBuffer(c.GL_ARRAY_BUFFER);
     _ = c.glUnmapBuffer(c.GL_ELEMENT_ARRAY_BUFFER);

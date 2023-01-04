@@ -11,6 +11,7 @@ const ui_lib = @import("ui/ui_lib.zig");
 const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
 const buffer_ui = @import("ui/buffer.zig");
+const DrawList = @import("ui/draw_command.zig").DrawList;
 
 pub const editor = struct {
     /// A Pointer to the currently focused buffer
@@ -51,7 +52,7 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
         .font = try shape2d.Font.init(allocator, "assets/Amiri-Regular.ttf", 24),
         .window_width = window_width,
         .window_height = window_height,
-        .shape_cmds = ArrayList(shape2d.ShapeCommand).init(allocator),
+        .draw_list = DrawList.init(allocator),
     };
 }
 
