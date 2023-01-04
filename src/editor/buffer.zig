@@ -363,6 +363,48 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
     return .{ .row = row, .col = col };
 }
 
+pub fn lineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
+    const start: u64 = if (first_line == 1) 0 else buffer.lines.findNodeWithLine(first_line - 1).newline_index;
+    const end: u64 = buffer.lines.findNodeWithLine(last_line - 1).newline_index + 1;
+    return .{
+        .pt = &buffer.lines,
+        .start = start,
+        .end = end,
+    };
+}
+
+pub fn bufferIterator(buffer: *Buffer, start: u64, end: u64) BufferIteratorType {
+    return .{
+        .pt = &buffer.lines,
+        .start = start,
+        .end = end,
+    };
+}
+
+pub const BufferIteratorType = struct {
+    const Self = @This();
+
+    pt: *PieceTable,
+    start: u64,
+    end: u64,
+
+    pub fn next(self: *Self) ?[]const u8 {
+        if (self.start >= self.end) return null;
+        const piece_info = self.pt.findNode(self.start);
+        const string = piece_info.piece.content(self.pt);
+        defer self.start += string.len;
+
+        if (string.len + self.start < self.end) {
+            // print("nope in here {}\n", .{string.len});
+            return string[piece_info.relative_index..];
+        } else {
+            const end = self.end - self.start;
+            // print("here {} {}\n", .{ string.len, end });
+            return string[piece_info.relative_index .. piece_info.relative_index + end];
+        }
+    }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
