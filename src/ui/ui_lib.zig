@@ -12,6 +12,11 @@ const editor = @import("../globals.zig").editor;
 const ui = @import("../globals.zig").ui;
 const DrawList = @import("draw_command.zig").DrawList;
 
+pub const GlyphCoords = struct {
+    index: ?u64,
+    location: shape2d.Rect,
+};
+
 pub const Action = struct {
     /// User clicked but is still holding the mouse button
     half_click: bool = false,
@@ -452,59 +457,11 @@ pub fn widgetStart(args: struct {
 
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.highlight_text) and widget.enabled(.draggable) and args.string != null) {
-        var s = args.string.?;
-        var line_height = ui.state.font.newLineOffset();
+        capDragValuesToRect(widget);
+        var end_glyph = locateGlyphCoords(widget.drag_end, args.string.?, widget.rect);
+        var start_glyph = if (widget.drag_start.eql(widget.drag_end)) end_glyph else locateGlyphCoords(widget.drag_start, args.string.?, widget.rect);
 
-        const last_line_y = @floatToInt(i16, widget.rect.y + widget.rect.h - line_height + 1);
-        widget.drag_end.y = utils.minOrMax(i16, widget.drag_end.y, @floatToInt(i16, widget.rect.y), last_line_y);
-        widget.drag_start.y = utils.minOrMax(i16, widget.drag_start.y, @floatToInt(i16, widget.rect.y), last_line_y);
-
-        widget.drag_end.x = utils.minOrMax(i16, widget.drag_end.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
-        widget.drag_start.x = utils.minOrMax(i16, widget.drag_start.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
-
-        var end_glyph = locateGlyphCoords(widget.drag_end, s, widget.rect);
-        var start_glyph = if (widget.drag_start.eql(widget.drag_end)) end_glyph else locateGlyphCoords(widget.drag_start, s, widget.rect);
-
-        if (start_glyph.index != null and end_glyph.index != null)
-            action.string_selection_range = .{ .start = start_glyph.index.?, .end = end_glyph.index.? };
-
-        if (!start_glyph.location.eql(end_glyph.location)) {
-            var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
-            var end_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point furthest away from 0,0
-
-            if (start_glyph.location.y <= end_glyph.location.y) {
-                start_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
-                end_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
-                end_point.x += end_glyph.location.w;
-            } else {
-                start_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
-                end_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
-                end_point.x += start_glyph.location.w;
-            }
-
-            var next_line_start: f32 = start_point.y + line_height;
-            if (start_point.y == end_point.y) { // same line
-                const width = end_point.x - start_point.x;
-                try ui.state.draw_list.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00, null);
-            } else if (next_line_start == end_point.y) { // two lines
-                const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-                try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
-
-                const second_line_w = utils.abs(widget.rect.x - end_point.x);
-                try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00, null);
-            } else { // at least three lines
-
-                const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
-                try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
-
-                while (next_line_start < end_point.y) : (next_line_start += line_height) {
-                    try ui.state.draw_list.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00, null);
-                }
-
-                const last_line_w = utils.abs(widget.rect.x - end_point.x);
-                try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00, null);
-            }
-        }
+        try highlightText(widget, &action, start_glyph, end_glyph);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -540,6 +497,61 @@ pub fn widgetEnd() !void {
     }
 
     ui.state.focused_widget = ui.state.focused_widget.?.parent;
+}
+
+pub fn capDragValuesToRect(widget: *Widget) void {
+    var line_height = ui.state.font.newLineOffset();
+    const last_line_y = @floatToInt(i16, widget.rect.y + widget.rect.h - line_height + 1);
+    widget.drag_end.y = utils.minOrMax(i16, widget.drag_end.y, @floatToInt(i16, widget.rect.y), last_line_y);
+    widget.drag_start.y = utils.minOrMax(i16, widget.drag_start.y, @floatToInt(i16, widget.rect.y), last_line_y);
+
+    widget.drag_end.x = utils.minOrMax(i16, widget.drag_end.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
+    widget.drag_start.x = utils.minOrMax(i16, widget.drag_start.x, @floatToInt(i16, widget.rect.x), @floatToInt(i16, widget.rect.x + widget.rect.w));
+}
+
+pub fn highlightText(widget: *Widget, action: *Action, start_glyph: GlyphCoords, end_glyph: GlyphCoords) !void {
+    var line_height = ui.state.font.newLineOffset();
+
+    if (start_glyph.index != null and end_glyph.index != null)
+        action.string_selection_range = .{ .start = start_glyph.index.?, .end = end_glyph.index.? };
+
+    if (!start_glyph.location.eql(end_glyph.location)) {
+        var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
+        var end_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point furthest away from 0,0
+
+        if (start_glyph.location.y <= end_glyph.location.y) {
+            start_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
+            end_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
+            end_point.x += end_glyph.location.w;
+        } else {
+            start_point = .{ .x = end_glyph.location.x, .y = end_glyph.location.y };
+            end_point = .{ .x = start_glyph.location.x, .y = start_glyph.location.y };
+            end_point.x += start_glyph.location.w;
+        }
+
+        var next_line_start: f32 = start_point.y + line_height;
+        if (start_point.y == end_point.y) { // same line
+            const width = end_point.x - start_point.x;
+            try ui.state.draw_list.pushRect(start_point.x, start_point.y, width, line_height, 0x00FF00, null);
+        } else if (next_line_start == end_point.y) { // two lines
+            const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
+            try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
+
+            const second_line_w = utils.abs(widget.rect.x - end_point.x);
+            try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, second_line_w, line_height, 0x00FF00, null);
+        } else { // at least three lines
+
+            const first_line_w = utils.abs(widget.rect.w - (start_point.x - widget.rect.x));
+            try ui.state.draw_list.pushRect(start_point.x, start_point.y, first_line_w, line_height, 0x00FF00, null);
+
+            while (next_line_start < end_point.y) : (next_line_start += line_height) {
+                try ui.state.draw_list.pushRect(widget.rect.x, next_line_start, widget.rect.w, line_height, 0x00FF00, null);
+            }
+
+            const last_line_w = utils.abs(widget.rect.x - end_point.x);
+            try ui.state.draw_list.pushRect(widget.rect.x, end_point.y, last_line_w, line_height, 0x00FF00, null);
+        }
+    }
 }
 
 pub fn layoutStart(allocator: std.mem.Allocator, layout: Layouts, w: f32, h: f32, color: u24) !void {
@@ -613,7 +625,7 @@ pub fn textWithDimStart(allocator: std.mem.Allocator, string: []const u8, cursor
 
     var widget = ui.state.focused_widget.?;
     if (ui.state.pass == .input_and_render)
-        try ui.state.draw_list.pushText(ui.state.font, widget.rect.x, widget.rect.y, 0xFFFFFF, string, null);
+        _ = try ui.state.draw_list.pushText(ui.state.font, widget.rect, widget.rect.x, widget.rect.y, 0xFFFFFF, string, null);
 
     return action;
 }
@@ -708,8 +720,83 @@ pub fn endUI() void {
     }
 }
 
+pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16), string_iter: *IterType, region: shape2d.Rect) GlyphCoords {
+    var x = region.x;
+    var y = region.y;
+
+    var previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 };
+    var previous_strings_len: u64 = 0;
+    while (string_iter.next()) |string| {
+        // print("here\n", .{});
+        defer previous_strings_len += string.len;
+        for (string) |char, i| {
+            const absolute_index = i + previous_strings_len;
+            var g = ui.state.font.glyphs.get(char) orelse continue;
+            var g_advance = @intToFloat(f32, g.advance);
+
+            if (contains( // found the glyph
+                @intToFloat(f32, pos.x),
+                @intToFloat(f32, pos.y),
+                .{ .x = x, .y = y, .w = g_advance, .h = ui.state.font.newLineOffset() },
+            )) {
+                return .{
+                    .index = absolute_index,
+                    .location = .{
+                        .x = x,
+                        .y = y,
+                        .w = g_advance,
+                        .h = ui.state.font.newLineOffset(),
+                    },
+                };
+            } else {
+                x += g_advance;
+            }
+
+            if (char == '\n') { // end of line with a newline char
+                previous_line_end = .{
+                    .x = x,
+                    .y = y,
+                };
+
+                if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset())) {
+                    print("here\n", .{});
+                    return .{
+                        .index = absolute_index,
+                        .location = .{
+                            .x = previous_line_end.x - g_advance,
+                            .y = previous_line_end.y,
+                            .w = g_advance,
+                            .h = ui.state.font.newLineOffset(),
+                        },
+                    };
+                }
+
+                y += ui.state.font.newLineOffset();
+                x = region.x;
+            }
+
+            // else if (i == string.len - 1) { // end of line without a newline char
+            //     return .{
+            //         .index = absolute_index,
+            //         .location = .{
+            //             .x = x - g_advance,
+            //             .y = y,
+            //             .w = g_advance,
+            //             .h = ui.state.font.newLineOffset(),
+            //         },
+            //     };
+            // }
+        }
+    }
+
+    return .{
+        .index = null,
+        .location = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
+    };
+}
+
 /// This function assumes the string is present in the provided region
-pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) struct { index: ?u64, location: shape2d.Rect } {
+pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) GlyphCoords {
     var x = region.x;
     var y = region.y;
 

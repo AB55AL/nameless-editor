@@ -90,22 +90,9 @@ pub fn main() !void {
         globals.ui.state.mousex = @floatCast(f32, pos.xpos);
         globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
-        var slices_of_arrays: [5](?[]u8) = .{ null, null, null, null, null };
-        defer {
-            for (slices_of_arrays) |slice| {
-                if (slice) |s| allocator.free(s);
-            }
-        }
         ui_lib.beginUI();
         var passes = [_]ui_lib.State.Pass{ .layout, .input_and_render };
         for (passes) |pass| {
-            defer {
-                if (pass == .layout) {
-                    for (slices_of_arrays) |slice| {
-                        if (slice) |s| allocator.free(s);
-                    }
-                }
-            }
             globals.ui.state.pass = pass;
             defer globals.ui.state.max_id = 1;
 
@@ -114,12 +101,12 @@ pub fn main() !void {
             try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
 
             try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
-            try buffer_ui.buffers(allocator, &slices_of_arrays);
+            try buffer_ui.buffers(allocator);
             try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
-            slices_of_arrays[4] = if (globals.editor.command_line_is_open) try globals.editor.command_line_buffer.getAllLines(allocator) else null;
-            var string = slices_of_arrays[4];
-            if (string) |s| {
+            if (globals.editor.command_line_is_open) {
+                var string = try globals.editor.command_line_buffer.getAllLines(allocator);
+                defer allocator.free(string);
                 var dim = math.Vec2(f32){
                     .x = 5000,
                     .y = globals.ui.state.font.newLineOffset() * 2,
@@ -128,7 +115,7 @@ pub fn main() !void {
                 globals.ui.state.max_id = 1000;
                 _ = try ui_lib.textWithDim(
                     allocator,
-                    s,
+                    string,
                     globals.editor.command_line_buffer.cursor_index,
                     dim,
                     &.{ .clickable, .draggable, .highlight_text, .text_cursor, .render_background },
