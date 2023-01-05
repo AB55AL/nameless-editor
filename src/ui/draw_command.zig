@@ -49,7 +49,7 @@ pub const DrawList = struct {
         return !same_texture or !same_clip;
     }
 
-    pub fn pushText(draw_list: *DrawList, font: shape2d.Font, const_x: f32, const_y: f32, color: u24, string: []const u8, clip: ?shape2d.Rect) !void {
+    pub fn pushText(draw_list: *DrawList, font: shape2d.Font, boundry: shape2d.Rect, const_x: f32, const_y: f32, color: u24, string: []const u8, clip: ?shape2d.Rect) !math.Vec2(f32) {
         var elements_count: u64 = 0;
 
         var x = const_x;
@@ -85,7 +85,7 @@ pub const DrawList = struct {
             x += @intToFloat(f32, g.advance);
 
             if (char == '\n') {
-                x = const_x;
+                x = boundry.x;
                 y += font.newLineOffset();
             }
         }
@@ -103,6 +103,8 @@ pub const DrawList = struct {
                 .elements_count = elements_count,
             });
         }
+
+        return .{ .x = x, .y = y };
     }
 
     pub fn pushRect(draw_list: *DrawList, x: f32, y: f32, w: f32, h: f32, color: u24, clip: ?shape2d.Rect) !void {
