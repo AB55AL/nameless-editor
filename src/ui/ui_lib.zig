@@ -720,17 +720,36 @@ pub fn endUI() void {
     }
 }
 
-pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16), string_iter: *IterType, region: shape2d.Rect) GlyphCoords {
-    var x = region.x;
-    var y = region.y;
+pub fn locateGlyphCoordsIterator(region: shape2d.Rect, pos: math.Vec2(i16)) LocateGlyphCoordsIterator {
+    return .{
+        .x = region.x,
+        .y = region.y,
+        .region = region,
+        .pos = pos,
+    };
+}
 
-    var previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 };
-    var previous_strings_len: u64 = 0;
-    while (string_iter.next()) |string| {
-        // print("here\n", .{});
-        defer previous_strings_len += string.len;
+pub const LocateGlyphCoordsIterator = struct {
+    x: f32,
+    y: f32,
+    region: shape2d.Rect,
+    pos: math.Vec2(i16),
+    previous_strings_len: u64 = 0,
+    previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 },
+    found: bool = false,
+
+    pub fn findGlyph(self: *LocateGlyphCoordsIterator, string: []const u8) ?GlyphCoords {
+        if (self.found) return null;
+        var pos = self.pos;
+        var x = self.x;
+        var y = self.y;
+
+        defer self.x = x;
+        defer self.y = y;
+
+        defer self.previous_strings_len += string.len;
         for (string) |char, i| {
-            const absolute_index = i + previous_strings_len;
+            const absolute_index = i + self.previous_strings_len;
             var g = ui.state.font.glyphs.get(char) orelse continue;
             var g_advance = @intToFloat(f32, g.advance);
 
@@ -739,6 +758,7 @@ pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16
                 @intToFloat(f32, pos.y),
                 .{ .x = x, .y = y, .w = g_advance, .h = ui.state.font.newLineOffset() },
             )) {
+                self.found = true;
                 return .{
                     .index = absolute_index,
                     .location = .{
@@ -753,18 +773,18 @@ pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16
             }
 
             if (char == '\n') { // end of line with a newline char
-                previous_line_end = .{
+                self.previous_line_end = .{
                     .x = x,
                     .y = y,
                 };
 
                 if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset())) {
-                    print("here\n", .{});
+                    self.found = true;
                     return .{
                         .index = absolute_index,
                         .location = .{
-                            .x = previous_line_end.x - g_advance,
-                            .y = previous_line_end.y,
+                            .x = self.previous_line_end.x - g_advance,
+                            .y = self.previous_line_end.y,
                             .w = g_advance,
                             .h = ui.state.font.newLineOffset(),
                         },
@@ -772,10 +792,11 @@ pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16
                 }
 
                 y += ui.state.font.newLineOffset();
-                x = region.x;
+                x = self.region.x;
             }
-
-            // else if (i == string.len - 1) { // end of line without a newline char
+            // FIXME: In order to make this work i need to know if the last string that will
+            // be provided will have a newline char at the end or not
+            //else if (i == string.len - 1) { // end of line without a newline char
             //     return .{
             //         .index = absolute_index,
             //         .location = .{
@@ -787,13 +808,10 @@ pub fn locateGlyphCoordsWithIterator(comptime IterType: type, pos: math.Vec2(i16
             //     };
             // }
         }
-    }
 
-    return .{
-        .index = null,
-        .location = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
-    };
-}
+        return null;
+    }
+};
 
 /// This function assumes the string is present in the provided region
 pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2d.Rect) GlyphCoords {

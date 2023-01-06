@@ -68,7 +68,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         .h = dim.y,
         .string = null,
         .cursor_index = 0,
-        .features_flags = &.{ .clickable, .draggable, .highlight_text, .text_cursor, .clip, .render_background },
+        .features_flags = &.{ .clickable, .draggable, .text_cursor, .clip, .render_background },
         .bg_color = 0x272822,
     });
 
@@ -91,23 +91,43 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         var y: f32 = widget.rect.y;
 
         ui_lib.capDragValuesToRect(widget);
-        var iter_2 = buffer.lineIterator(first_row, last_row);
-        var end_glyph = ui_lib.locateGlyphCoordsWithIterator(Buffer.BufferIteratorType, widget.drag_end, &iter_2, widget.rect);
-        try ui.state.draw_list.pushRect(end_glyph.location.x, end_glyph.location.y, end_glyph.location.w, end_glyph.location.h, 0xFF00AA, null);
 
-        iter_2 = buffer.lineIterator(first_row, last_row);
-        var start_glyph = if (widget.drag_start.eql(widget.drag_end)) end_glyph else ui_lib.locateGlyphCoordsWithIterator(Buffer.BufferIteratorType, widget.drag_start, &iter_2, widget.rect);
-        try ui_lib.highlightText(widget, &action, start_glyph, end_glyph);
+        {
+            // TODO: Merge this into the second while loop below.
+            // The problem here is that the highlight of the text will draw over the text when done during the second loop
+            var buffer_iter = buffer.lineIterator(first_row, last_row);
+            var start_glyph: ?ui_lib.GlyphCoords = null;
+            var end_glyph: ?ui_lib.GlyphCoords = null;
 
-        var iter = buffer.lineIterator(first_row, last_row);
-        while (iter.next()) |string| {
+            var end_glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
+            var start_glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_start);
+            while (buffer_iter.next()) |string| {
+                if (end_glyph == null)
+                    end_glyph = end_glyph_location_iter.findGlyph(string);
+
+                if (widget.drag_start.eql(widget.drag_end))
+                    start_glyph = end_glyph;
+
+                if (start_glyph == null)
+                    start_glyph = start_glyph_location_iter.findGlyph(string);
+            }
+            try ui_lib.highlightText(widget, &action, start_glyph.?, end_glyph.?);
+        }
+
+        var buffer_iter = buffer.lineIterator(first_row, last_row);
+        var glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
+        while (buffer_iter.next()) |string| {
+            if (glyph_location_iter.findGlyph(string)) |coord| {
+                try ui.state.draw_list.pushRect(coord.location.x, coord.location.y, coord.location.w, coord.location.h, 0xFF00AA, null);
+
+                if (action.half_click and action.string_selection_range != null) {
+                    if (coord.index) |i| buffer.cursor_index = i;
+                }
+            }
+
             var new_pos = try ui.state.draw_list.pushText(ui.state.font, widget.rect, x, y, 0xFFFFFF, string, null);
             x = new_pos.x;
             y = new_pos.y;
-        }
-
-        if (action.half_click and action.string_selection_range != null) {
-            if (end_glyph.index) |i| buffer.cursor_index = i;
         }
     }
 
