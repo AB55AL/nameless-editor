@@ -105,23 +105,15 @@ pub fn main() !void {
             try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
             if (globals.editor.command_line_is_open) {
-                var string = try globals.editor.command_line_buffer.getAllLines(allocator);
-                defer allocator.free(string);
+                var buffer_window = buffer_ui.BufferWindow{
+                    .buffer = globals.editor.command_line_buffer,
+                    .first_visiable_row = 1,
+                };
                 var dim = math.Vec2(f32){
                     .x = 5000,
-                    .y = globals.ui.state.font.newLineOffset() * 2,
+                    .y = globals.ui.state.font.newLineOffset(),
                 };
-
-                globals.ui.state.max_id = 1000;
-                _ = try ui_lib.textWithDim(
-                    allocator,
-                    string,
-                    globals.editor.command_line_buffer.cursor_index,
-                    dim,
-                    &.{ .clickable, .draggable, .highlight_text, .text_cursor, .render_background },
-                    ui_lib.Column.getLayout(),
-                    0x272822,
-                );
+                try buffer_ui.bufferWidget(allocator, &buffer_window, dim);
             }
 
             ui_lib.containerEnd();
