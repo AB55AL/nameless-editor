@@ -1208,7 +1208,7 @@ pub const Grid2x2 = struct {
                 child.rect = parent.rect;
             },
             1 => {
-                var first_child = parent.lastActiveChild();
+                var first_child = parent.first_child.?;
                 first_child.rect.w /= 2;
 
                 child.rect = .{
@@ -1240,5 +1240,10 @@ pub const Grid2x2 = struct {
             },
             else => unreachable,
         }
+
+        const depth = parent.treeDepth(0);
+        var i: u32 = 0;
+        while (i <= depth) : (i += 1)
+            parent.capSubtreeToParentRect(i);
     }
 };
