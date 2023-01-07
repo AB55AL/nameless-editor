@@ -512,7 +512,7 @@ pub fn capDragValuesToRect(widget: *Widget) void {
 pub fn highlightText(widget: *Widget, action: *Action, start_glyph: GlyphCoords, end_glyph: GlyphCoords) !void {
     var line_height = ui.state.font.newLineOffset();
 
-    if (start_glyph.index != null and end_glyph.index != null)
+    if (start_glyph.index != null and end_glyph.index != null and start_glyph.index != end_glyph.index)
         action.string_selection_range = .{ .start = start_glyph.index.?, .end = end_glyph.index.? };
 
     if (!start_glyph.location.eql(end_glyph.location)) {
@@ -807,6 +807,57 @@ pub const LocateGlyphCoordsIterator = struct {
             //         },
             //     };
             // }
+        }
+
+        return null;
+    }
+};
+
+pub fn locateGlyphCoordsByIndexIterator(region: shape2d.Rect, index: u64) LocateGlyphCoordsByIndexType {
+    return .{
+        .region = region,
+        .x = region.x,
+        .y = region.y,
+        .index = index,
+    };
+}
+
+pub const LocateGlyphCoordsByIndexType = struct {
+    region: shape2d.Rect,
+    x: f32,
+    y: f32,
+    index: u64,
+    previous_strings_len: u64 = 0,
+    found: bool = false,
+
+    pub fn findCoords(self: *LocateGlyphCoordsByIndexType, string: []const u8) ?shape2d.Rect {
+        if (self.found) return null;
+        defer self.previous_strings_len += string.len;
+
+        var x = self.x;
+        var y = self.y;
+        defer self.x = x;
+        defer self.y = y;
+
+        for (string) |char, i| {
+            var g = ui.state.font.glyphs.get(char) orelse continue;
+            var g_advance = @intToFloat(f32, g.advance);
+            if (i + self.previous_strings_len == self.index) {
+                self.found = true;
+                return .{
+                    .x = x,
+                    .y = y,
+                    .w = g_advance,
+                    .h = ui.state.font.newLineOffset(),
+                };
+            } else {
+                x += g_advance;
+
+                if (char == '\n') {
+                    x = self.region.x;
+                    y += ui.state.font.newLineOffset();
+                }
+            }
         }
 
         return null;

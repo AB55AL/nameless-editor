@@ -5,11 +5,26 @@ const ui_lib = @import("ui_lib.zig");
 const ui = @import("../globals.zig").ui;
 const Buffer = @import("../editor/buffer.zig");
 const math = @import("math.zig");
+const shapes2d = @import("shape2d.zig");
 const utils = @import("../utils.zig");
 
 pub const BufferWindow = struct {
     buffer: *Buffer,
     first_visiable_row: u64,
+
+    pub fn absoluteBufferIndexFromRelative(buffer_win: *BufferWindow, relative: u64) u64 {
+        if (buffer_win.first_visiable_row == 1) return relative;
+
+        const offset: u64 = buffer_win.buffer.indexOfFirstByteAtRow(buffer_win.first_visiable_row);
+        return relative + offset;
+    }
+
+    pub fn relativeBufferIndexFromAbsolute(buffer_win: *BufferWindow, absolute: u64) u64 {
+        if (buffer_win.first_visiable_row == 1) return absolute;
+
+        const offset: u64 = buffer_win.buffer.indexOfFirstByteAtRow(buffer_win.first_visiable_row);
+        return absolute - offset;
+    }
 
     pub fn scrollDown(buffer_win: *BufferWindow, offset: u64) void {
         buffer_win.first_visiable_row += offset;
@@ -87,9 +102,6 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
     var widget = ui.state.focused_widget.?;
 
     if (ui.state.pass == .input_and_render) {
-        var x: f32 = widget.rect.x;
-        var y: f32 = widget.rect.y;
-
         ui_lib.capDragValuesToRect(widget);
 
         {
@@ -111,21 +123,34 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
                 if (start_glyph == null)
                     start_glyph = start_glyph_location_iter.findGlyph(string);
             }
-            try ui_lib.highlightText(widget, &action, start_glyph.?, end_glyph.?);
+            if (end_glyph != null)
+                try ui_lib.highlightText(widget, &action, start_glyph.?, end_glyph.?);
         }
 
         var buffer_iter = buffer.lineIterator(first_row, last_row);
         var glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
-        while (buffer_iter.next()) |string| {
-            if (glyph_location_iter.findGlyph(string)) |coord| {
-                try ui.state.draw_list.pushRect(coord.location.x, coord.location.y, coord.location.w, coord.location.h, 0xFF00AA, null);
+        var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.relativeBufferIndexFromAbsolute(buffer.cursor_index));
 
-                if (action.half_click and action.string_selection_range != null) {
-                    if (coord.index) |i| buffer.cursor_index = i;
+        var x: f32 = widget.rect.x;
+        var y: f32 = widget.rect.y;
+
+        while (buffer_iter.next()) |string| {
+            var cursor_coords = shapes2d.Rect{ .x = 0, .y = 0, .w = 0, .h = 0 };
+
+            if (glyph_location_iter.findGlyph(string)) |coords| {
+                if (action.half_click or action.string_selection_range != null) {
+                    cursor_coords = coords.location;
+                    if (coords.index) |i| buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(i);
                 }
             }
 
-            var new_pos = try ui.state.draw_list.pushText(ui.state.font, widget.rect, x, y, 0xFFFFFF, string, null);
+            if (index_coord_location_iter.findCoords(string)) |coords| {
+                cursor_coords = coords;
+            }
+
+            try ui.state.draw_list.pushRect(cursor_coords.x, cursor_coords.y, cursor_coords.w, cursor_coords.h, 0xFF00AA, null);
+
+            const new_pos = try ui.state.draw_list.pushText(ui.state.font, widget.rect, x, y, 0xFFFFFF, string, null);
             x = new_pos.x;
             y = new_pos.y;
         }
