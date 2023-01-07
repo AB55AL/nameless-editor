@@ -66,7 +66,12 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     for (ui.visiable_buffers) |*buffer_win, i| {
         if (ui.visiable_buffers[i] == null) continue;
         var bw = &((buffer_win).* orelse continue);
+        try ui_lib.layoutStart(allocator, ui_lib.DynamicRow.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
+
         try bufferWidget(allocator, bw, buffer_window_dim);
+        try statusLine(allocator, bw.buffer);
+
+        try ui_lib.layoutEnd(ui_lib.DynamicRow.getLayout());
     }
     try ui_lib.layoutEnd(ui_lib.Grid2x2.getLayout());
 }
@@ -157,4 +162,34 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
     }
 
     try ui_lib.widgetEnd();
+}
+
+pub fn statusLine(allocator: std.mem.Allocator, buffer: *Buffer) !void {
+    try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), 5000, ui.state.font.newLineOffset(), 0x272822);
+
+    var dim = ui_lib.stringDimension(buffer.metadata.file_path);
+    dim.x += 10;
+    _ = try ui_lib.textWithDim(
+        allocator,
+        buffer.metadata.file_path,
+        0,
+        dim,
+        &.{ .clip, .render_background, .render_text },
+        ui_lib.Column.getLayout(),
+        0x272822,
+        0xAAAAAA,
+    );
+
+    _ = try ui_lib.textWithDim(
+        allocator,
+        buffer.metadata.file_type,
+        0,
+        ui_lib.stringDimension(buffer.metadata.file_type),
+        &.{ .clip, .render_background, .render_text },
+        ui_lib.Column.getLayout(),
+        0x272822,
+        0xAAAAAA,
+    );
+
+    try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 }

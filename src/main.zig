@@ -104,6 +104,7 @@ pub fn main() !void {
             try buffer_ui.buffers(allocator);
             try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
 
+            globals.ui.state.max_id = 200;
             if (globals.editor.command_line_is_open) {
                 var buffer_window = buffer_ui.BufferWindow{
                     .buffer = globals.editor.command_line_buffer,
