@@ -166,7 +166,10 @@ fn logKey(key: Key) void {
 fn paste() void {
     var fb = core.editor.focused_buffer orelse return;
 
-    var clipboard = glfw.getClipboardString() catch unreachable;
+    var clipboard = glfw.getClipboardString() catch {
+        core.notify("Clipboard", "Empty", 2000);
+        return;
+    };
     fb.insertBeforeCursor(clipboard) catch |err| {
         print("input_layer.paste()\n\t{}\n", .{err});
     };
