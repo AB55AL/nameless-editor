@@ -34,6 +34,7 @@ pub const Flags = enum(u32) {
     clip = 8,
     highlight_text = 16,
     text_cursor = 32,
+    render_text = 64,
 };
 
 pub const State = struct {
@@ -431,6 +432,7 @@ pub fn widgetStart(args: struct {
     cursor_index: u64 = 0,
 
     bg_color: u24 = 0,
+    text_color: u24 = 0xFFFFFF,
 }) !Action {
     utils.assert(ui.state.focused_widget != null, "ui.state.focused_widget must never be null for start and end calls. Make sure to call the container function");
     ui.state.focused_widget = try ui.state.focused_widget.?.pushChild(args.allocator, args.id, args.layout, args.w, args.h, args.features_flags);
@@ -477,6 +479,11 @@ pub fn widgetStart(args: struct {
     ////////////////////////////////////////////////////////////////////////////
     if (widget.enabled(.clip)) {
         try ui.state.draw_list.pushClip(widget.rect.x, widget.rect.y, widget.rect.w, widget.rect.h);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    if (widget.enabled(.render_text) and args.string != null) {
+        _ = try ui.state.draw_list.pushText(ui.state.font, widget.rect, widget.rect.x, widget.rect.y, args.text_color, args.string.?, null);
     }
 
     ////////////////////////////////////////////////////////////////////////////
