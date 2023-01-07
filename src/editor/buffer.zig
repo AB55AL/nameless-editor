@@ -364,8 +364,8 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
 }
 
 pub fn lineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
-    const start: u64 = if (first_line == 1) 0 else buffer.lines.findNodeWithLine(first_line - 1).newline_index;
-    const end: u64 = buffer.lines.findNodeWithLine(last_line - 1).newline_index + 1;
+    const start = buffer.indexOfFirstByteAtRow(first_line);
+    const end = buffer.indexOfFirstByteAtRow(last_line + 1);
     return .{
         .pt = &buffer.lines,
         .start = start,
@@ -391,16 +391,14 @@ pub const BufferIteratorType = struct {
     pub fn next(self: *Self) ?[]const u8 {
         if (self.start >= self.end) return null;
         const piece_info = self.pt.findNode(self.start);
-        const string = piece_info.piece.content(self.pt);
+        const string = piece_info.piece.content(self.pt)[piece_info.relative_index..];
         defer self.start += string.len;
 
         if (string.len + self.start < self.end) {
-            // print("nope in here {}\n", .{string.len});
-            return string[piece_info.relative_index..];
+            return string;
         } else {
             const end = self.end - self.start;
-            // print("here {} {}\n", .{ string.len, end });
-            return string[piece_info.relative_index .. piece_info.relative_index + end];
+            return string[0..end];
         }
     }
 };
