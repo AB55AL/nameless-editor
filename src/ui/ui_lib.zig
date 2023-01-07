@@ -55,6 +55,30 @@ pub const State = struct {
     draw_list: DrawList,
     pass: Pass = .layout,
 
+    pub fn getActiveWidget(state: *State) ?*Widget {
+        if (state.active == 0) return null;
+
+        var widget_tree = state.first_widget_tree;
+        while (widget_tree) |wt| {
+            if (getActiveWidgetRecurse(wt, state.active)) |w| return w;
+            widget_tree = wt.next_sibling;
+        }
+
+        return null;
+    }
+
+    fn getActiveWidgetRecurse(widget: *Widget, id: u32) ?*Widget {
+        if (widget.id == id) return widget;
+        if (widget.first_child) |fc| {
+            if (getActiveWidgetRecurse(fc, id)) |w| return w;
+        }
+        if (widget.next_sibling) |ns| {
+            if (getActiveWidgetRecurse(ns, id)) |w| return w;
+        }
+
+        return null;
+    }
+
     pub fn deinit(state: *State, allocator: std.mem.Allocator) void {
         state.font.deinit();
         state.draw_list.deinit();
