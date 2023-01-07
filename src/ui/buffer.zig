@@ -68,7 +68,8 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
         var bw = &((buffer_win).* orelse continue);
         try ui_lib.layoutStart(allocator, ui_lib.DynamicRow.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
 
-        try bufferWidget(allocator, bw, buffer_window_dim);
+        var r = ui.state.focused_widget.?.rect;
+        try bufferWidget(allocator, bw, .{ .x = r.w, .y = r.h });
         try statusLine(allocator, bw.buffer);
 
         try ui_lib.layoutEnd(ui_lib.DynamicRow.getLayout());
@@ -92,7 +93,8 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         .bg_color = 0x272822,
     });
 
-    const max_lines = @floatToInt(u32, std.math.ceil(@intToFloat(f32, ui.state.window_height) / ui.state.font.newLineOffset()));
+    var widget = ui.state.focused_widget.?;
+    const max_lines = @floatToInt(u32, std.math.ceil(widget.rect.h / ui.state.font.newLineOffset()));
     const cursor_row = @intCast(u32, buffer.getRowAndCol(buffer.cursor_index).row);
     var first_row = buffer_window.first_visiable_row;
     var last_row = std.math.min(buffer.lines.newlines_count, first_row + max_lines - 1);
@@ -104,7 +106,6 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
     }
     first_row = buffer_window.first_visiable_row;
     last_row = std.math.min(buffer.lines.newlines_count, first_row + max_lines);
-    var widget = ui.state.focused_widget.?;
 
     if (ui.state.pass == .input_and_render) {
         ui_lib.capDragValuesToRect(widget);
@@ -165,7 +166,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
 }
 
 pub fn statusLine(allocator: std.mem.Allocator, buffer: *Buffer) !void {
-    try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), 5000, ui.state.font.newLineOffset(), 0x272822);
+    try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ui.state.focused_widget.?.rect.w, ui.state.font.newLineOffset(), 0x272822);
 
     var dim = ui_lib.stringDimension(buffer.metadata.file_path);
     dim.x += 10;
