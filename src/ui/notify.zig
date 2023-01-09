@@ -37,14 +37,10 @@ pub fn notifyWidget(allocator: std.mem.Allocator) !void {
             .y = std.math.max(m_dim.y, t_dim.y),
         };
 
-        var x = @intToFloat(f32, ui.state.window_width) - biggest_dim.x;
-
         _ = try ui_lib.textWithDimStart(allocator, n.title, 0, biggest_dim, &.{ .render_background, .clip, .render_text }, ui_lib.Column.getLayout(), 0, 0xFFFFFF);
-        ui.state.focused_widget.?.rect.x = x;
         try ui_lib.textWithDimEnd();
 
         _ = try ui_lib.textWithDimStart(allocator, n.message, 0, biggest_dim, &.{ .render_background, .clip, .render_text }, ui_lib.Column.getLayout(), 0, 0xFFFFFF);
-        ui.state.focused_widget.?.rect.x = x;
         try ui_lib.textWithDimEnd();
     }
 }

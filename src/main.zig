@@ -121,9 +121,28 @@ pub fn main() !void {
 
             if (!globals.ui.notifications.empty()) {
                 globals.ui.state.max_id = 2000;
-                try ui_lib.container(allocator, ui_lib.Row.getLayout(), .{ .x = ww, .y = 0, .w = 50, .h = wh });
+                try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = ww - 500, .y = 0, .w = ww, .h = wh });
                 try notify.notifyWidget(allocator);
                 ui_lib.containerEnd();
+            }
+
+            if (pass == .layout) {
+                var widget_tree = globals.ui.state.first_widget_tree;
+                while (widget_tree) |wt| {
+                    {
+                        const depth = wt.treeDepth(0);
+                        var j: u32 = 0;
+                        while (j <= depth) : (j += 1)
+                            wt.capSubtreeToParentRect(j);
+                    }
+                    {
+                        const depth = wt.treeDepth(0);
+                        var j: u32 = 0;
+                        while (j <= depth) : (j += 1)
+                            wt.applyLayouts(j);
+                    }
+                    widget_tree = wt.next_sibling;
+                }
             }
         }
         ui_lib.endUI();

@@ -136,9 +136,7 @@ pub const Widget = struct {
     pub fn pushChild(parent: *Widget, allocator: std.mem.Allocator, child_id: u32, layout: Layouts, width: f32, height: f32, features_flags: []const Flags) !*Widget {
         if (widgetExists(child_id)) |widget| {
             if (ui.state.pass == .layout) {
-                widget.rect.w = width;
-                widget.rect.h = height;
-                parent.layout_of_children.applyLayout(parent, widget, width, height);
+                widget.rect = .{ .x = 0, .y = 0, .w = width, .h = height };
                 parent.repositonChild(widget);
             }
             return widget;
@@ -150,11 +148,9 @@ pub const Widget = struct {
         var widget = try parent.addChild(allocator, .{
             .layout_of_children = layout,
             .id = child_id,
-            .rect = .{ .x = 0, .y = 0, .w = 0, .h = 0 },
+            .rect = .{ .x = 0, .y = 0, .w = width, .h = height },
             .features_flags = flags,
         });
-
-        parent.layout_of_children.applyLayout(parent, widget, width, height);
 
         parent.active_children += 1;
         return widget;
@@ -269,7 +265,22 @@ pub const Widget = struct {
         }
     }
 
-    fn widgetExists(id: u32) ?*Widget {
+    pub fn applyLayouts(widget: *Widget, level: u32) void {
+        if (level == 0) {
+            var current_widget: ?*Widget = widget;
+            while (current_widget) |w| {
+                if (w.parent) |p| {
+                    p.layout_of_children.applyLayout(p);
+                }
+                current_widget = w.next_sibling;
+            }
+        } else {
+            if (widget.first_child) |fc| fc.applyLayouts(level - 1);
+            if (widget.next_sibling) |ns| ns.applyLayouts(level);
+        }
+    }
+
+    pub fn widgetExists(id: u32) ?*Widget {
         if (ui.state.first_widget_tree == null) return null;
         return widgetExistsRecursive(ui.state.first_widget_tree.?, id);
     }
@@ -1002,9 +1013,9 @@ pub const Layouts = union(enum) {
     dynamic_row: DynamicRow,
     dynamic_column: DynamicColumn,
 
-    pub fn applyLayout(layout: Layouts, parent: *Widget, child: *Widget, width: f32, height: f32) void {
+    pub fn applyLayout(layout: Layouts, parent: *Widget) void {
         switch (layout) {
-            inline else => |lo| @TypeOf(lo).applyLayout(parent, child, width, height),
+            inline else => |lo| @TypeOf(lo).applyLayout(parent),
         }
     }
 
@@ -1018,34 +1029,23 @@ pub const Column = struct {
         return .{ .column = Column{} };
     }
 
-    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
-        if (parent.first_child == null or parent.active_children == 0) {
-            child.rect = .{
-                .x = parent.rect.x,
-                .y = parent.rect.y,
-                .w = width,
-                .h = height,
-            };
-
+    pub fn applyLayout(parent: *Widget) void {
+        if (parent.first_child == null or parent.active_children == 0)
             return;
-        }
 
         var lc = parent.lastActiveChild();
-        var x = lc.rect.x + lc.rect.w;
-        const y = parent.rect.y;
 
-        var widget = lc.prev_sibling;
+        var widget = parent.first_child;
         while (widget) |w| {
-            x += w.rect.right();
-            widget = w.prev_sibling;
-        }
+            if (w.prev_sibling) |ps| {
+                w.rect.x = ps.rect.right();
+            } else {
+                w.rect.x = parent.rect.x;
+            }
 
-        child.rect = .{
-            .x = x,
-            .y = y,
-            .w = width,
-            .h = height,
-        };
+            if (w == lc) break;
+            widget = w.next_sibling;
+        }
     }
 };
 
@@ -1054,34 +1054,21 @@ pub const Row = struct {
         return .{ .row = Row{} };
     }
 
-    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
-        if (parent.first_child == null or parent.active_children == 0) {
-            child.rect = .{
-                .x = parent.rect.x,
-                .y = parent.rect.y,
-                .w = width,
-                .h = height,
-            };
-
+    pub fn applyLayout(parent: *Widget) void {
+        if (parent.first_child == null or parent.active_children == 0)
             return;
-        }
+
         var lc = parent.lastActiveChild();
-        var x = lc.rect.x;
-
-        var y = parent.rect.y + lc.rect.h;
-
-        var widget = lc.prev_sibling;
+        var widget = parent.first_child;
         while (widget) |w| {
-            y += w.rect.h;
-            widget = w.prev_sibling;
+            if (w.prev_sibling) |ps| {
+                w.rect.y = ps.rect.bottom();
+            } else {
+                w.rect.y = parent.rect.y;
+            }
+            if (w == lc) break;
+            widget = w.next_sibling;
         }
-
-        child.rect = .{
-            .x = x,
-            .y = y,
-            .w = width,
-            .h = height,
-        };
     }
 };
 
@@ -1090,52 +1077,36 @@ pub const DynamicRow = struct {
         return .{ .dynamic_row = DynamicRow{} };
     }
 
-    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+    pub fn applyLayout(parent: *Widget) void {
         if (parent.first_child == null or parent.active_children == 0) {
-            child.rect = .{
-                .x = parent.rect.x,
-                .y = parent.rect.y,
-                .w = width,
-                .h = height,
-            };
-
             return;
         }
         var lc = parent.lastActiveChild();
-        if (!contains(lc.rect.x, lc.rect.bottom() + height, parent.rect)) {
-            // must offset all previous children
-            var sibling_count = @intToFloat(f32, parent.active_children);
-            var offset_height = -(height / sibling_count);
-            const functions = struct {
-                fn func(widget: *Widget, args: anytype) void {
-                    if (widget.rect.y != widget.parent.?.rect.y)
-                        widget.rect.y += args.@"0";
-                    widget.rect.h += args.@"0";
-                }
-            };
-            lc.walkListBackwords(functions.func, .{offset_height});
-            const depth = parent.treeDepth(0);
-            var i: u32 = 0;
-            while (i <= depth) : (i += 1)
-                parent.capSubtreeToParentRect(i);
-        }
 
-        var x = lc.rect.x;
-
-        var y = parent.rect.y + lc.rect.h;
-
-        var widget = lc.prev_sibling;
+        var widget = parent.first_child;
         while (widget) |w| {
-            y += w.rect.h;
-            widget = w.prev_sibling;
-        }
+            w.rect.x = parent.rect.x;
+            if (w.prev_sibling) |ps| {
+                if (!contains(ps.rect.x, ps.rect.bottom() + w.rect.h, parent.rect)) {
+                    // must offset all previous children
+                    var sibling_count = @intToFloat(f32, parent.active_children);
+                    var offset_height = -(w.rect.h / sibling_count);
+                    const functions = struct {
+                        fn func(wid: *Widget, args: anytype) void {
+                            wid.rect.h += args.@"0";
+                        }
+                    };
+                    ps.walkListBackwords(functions.func, .{offset_height});
+                }
 
-        child.rect = .{
-            .x = x,
-            .y = y,
-            .w = width,
-            .h = height,
-        };
+                w.rect.y = ps.rect.bottom();
+            } else {
+                w.rect.y = parent.rect.y;
+            }
+
+            if (w == lc) break;
+            widget = w.next_sibling;
+        }
     }
 };
 
@@ -1144,51 +1115,41 @@ pub const DynamicColumn = struct {
         return .{ .dynamic_column = DynamicColumn{} };
     }
 
-    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
+    pub fn applyLayout(parent: *Widget) void {
         if (parent.first_child == null or parent.active_children == 0) {
-            child.rect = .{
-                .x = parent.rect.x,
-                .y = parent.rect.y,
-                .w = width,
-                .h = height,
-            };
-
             return;
         }
         var lc = parent.lastActiveChild();
-        if (!contains(lc.rect.right() + width, lc.rect.y, parent.rect)) {
-            // must offset all previous children
-            var sibling_count = @intToFloat(f32, parent.active_children);
-            var offset_width = -(width / sibling_count);
-            const functions = struct {
-                fn func(widget: *Widget, args: anytype) void {
-                    if (widget.rect.x != widget.parent.?.rect.x)
-                        widget.rect.x += args.@"0";
-                    widget.rect.w += args.@"0";
-                }
-            };
-            lc.walkListBackwords(functions.func, .{offset_width});
-            const depth = parent.treeDepth(0);
-            var i: u32 = 0;
-            while (i <= depth) : (i += 1)
-                parent.capSubtreeToParentRect(i);
-        }
 
-        var x = lc.rect.x + lc.rect.w;
-        const y = parent.rect.y;
-
-        var widget = lc.prev_sibling;
+        var widget = parent.first_child;
         while (widget) |w| {
-            x += w.rect.right();
-            widget = w.prev_sibling;
+            w.rect.y = parent.rect.y;
+            if (w.prev_sibling) |ps| {
+                if (!contains(lc.rect.right() + w.rect.w, lc.rect.y, parent.rect)) {
+                    // must offset all previous children
+                    var sibling_count = @intToFloat(f32, parent.active_children);
+                    var offset_width = -(w.rect.w / sibling_count);
+                    const functions = struct {
+                        fn func(wid: *Widget, args: anytype) void {
+                            wid.rect.w += args.@"0";
+                        }
+                    };
+                    lc.walkListBackwords(functions.func, .{offset_width});
+                }
+
+                w.rect.x = ps.rect.right();
+            } else {
+                w.rect.x = parent.rect.x;
+            }
+
+            if (w == lc) break;
+            widget = w.next_sibling;
         }
 
-        child.rect = .{
-            .x = x,
-            .y = y,
-            .w = width,
-            .h = height,
-        };
+        const depth = parent.treeDepth(0);
+        var i: u32 = 0;
+        while (i <= depth) : (i += 1)
+            parent.capSubtreeToParentRect(i);
     }
 };
 
@@ -1199,46 +1160,42 @@ pub const Grid2x2 = struct {
         };
     }
 
-    pub fn applyLayout(parent: *Widget, child: *Widget, width: f32, height: f32) void {
-        _ = width;
-        _ = height;
+    pub fn applyLayout(parent: *Widget) void {
+        if (parent.active_children >= 1) {
+            parent.first_child.?.rect = parent.rect;
+        }
+        if (parent.active_children >= 2) {
+            var first_child = parent.first_child.?;
+            first_child.rect.w = parent.rect.w / 2;
 
-        switch (parent.active_children) {
-            0 => {
-                child.rect = parent.rect;
-            },
-            1 => {
-                var first_child = parent.first_child.?;
-                first_child.rect.w /= 2;
+            first_child.next_sibling.?.rect = .{
+                .x = first_child.rect.right(),
+                .y = parent.rect.y,
+                .w = first_child.rect.w,
+                .h = first_child.rect.h,
+            };
+        }
+        if (parent.active_children >= 3) {
+            var first_child = parent.first_child.?;
+            first_child.rect.h = parent.rect.h / 2;
 
-                child.rect = .{
-                    .x = parent.rect.x + first_child.rect.w,
-                    .y = parent.rect.y,
-                    .w = first_child.rect.w,
-                    .h = first_child.rect.h,
-                };
-            },
-            2 => {
-                var first_child = parent.first_child.?;
-                first_child.rect.h /= 2;
-                child.rect = .{
-                    .x = first_child.rect.x,
-                    .y = first_child.rect.y + first_child.rect.h,
-                    .w = first_child.rect.w,
-                    .h = first_child.rect.h,
-                };
-            },
-            3 => {
-                var second_child = parent.first_child.?.next_sibling.?;
-                second_child.rect.h /= 2;
-                child.rect = .{
-                    .x = second_child.rect.x,
-                    .y = second_child.rect.y + second_child.rect.h,
-                    .w = second_child.rect.w,
-                    .h = second_child.rect.h,
-                };
-            },
-            else => unreachable,
+            parent.getChildAt(2).rect = .{
+                .x = first_child.rect.x,
+                .y = first_child.rect.y + first_child.rect.h,
+                .w = first_child.rect.w,
+                .h = first_child.rect.h,
+            };
+        }
+        if (parent.active_children >= 4) {
+            var second_child = parent.first_child.?.next_sibling.?;
+            second_child.rect.h = parent.rect.h / 2;
+
+            parent.getChildAt(3).rect = .{
+                .x = second_child.rect.x,
+                .y = second_child.rect.y + second_child.rect.h,
+                .w = second_child.rect.w,
+                .h = second_child.rect.h,
+            };
         }
 
         const depth = parent.treeDepth(0);
