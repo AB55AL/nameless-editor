@@ -90,120 +90,8 @@ pub fn main() !void {
         globals.ui.state.mousex = @floatCast(f32, pos.xpos);
         globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
-        ui_lib.beginUI();
-        var passes = [_]ui_lib.State.Pass{ .layout, .input_and_render };
-        for (passes) |pass| {
-            globals.ui.state.pass = pass;
-            defer globals.ui.state.max_id = 1;
-
-            const ww = @intToFloat(f32, globals.ui.state.window_width);
-            const wh = @intToFloat(f32, globals.ui.state.window_height);
-            try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
-
-            try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
-            try buffer_ui.buffers(allocator);
-            try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
-
-            globals.ui.state.max_id = 200;
-            if (globals.editor.command_line_is_open) {
-                var buffer_window = buffer_ui.BufferWindow{
-                    .buffer = globals.editor.command_line_buffer,
-                    .first_visiable_row = 1,
-                };
-                var dim = math.Vec2(f32){
-                    .x = 5000,
-                    .y = globals.ui.state.font.newLineOffset(),
-                };
-                try buffer_ui.bufferWidget(allocator, &buffer_window, dim);
-            }
-
-            ui_lib.containerEnd();
-
-            if (!globals.ui.notifications.empty()) {
-                globals.ui.state.max_id = 2000;
-                try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = ww - 500, .y = 0, .w = ww, .h = wh });
-                try notify.notifyWidget(allocator);
-                ui_lib.containerEnd();
-            }
-
-            if (pass == .layout) {
-                var widget_tree = globals.ui.state.first_widget_tree;
-                while (widget_tree) |wt| {
-                    {
-                        const depth = wt.treeDepth(0);
-                        var j: u32 = 0;
-                        while (j <= depth) : (j += 1)
-                            wt.capSubtreeToParentRect(j);
-                    }
-                    {
-                        const depth = wt.treeDepth(0);
-                        var j: u32 = 0;
-                        while (j <= depth) : (j += 1)
-                            wt.applyLayouts(j);
-                    }
-                    widget_tree = wt.next_sibling;
-                }
-            }
-        }
-        ui_lib.endUI();
-        print("======================================================UI END=======================================================\n", .{});
-
-        //
-        // Render
-        //
-        {
-            c.glEnable(c.GL_BLEND);
-            c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
-            c.glBlendEquation(c.GL_FUNC_ADD);
-            c.glDisable(c.GL_CULL_FACE);
-            c.glDisable(c.GL_DEPTH_TEST);
-            c.glEnable(c.GL_SCISSOR_TEST);
-            c.glActiveTexture(c.GL_TEXTURE0);
-
-            c.glUseProgram(device.program);
-            c.glUniform1i(device.texture_location, 0);
-
-            device.copyVerticesAndElementsToOpenGL(&globals.ui.state.draw_list);
-
-            c.glBindVertexArray(device.vao);
-            c.glBindBuffer(c.GL_ARRAY_BUFFER, device.vbo);
-            c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, device.ebo);
-
-            var offset: u32 = 0;
-            for (globals.ui.state.draw_list.batches.items) |batch| {
-                if (batch.is_text) {
-                    c.glUniform1i(device.is_text_location, 1);
-                } else {
-                    c.glUniform1i(device.is_text_location, 0);
-                }
-
-                c.glScissor(
-                    @floatToInt(c_int, batch.clip.x),
-                    @intCast(c_int, globals.ui.state.window_height) - @floatToInt(c_int, batch.clip.y + batch.clip.h),
-                    @floatToInt(c_int, batch.clip.w),
-                    @floatToInt(c_int, batch.clip.h),
-                );
-
-                if (batch.texture == 0)
-                    c.glBindTexture(c.GL_TEXTURE_2D, null_texture)
-                else
-                    c.glBindTexture(c.GL_TEXTURE_2D, batch.texture);
-
-                var element_count = batch.elements_count;
-
-                c.glDrawElements(c.GL_TRIANGLES, @intCast(c_int, element_count), c.GL_UNSIGNED_SHORT, @intToPtr(*allowzero anyopaque, offset));
-                offset += @intCast(u16, element_count) * @sizeOf(u16);
-                // try window.swapBuffers();
-                // std.time.sleep(100000000 * 5);
-            }
-
-            c.glUseProgram(0);
-            c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
-            c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0);
-            c.glBindVertexArray(0);
-            c.glDisable(c.GL_BLEND);
-            c.glDisable(c.GL_SCISSOR_TEST);
-        }
+        try bulidUI(allocator);
+        render(&device, null_texture);
 
         // Reset the ArrayLists
         globals.ui.state.draw_list.deinit();
@@ -213,4 +101,120 @@ pub fn main() !void {
         try glfw.pollEvents();
         // if (globals.editor.valid_buffers_count == 0) window.setShouldClose(true);
     }
+}
+
+fn bulidUI(allocator: std.mem.Allocator) !void {
+    ui_lib.beginUI();
+
+    var passes = [_]ui_lib.State.Pass{ .layout, .input_and_render };
+    for (passes) |pass| {
+        globals.ui.state.pass = pass;
+        defer globals.ui.state.max_id = 1;
+
+        const ww = @intToFloat(f32, globals.ui.state.window_width);
+        const wh = @intToFloat(f32, globals.ui.state.window_height);
+        try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = 0, .y = 0, .w = ww, .h = wh });
+
+        try ui_lib.layoutStart(allocator, ui_lib.DynamicColumn.getLayout(), ww, wh, 0xAA0000);
+        try buffer_ui.buffers(allocator);
+        try ui_lib.layoutEnd(ui_lib.DynamicColumn.getLayout());
+
+        globals.ui.state.max_id = 200;
+        if (globals.editor.command_line_is_open) {
+            var buffer_window = buffer_ui.BufferWindow{
+                .buffer = globals.editor.command_line_buffer,
+                .first_visiable_row = 1,
+            };
+            var dim = math.Vec2(f32){
+                .x = 5000,
+                .y = globals.ui.state.font.newLineOffset(),
+            };
+            try buffer_ui.bufferWidget(allocator, &buffer_window, dim);
+        }
+
+        ui_lib.containerEnd();
+
+        if (!globals.ui.notifications.empty()) {
+            globals.ui.state.max_id = 2000;
+            try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = ww - 500, .y = 0, .w = ww, .h = wh });
+            try notify.notifyWidget(allocator);
+            ui_lib.containerEnd();
+        }
+
+        if (pass == .layout) {
+            var widget_tree = globals.ui.state.first_widget_tree;
+            while (widget_tree) |wt| {
+                {
+                    const depth = wt.treeDepth(0);
+                    var j: u32 = 0;
+                    while (j <= depth) : (j += 1)
+                        wt.capSubtreeToParentRect(j);
+                }
+                {
+                    const depth = wt.treeDepth(0);
+                    var j: u32 = 0;
+                    while (j <= depth) : (j += 1)
+                        wt.applyLayouts(j);
+                }
+                widget_tree = wt.next_sibling;
+            }
+        }
+    }
+
+    ui_lib.endUI();
+    print("======================================================UI END=======================================================\n", .{});
+}
+
+fn render(device: *Device, null_texture: u32) void {
+    c.glEnable(c.GL_BLEND);
+    c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
+    c.glBlendEquation(c.GL_FUNC_ADD);
+    c.glDisable(c.GL_CULL_FACE);
+    c.glDisable(c.GL_DEPTH_TEST);
+    c.glEnable(c.GL_SCISSOR_TEST);
+    c.glActiveTexture(c.GL_TEXTURE0);
+
+    c.glUseProgram(device.program);
+    c.glUniform1i(device.texture_location, 0);
+
+    device.copyVerticesAndElementsToOpenGL(&globals.ui.state.draw_list);
+
+    c.glBindVertexArray(device.vao);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, device.vbo);
+    c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, device.ebo);
+
+    var offset: u32 = 0;
+    for (globals.ui.state.draw_list.batches.items) |batch| {
+        if (batch.is_text) {
+            c.glUniform1i(device.is_text_location, 1);
+        } else {
+            c.glUniform1i(device.is_text_location, 0);
+        }
+
+        c.glScissor(
+            @floatToInt(c_int, batch.clip.x),
+            @intCast(c_int, globals.ui.state.window_height) - @floatToInt(c_int, batch.clip.y + batch.clip.h),
+            @floatToInt(c_int, batch.clip.w),
+            @floatToInt(c_int, batch.clip.h),
+        );
+
+        if (batch.texture == 0)
+            c.glBindTexture(c.GL_TEXTURE_2D, null_texture)
+        else
+            c.glBindTexture(c.GL_TEXTURE_2D, batch.texture);
+
+        var element_count = batch.elements_count;
+
+        c.glDrawElements(c.GL_TRIANGLES, @intCast(c_int, element_count), c.GL_UNSIGNED_SHORT, @intToPtr(*allowzero anyopaque, offset));
+        offset += @intCast(u16, element_count) * @sizeOf(u16);
+        // try window.swapBuffers();
+        // std.time.sleep(100000000 * 5);
+    }
+
+    c.glUseProgram(0);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
+    c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0);
+    c.glBindVertexArray(0);
+    c.glDisable(c.GL_BLEND);
+    c.glDisable(c.GL_SCISSOR_TEST);
 }
