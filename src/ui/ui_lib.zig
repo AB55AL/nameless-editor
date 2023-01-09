@@ -257,9 +257,9 @@ pub const Widget = struct {
         if (level == 0) {
             var current_widget: ?*Widget = widget;
             while (current_widget) |w| {
-                if (widget.parent) |p| {
-                    widget.rect.w = std.math.min(widget.rect.w, p.rect.w);
-                    widget.rect.h = std.math.min(widget.rect.h, p.rect.h);
+                if (w.parent) |p| {
+                    w.rect.w = std.math.min(w.rect.w, p.rect.w);
+                    w.rect.h = std.math.min(w.rect.h, p.rect.h);
                 }
                 current_widget = w.next_sibling;
             }
