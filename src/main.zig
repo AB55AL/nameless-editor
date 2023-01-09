@@ -23,9 +23,8 @@ const input_layer = @import("input_layer");
 const options = @import("options");
 const user = @import("user");
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
     const window_width: u32 = 800;
@@ -126,8 +125,8 @@ fn bulidUI(allocator: std.mem.Allocator) !void {
                 .first_visiable_row = 1,
             };
             var dim = math.Vec2(f32){
-                .x = 5000,
-                .y = globals.ui.state.font.newLineOffset(),
+                .x = @intToFloat(f32, globals.ui.state.window_width),
+                .y = globals.ui.state.font.newLineOffset() * @intToFloat(f32, buffer_window.buffer.lines.newlines_count),
             };
             try buffer_ui.bufferWidget(allocator, &buffer_window, dim);
         }
