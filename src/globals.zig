@@ -23,8 +23,6 @@ pub const editor = struct {
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = undefined;
-    pub var drawer_window_is_open: bool = undefined;
-    pub var drawer_buffer: *Buffer = undefined;
     pub var previous_buffer_index: u32 = undefined;
 };
 
@@ -43,7 +41,6 @@ pub const internal = struct {
 pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !void {
     internal.allocator = allocator;
     editor.command_line_is_open = false;
-    editor.drawer_window_is_open = false;
     editor.command_line_buffer = try internal.allocator.create(Buffer);
     editor.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
 
