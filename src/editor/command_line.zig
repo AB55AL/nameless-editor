@@ -20,7 +20,6 @@ const editor = globals.editor;
 const internal = globals.internal;
 
 var command_function_lut: std.StringHashMap(FuncType) = undefined;
-// pub var previous_buffer: *Buffer = undefined;
 
 const ParseError = error{
     DoubleQuoteInvalidPosition,
@@ -65,23 +64,21 @@ pub fn open() void {
     editor.command_line_is_open = true;
     if (editor.focused_buffer) |fb| editor.previous_buffer_index = fb.index;
     editor.focused_buffer = editor.command_line_buffer;
-    // buffer_ui.makeBufferVisable(editor.command_line_buffer);
+    ui.focused_buffer_window = &ui.command_line_buffer_window;
 }
 
 pub fn close() void {
     editor.command_line_is_open = false;
     editor.focused_buffer = buffer_ops.getBufferI(editor.previous_buffer_index);
+    if (ui.visiable_buffers[0] == null)
+        ui.focused_buffer_window = null
+    else
+        ui.focused_buffer_window = &(ui.visiable_buffers[0].?);
 
     editor.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
     editor.command_line_buffer.moveAbsolute(1, 1);
-
-    // for (ui.visiable_buffers) |buffer, i| {
-    //     if (buffer == editor.command_line_buffer) {
-    //         ui.visiable_buffers[i] = null;
-    //     }
-    // }
 }
 
 pub fn run() !void {

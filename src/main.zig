@@ -120,15 +120,12 @@ fn bulidUI(allocator: std.mem.Allocator) !void {
 
         globals.ui.state.max_id = 200;
         if (globals.editor.command_line_is_open) {
-            var buffer_window = buffer_ui.BufferWindow{
-                .buffer = globals.editor.command_line_buffer,
-                .first_visiable_row = 1,
-            };
+            var buffer_window = &globals.ui.command_line_buffer_window;
             var dim = math.Vec2(f32){
                 .x = @intToFloat(f32, globals.ui.state.window_width),
                 .y = globals.ui.state.font.newLineOffset() * @intToFloat(f32, buffer_window.buffer.lines.newlines_count),
             };
-            try buffer_ui.bufferWidget(allocator, &buffer_window, dim);
+            try buffer_ui.bufferWidget(allocator, buffer_window, dim);
         }
 
         ui_lib.containerEnd();

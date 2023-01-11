@@ -114,6 +114,9 @@ pub fn characterInput(utf8_seq: []const u8) void {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
 
+    var focused_buffer_window = core.ui.focused_buffer_window orelse return;
+    focused_buffer_window.setWindowCursorToBuffer();
+
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
     _ = log_file.pwrite(insert, end) catch |err| print("err={}", .{err});
@@ -148,6 +151,7 @@ fn setDefaultMappnigs() void {
 
     map(f(.none, .enter), enterKey);
     map(f(.none, .f1), toggleCommandLine);
+    map(f(.none, .f2), cycleWindows);
 }
 
 fn logKey(key: Key) void {
@@ -175,11 +179,18 @@ fn paste() void {
     };
 }
 
+fn cycleWindows() void {
+    core.nextBufferWindow();
+}
+
 fn deleteBackward() void {
     var fb = core.editor.focused_buffer orelse return;
     fb.deleteBeforeCursor(1) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
+
+    var focused_buffer_window = core.ui.focused_buffer_window orelse return;
+    focused_buffer_window.setWindowCursorToBuffer();
 }
 
 fn deleteForward() void {
@@ -189,20 +200,20 @@ fn deleteForward() void {
     };
 }
 fn moveRight() void {
-    var fb = core.editor.focused_buffer orelse return;
-    fb.moveRelativeColumn(1, false);
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.moveCursorRelativeColumn(1, false);
 }
 fn moveLeft() void {
-    var fb = core.editor.focused_buffer orelse return;
-    fb.moveRelativeColumn(-1, false);
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.moveCursorRelativeColumn(-1, false);
 }
 fn moveUp() void {
-    var fb = core.editor.focused_buffer orelse return;
-    fb.moveRelativeRow(-1);
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.moveCursorRelativeRow(-1);
 }
 fn moveDown() void {
-    var fb = core.editor.focused_buffer orelse return;
-    fb.moveRelativeRow(1);
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.moveCursorRelativeRow(1);
 }
 
 fn toggleCommandLine() void {
@@ -222,8 +233,5 @@ fn enterKey() void {
 }
 
 fn insertNewLineAtCursor() void {
-    var fb = core.editor.focused_buffer orelse return;
-    fb.insertBeforeCursor("\n") catch |err| {
-        print("input_layer.insertNewLineAtCursor()\n\t{}\n", .{err});
-    };
+    characterInput("\n");
 }

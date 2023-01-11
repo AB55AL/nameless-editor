@@ -3,6 +3,7 @@ const print = std.debug.print;
 
 const ui_lib = @import("ui_lib.zig");
 const ui = @import("../globals.zig").ui;
+const editor = @import("../globals.zig").editor;
 const Buffer = @import("../editor/buffer.zig");
 const math = @import("math.zig");
 const shapes2d = @import("shape2d.zig");
@@ -11,6 +12,8 @@ const utils = @import("../utils.zig");
 pub const BufferWindow = struct {
     buffer: *Buffer,
     first_visiable_row: u64,
+    v_cursor_row: u64 = 1,
+    v_cursor_col: u64 = 1,
 
     pub fn absoluteBufferIndexFromRelative(buffer_win: *BufferWindow, relative: u64) u64 {
         if (buffer_win.first_visiable_row == 1) return relative;
@@ -40,7 +43,36 @@ pub const BufferWindow = struct {
         else
             buffer_win.first_visiable_row -= offset;
     }
+
+    pub fn moveCursorRelativeColumn(buffer_window: *BufferWindow, col_offset: i64, stop_before_newline: bool) void {
+        buffer_window.buffer.moveRelativeColumn(col_offset, stop_before_newline);
+        buffer_window.setWindowCursorToBuffer();
+    }
+
+    pub fn moveCursorRelativeRow(buffer_window: *BufferWindow, row_offset: i64) void {
+        buffer_window.buffer.moveRelativeRow(row_offset);
+        buffer_window.setWindowCursorToBuffer();
+    }
+
+    pub fn vCursorIndex(buffer_win: *BufferWindow) u64 {
+        const row = buffer_win.v_cursor_row + (buffer_win.first_visiable_row - 1);
+        return buffer_win.buffer.getIndex(row, buffer_win.v_cursor_col);
+    }
+
+    pub fn setWindowCursorToBuffer(buffer_win: *BufferWindow) void {
+        const rc = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index);
+        buffer_win.v_cursor_row = rc.row - buffer_win.first_visiable_row + 1;
+        buffer_win.v_cursor_col = rc.col;
+    }
 };
+
+pub fn nextBufferWindow() void {
+    if (&(ui.visiable_buffers[0] orelse return) == ui.focused_buffer_window) {
+        ui.focused_buffer_window = &(ui.visiable_buffers[1] orelse return);
+    } else {
+        ui.focused_buffer_window = &(ui.visiable_buffers[0] orelse return);
+    }
+}
 
 pub fn makeBufferVisable(buffer: *Buffer) void {
     for (ui.visiable_buffers) |b, i| {
@@ -49,6 +81,7 @@ pub fn makeBufferVisable(buffer: *Buffer) void {
                 .buffer = buffer,
                 .first_visiable_row = 1,
             };
+            ui.focused_buffer_window = &(ui.visiable_buffers[i].?);
             break;
         }
     }
@@ -78,6 +111,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 }
 
 pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, dim: math.Vec2(f32)) !void {
+    const color: u24 = if (ui.focused_buffer_window == buffer_window) 0x272822 else 0;
     var buffer = buffer_window.buffer;
 
     const id = ui_lib.newId();
@@ -90,7 +124,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         .string = null,
         .cursor_index = 0,
         .features_flags = &.{ .clickable, .draggable, .text_cursor, .clip, .render_background },
-        .bg_color = 0x272822,
+        .bg_color = color,
     });
 
     var widget = ui.state.focused_widget.?;
@@ -108,6 +142,13 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
     last_row = std.math.min(buffer.lines.newlines_count, first_row + max_lines);
 
     if (ui.state.pass == .input_and_render) {
+        if (action.full_click) {
+            ui.focused_buffer_window = buffer_window;
+            buffer_window.buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(buffer_window.vCursorIndex());
+        } else if (ui.focused_buffer_window == buffer_window) {
+            buffer_window.buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(buffer_window.vCursorIndex());
+        }
+
         ui_lib.capDragValuesToRect(widget);
 
         {
@@ -135,7 +176,8 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
 
         var buffer_iter = buffer.lineIterator(first_row, last_row);
         var glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
-        var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.relativeBufferIndexFromAbsolute(buffer.cursor_index));
+
+        var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.vCursorIndex());
 
         var x: f32 = widget.rect.x;
         var y: f32 = widget.rect.y;
@@ -146,7 +188,13 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
             if (glyph_location_iter.findGlyph(string)) |coords| {
                 if (action.half_click or action.string_selection_range != null) {
                     cursor_coords = coords.location;
-                    if (coords.index) |i| buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(i);
+                    if (coords.index) |i| {
+                        const abs_index = buffer_window.absoluteBufferIndexFromRelative(i);
+                        buffer.cursor_index = abs_index;
+                        const rc = buffer.getRowAndCol(abs_index);
+                        buffer_window.v_cursor_row = rc.row;
+                        buffer_window.v_cursor_col = rc.col;
+                    }
                 }
             }
 

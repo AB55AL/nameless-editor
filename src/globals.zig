@@ -28,9 +28,14 @@ pub const editor = struct {
 
 pub const ui = struct {
     pub var state: State = undefined;
-    pub var visiable_buffers: [4]?buffer_ui.BufferWindow = .{ null, null, null, null };
+    // TODO: Find a better way of presenting visiable_buffers using panels
+    pub var visiable_buffers: [2]?buffer_ui.BufferWindow = .{ null, null };
+    pub var focused_buffer_window: ?*buffer_ui.BufferWindow = null;
+    pub var command_line_buffer_window: buffer_ui.BufferWindow = undefined;
     var notify_array: [100]notify.Notify = undefined;
     pub var notifications = utils.FixedArray(notify.Notify).init(&notify_array);
+
+    pub var visiable_buffers_tree: ?*buffer_ui.BufferWindow = null;
 };
 
 pub const internal = struct {
@@ -43,6 +48,11 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
     editor.command_line_is_open = false;
     editor.command_line_buffer = try internal.allocator.create(Buffer);
     editor.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
+
+    ui.command_line_buffer_window = buffer_ui.BufferWindow{
+        .buffer = editor.command_line_buffer,
+        .first_visiable_row = 1,
+    };
 
     ui.state = State{
         // .font = try shape2d.Font.init(allocator, "assets/Fira Code Light Nerd Font Complete Mono.otf", 24),
