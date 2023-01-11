@@ -65,18 +65,10 @@ pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_heigh
 
 pub fn deinitGlobals() void {
     if (editor.first_buffer) |first_buffer| {
-        var buffer = first_buffer;
-        while (buffer.next_buffer) |nb| {
-            switch (buffer.state) {
-                .valid => buffer.deinitAndDestroy(internal.allocator),
-                .invalid => internal.allocator.destroy(buffer),
-            }
-            buffer = nb;
-        } else {
-            switch (buffer.state) {
-                .valid => buffer.deinitAndDestroy(internal.allocator),
-                .invalid => internal.allocator.destroy(buffer),
-            }
+        var buffer: ?*Buffer = first_buffer;
+        while (buffer) |b| {
+            buffer = b.next_buffer;
+            b.deinit();
         }
     }
 

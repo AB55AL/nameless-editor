@@ -88,6 +88,14 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     return buffer;
 }
 
+/// Deinits the buffer in the proper way using deinitAndDestroy() or deinitNoDestroy()
+pub fn deinit(buffer: *Buffer) void {
+    switch (buffer.state) {
+        .valid => buffer.deinitAndDestroy(internal.allocator),
+        .invalid => internal.allocator.destroy(buffer),
+    }
+}
+
 /// Deinits the members of the buffer but does not destroy the buffer.
 /// So pointers to this buffer are all valid through out the life time of the
 /// program.
