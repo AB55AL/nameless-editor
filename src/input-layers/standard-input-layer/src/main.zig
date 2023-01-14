@@ -141,6 +141,10 @@ fn setDefaultMappnigs() void {
     const a = input.asciiKey;
 
     map(a(.control, .v), paste);
+
+    map(a(.control, .d), scrollDown);
+    map(a(.control, .u), scrollUp);
+
     map(f(.none, .backspace), deleteBackward);
     map(f(.none, .delete), deleteForward);
 
@@ -177,6 +181,16 @@ fn paste() void {
     fb.insertBeforeCursor(clipboard) catch |err| {
         print("input_layer.paste()\n\t{}\n", .{err});
     };
+}
+
+fn scrollDown() void {
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.scrollDown(1);
+}
+
+fn scrollUp() void {
+    var fb = core.ui.focused_buffer_window orelse return;
+    fb.scrollUp(1);
 }
 
 fn cycleWindows() void {
