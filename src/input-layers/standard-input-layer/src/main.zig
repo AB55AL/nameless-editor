@@ -116,6 +116,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
 
     var focused_buffer_window = core.ui.focused_buffer_window orelse return;
     focused_buffer_window.setWindowCursorToBuffer();
+    focused_buffer_window.buffer.resetSelection();
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
@@ -215,19 +216,19 @@ fn deleteForward() void {
 }
 fn moveRight() void {
     var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeColumn(1, false);
+    fb.moveCursorRelativeColumn(1, false, true);
 }
 fn moveLeft() void {
     var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeColumn(-1, false);
+    fb.moveCursorRelativeColumn(-1, false, true);
 }
 fn moveUp() void {
     var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeRow(-1);
+    fb.moveCursorRelativeRow(-1, true);
 }
 fn moveDown() void {
     var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeRow(1);
+    fb.moveCursorRelativeRow(1, true);
 }
 
 fn toggleCommandLine() void {

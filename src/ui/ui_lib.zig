@@ -554,8 +554,12 @@ pub fn capDragValuesToRect(widget: *Widget) void {
 pub fn highlightText(widget: *Widget, action: *Action, start_glyph: GlyphCoords, end_glyph: GlyphCoords) !void {
     var line_height = ui.state.font.newLineOffset();
 
-    if (start_glyph.index != null and end_glyph.index != null and start_glyph.index != end_glyph.index)
-        action.string_selection_range = .{ .start = start_glyph.index.?, .end = end_glyph.index.? };
+    if (start_glyph.index != null and end_glyph.index != null and start_glyph.index != end_glyph.index) {
+        action.string_selection_range = .{
+            .start = std.math.min(start_glyph.index.?, end_glyph.index.?),
+            .end = std.math.max(start_glyph.index.?, end_glyph.index.?),
+        };
+    }
 
     if (!start_glyph.location.eql(end_glyph.location)) {
         var start_point: math.Vec2(f32) = .{ .x = 0, .y = 0 }; // the point closest to 0,0
@@ -869,7 +873,7 @@ pub const LocateGlyphCoordsByIndexType = struct {
     previous_strings_len: u64 = 0,
     found: bool = false,
 
-    pub fn findCoords(self: *LocateGlyphCoordsByIndexType, string: []const u8) ?shape2d.Rect {
+    pub fn findCoords(self: *LocateGlyphCoordsByIndexType, string: []const u8) ?GlyphCoords {
         if (self.found) return null;
         defer self.previous_strings_len += string.len;
 
@@ -883,12 +887,12 @@ pub const LocateGlyphCoordsByIndexType = struct {
             var g_advance = @intToFloat(f32, g.advance);
             if (i + self.previous_strings_len == self.index) {
                 self.found = true;
-                return .{
+                return .{ .index = i + self.previous_strings_len, .location = .{
                     .x = x,
                     .y = y,
                     .w = g_advance,
                     .h = ui.state.font.newLineOffset(),
-                };
+                } };
             } else {
                 x += g_advance;
 

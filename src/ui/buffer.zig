@@ -19,6 +19,7 @@ pub const BufferWindow = struct {
         if (buffer_win.first_visiable_row == 1) return relative;
 
         const offset: u64 = buffer_win.buffer.indexOfFirstByteAtRow(buffer_win.first_visiable_row);
+        utils.assert(relative + offset <= buffer_win.buffer.lines.size, "You may have passed an absolute index into this function");
         return relative + offset;
     }
 
@@ -44,14 +45,16 @@ pub const BufferWindow = struct {
             buffer_win.first_visiable_row -= offset;
     }
 
-    pub fn moveCursorRelativeColumn(buffer_window: *BufferWindow, col_offset: i64, stop_before_newline: bool) void {
+    pub fn moveCursorRelativeColumn(buffer_window: *BufferWindow, col_offset: i64, stop_before_newline: bool, reset_selection: bool) void {
         buffer_window.buffer.moveRelativeColumn(col_offset, stop_before_newline);
         buffer_window.setWindowCursorToBuffer();
+        if (reset_selection) buffer_window.buffer.resetSelection();
     }
 
-    pub fn moveCursorRelativeRow(buffer_window: *BufferWindow, row_offset: i64) void {
+    pub fn moveCursorRelativeRow(buffer_window: *BufferWindow, row_offset: i64, reset_selection: bool) void {
         buffer_window.buffer.moveRelativeRow(row_offset);
         buffer_window.setWindowCursorToBuffer();
+        if (reset_selection) buffer_window.buffer.resetSelection();
     }
 
     pub fn vCursorIndex(buffer_win: *BufferWindow) u64 {
@@ -63,6 +66,7 @@ pub const BufferWindow = struct {
         const rc = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index);
         buffer_win.cursor_row = rc.row;
         buffer_win.cursor_col = rc.col;
+        buffer_win.buffer.resetSelection();
     }
 };
 
@@ -136,7 +140,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         var cursor_row = buffer_window.cursor_row;
         if (cursor_row > last_row - 1 or cursor_row < first_row) {
             buffer_window.cursor_row = buffer_window.first_visiable_row;
-            buffer_window.buffer.cursor_index = buffer_window.vCursorIndex();
+            buffer.cursor_index = buffer_window.vCursorIndex();
         }
 
         if (action.full_click) {
@@ -148,7 +152,9 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
 
         ui_lib.capDragValuesToRect(widget);
 
-        {
+        // FIXME: When keyboard input is received the drag_start and drag_end should be reset
+        // so that the highlight gets removed
+        if (!widget.drag_start.eql(widget.drag_end)) {
             // TODO: Merge this into the second while loop below.
             // The problem here is that the highlight of the text will draw over the text when done during the second loop
             var buffer_iter = buffer.lineIterator(first_row, last_row);
@@ -161,14 +167,33 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
                 if (end_glyph == null)
                     end_glyph = end_glyph_location_iter.findGlyph(string);
 
-                if (widget.drag_start.eql(widget.drag_end))
-                    start_glyph = end_glyph;
-
                 if (start_glyph == null)
                     start_glyph = start_glyph_location_iter.findGlyph(string);
             }
-            if (end_glyph != null)
+            if (end_glyph != null and start_glyph != null) {
                 try ui_lib.highlightText(widget, &action, start_glyph.?, end_glyph.?);
+                buffer.setSelection(start_glyph.?.index.?, end_glyph.?.index.?);
+            }
+        } else if (buffer.selection_start != buffer.cursor_index) {
+            var buffer_iter = buffer.lineIterator(first_row, last_row);
+            var start_glyph: ?ui_lib.GlyphCoords = null;
+            var end_glyph: ?ui_lib.GlyphCoords = null;
+
+            var end_glyph_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer.cursor_index);
+            var start_glyph_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer.selection_start);
+            while (buffer_iter.next()) |string| {
+                if (end_glyph != null and start_glyph != null) break;
+
+                if (end_glyph == null)
+                    end_glyph = end_glyph_location_iter.findCoords(string);
+
+                if (start_glyph == null)
+                    start_glyph = start_glyph_location_iter.findCoords(string);
+            }
+
+            if (end_glyph != null and start_glyph != null) {
+                try ui_lib.highlightText(widget, &action, start_glyph.?, end_glyph.?);
+            }
         }
 
         var buffer_iter = buffer.lineIterator(first_row, last_row);
@@ -186,15 +211,15 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
                 if (glyph_location_iter.findGlyph(string)) |coords| {
                     cursor_coords = coords.location;
                     if (coords.index) |i| {
-                        const abs_index = buffer_window.absoluteBufferIndexFromRelative(i);
-                        buffer.cursor_index = abs_index;
+                        buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(i);
                         buffer_window.setWindowCursorToBuffer();
+                        if (action.string_selection_range) |ssr| buffer.setSelection(ssr.start, ssr.end);
                     }
                 }
             }
 
             if (index_coord_location_iter.findCoords(string)) |coords| {
-                cursor_coords = coords;
+                cursor_coords = coords.location;
             }
 
             try ui.state.draw_list.pushRect(cursor_coords.x, cursor_coords.y, cursor_coords.w, cursor_coords.h, 0xFF00AA, null);
