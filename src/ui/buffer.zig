@@ -12,8 +12,8 @@ const utils = @import("../utils.zig");
 pub const BufferWindow = struct {
     buffer: *Buffer,
     first_visiable_row: u64,
-    v_cursor_row: u64 = 1,
-    v_cursor_col: u64 = 1,
+    cursor_row: u64 = 1,
+    cursor_col: u64 = 1,
 
     pub fn absoluteBufferIndexFromRelative(buffer_win: *BufferWindow, relative: u64) u64 {
         if (buffer_win.first_visiable_row == 1) return relative;
@@ -38,7 +38,7 @@ pub const BufferWindow = struct {
     }
 
     pub fn scrollUp(buffer_win: *BufferWindow, offset: u64) void {
-        if (buffer_win.first_visiable_row < offset)
+        if (buffer_win.first_visiable_row <= offset)
             buffer_win.first_visiable_row = 1
         else
             buffer_win.first_visiable_row -= offset;
@@ -55,14 +55,14 @@ pub const BufferWindow = struct {
     }
 
     pub fn vCursorIndex(buffer_win: *BufferWindow) u64 {
-        const row = buffer_win.v_cursor_row + (buffer_win.first_visiable_row - 1);
-        return buffer_win.buffer.getIndex(row, buffer_win.v_cursor_col);
+        var row = buffer_win.cursor_row;
+        return buffer_win.buffer.getIndex(row, buffer_win.cursor_col);
     }
 
     pub fn setWindowCursorToBuffer(buffer_win: *BufferWindow) void {
         const rc = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index);
-        buffer_win.v_cursor_row = rc.row - buffer_win.first_visiable_row + 1;
-        buffer_win.v_cursor_col = rc.col;
+        buffer_win.cursor_row = rc.row;
+        buffer_win.cursor_col = rc.col;
     }
 };
 
@@ -129,24 +129,21 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
 
     var widget = ui.state.focused_widget.?;
     const max_lines = @floatToInt(u32, std.math.ceil(widget.rect.h / ui.state.font.newLineOffset()));
-    const cursor_row = @intCast(u32, buffer.getRowAndCol(buffer.cursor_index).row);
     var first_row = buffer_window.first_visiable_row;
     var last_row = std.math.min(buffer.lines.newlines_count, first_row + max_lines - 1);
 
-    if (cursor_row > last_row - 1) {
-        buffer_window.scrollDown(cursor_row - last_row);
-    } else if (cursor_row < first_row) {
-        buffer_window.scrollUp(first_row - cursor_row);
-    }
-    first_row = buffer_window.first_visiable_row;
-    last_row = std.math.min(buffer.lines.newlines_count, first_row + max_lines);
-
     if (ui.state.pass == .input_and_render) {
+        var cursor_row = buffer_window.cursor_row;
+        if (cursor_row > last_row - 1 or cursor_row < first_row) {
+            buffer_window.cursor_row = buffer_window.first_visiable_row;
+            buffer_window.buffer.cursor_index = buffer_window.vCursorIndex();
+        }
+
         if (action.full_click) {
             ui.focused_buffer_window = buffer_window;
-            buffer_window.buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(buffer_window.vCursorIndex());
+            buffer_window.buffer.cursor_index = buffer_window.vCursorIndex();
         } else if (ui.focused_buffer_window == buffer_window) {
-            buffer_window.buffer.cursor_index = buffer_window.absoluteBufferIndexFromRelative(buffer_window.vCursorIndex());
+            buffer_window.buffer.cursor_index = buffer_window.vCursorIndex();
         }
 
         ui_lib.capDragValuesToRect(widget);
@@ -177,7 +174,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         var buffer_iter = buffer.lineIterator(first_row, last_row);
         var glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
 
-        var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.vCursorIndex());
+        var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.relativeBufferIndexFromAbsolute(buffer_window.vCursorIndex()));
 
         var x: f32 = widget.rect.x;
         var y: f32 = widget.rect.y;
@@ -185,15 +182,13 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         while (buffer_iter.next()) |string| {
             var cursor_coords = shapes2d.Rect{ .x = 0, .y = 0, .w = 0, .h = 0 };
 
-            if (glyph_location_iter.findGlyph(string)) |coords| {
-                if (action.half_click or action.string_selection_range != null) {
+            if (action.half_click or action.string_selection_range != null) {
+                if (glyph_location_iter.findGlyph(string)) |coords| {
                     cursor_coords = coords.location;
                     if (coords.index) |i| {
                         const abs_index = buffer_window.absoluteBufferIndexFromRelative(i);
                         buffer.cursor_index = abs_index;
-                        const rc = buffer.getRowAndCol(abs_index);
-                        buffer_window.v_cursor_row = rc.row;
-                        buffer_window.v_cursor_col = rc.col;
+                        buffer_window.setWindowCursorToBuffer();
                     }
                 }
             }
