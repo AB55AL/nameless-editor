@@ -20,6 +20,11 @@ const internal = globals.internal;
 
 const Buffer = @This();
 
+pub const Range = struct {
+    start: u64,
+    end: u64,
+};
+
 pub const State = enum {
     invalid,
     valid,
@@ -48,6 +53,9 @@ pub const MetaData = struct {
 
 metadata: MetaData,
 index: u32,
+/// Represents the start index of the selection.
+selection_start: u64 = 0,
+/// The cursor index in the buffer. It also represents the end index of the selection.
 cursor_index: u64,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
@@ -488,3 +496,19 @@ pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor end
 ////////////////////////////////////////////////////////////////////////////////
+
+pub fn setSelection(buffer: *Buffer, const_start: u64, const_end: u64) void {
+    const end = std.math.min(const_end, buffer.lines.size);
+    buffer.selection_start = const_start;
+    buffer.cursor_index = end;
+}
+
+pub fn getSelection(buffer: *Buffer) Range {
+    const start = std.math.min(buffer.selection_start, buffer.cursor_index);
+    const end = std.math.max(buffer.selection_start, buffer.cursor_index);
+    return .{ .start = start, .end = end };
+}
+
+pub fn resetSelection(buffer: *Buffer) void {
+    buffer.selection_start = buffer.cursor_index;
+}
