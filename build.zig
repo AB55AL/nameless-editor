@@ -69,7 +69,8 @@ pub fn buildEditor(bob: *Builder, comptime input_layer_root_path: []const u8, co
 }
 
 pub fn build(bob: *Builder) void {
-    const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer/src/main.zig";
+    // const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer/src/main.zig";
+    const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/vim-like/src/main.zig";
     user_config_loaded = false;
     buildEditor(bob, standard_input_layer_root_path, "");
 }
