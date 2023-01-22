@@ -157,7 +157,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
         if (!widget.drag_start.eql(widget.drag_end)) {
             // TODO: Merge this into the second while loop below.
             // The problem here is that the highlight of the text will draw over the text when done during the second loop
-            var buffer_iter = buffer.lineIterator(first_row, last_row);
+            var buffer_iter = buffer.LineIterator(first_row, last_row);
             var start_glyph: ?ui_lib.GlyphCoords = null;
             var end_glyph: ?ui_lib.GlyphCoords = null;
 
@@ -175,7 +175,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
                 buffer.setSelection(start_glyph.?.index.?, end_glyph.?.index.?);
             }
         } else if (buffer.selection_start != buffer.cursor_index) {
-            var buffer_iter = buffer.lineIterator(first_row, last_row);
+            var buffer_iter = buffer.LineIterator(first_row, last_row);
             var start_glyph: ?ui_lib.GlyphCoords = null;
             var end_glyph: ?ui_lib.GlyphCoords = null;
 
@@ -196,7 +196,7 @@ pub fn bufferWidget(allocator: std.mem.Allocator, buffer_window: *BufferWindow, 
             }
         }
 
-        var buffer_iter = buffer.lineIterator(first_row, last_row);
+        var buffer_iter = buffer.LineIterator(first_row, last_row);
         var glyph_location_iter = ui_lib.locateGlyphCoordsIterator(widget.rect, widget.drag_end);
 
         var index_coord_location_iter = ui_lib.locateGlyphCoordsByIndexIterator(widget.rect, buffer_window.relativeBufferIndexFromAbsolute(buffer_window.vCursorIndex()));

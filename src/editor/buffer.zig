@@ -379,7 +379,7 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
     return .{ .row = row, .col = col };
 }
 
-pub fn lineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
+pub fn LineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
     const start = buffer.indexOfFirstByteAtRow(first_line);
     const end = buffer.indexOfFirstByteAtRow(last_line + 1);
     return .{
@@ -389,7 +389,7 @@ pub fn lineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIter
     };
 }
 
-pub fn bufferIterator(buffer: *Buffer, start: u64, end: u64) BufferIteratorType {
+pub fn BufferIterator(buffer: *Buffer, start: u64, end: u64) BufferIteratorType {
     return .{
         .pt = &buffer.lines,
         .start = start,
