@@ -821,7 +821,7 @@ pub const LocateGlyphCoordsIterator = struct {
                     .y = y,
                 };
 
-                if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset())) {
+                if (utils.inRange(@intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset())) {
                     self.found = true;
                     return .{
                         .index = absolute_index,
@@ -941,7 +941,7 @@ pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2
                 .y = y,
             };
 
-            if (utils.inRange(f32, @intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset()) or
+            if (utils.inRange(@intToFloat(f32, pos.y), y, y + ui.state.font.newLineOffset()) or
                 i == string.len - 1)
             {
                 return .{

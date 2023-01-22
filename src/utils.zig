@@ -135,7 +135,7 @@ pub fn SplitAfterIterator(comptime T: type) type {
 
 /// Takes three numbers and returns true if the first number is in the range
 /// of the second and third numbers
-pub fn inRange(comptime T: type, a: T, b: T, c: T) bool {
+pub fn inRange(a: anytype, b: @TypeOf(a), c: @TypeOf(a)) bool {
     return a >= b and a <= c;
 }
 
