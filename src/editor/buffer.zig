@@ -419,6 +419,63 @@ pub const BufferIteratorType = struct {
     }
 };
 
+pub fn ReverseLineIterator(buffer: *Buffer, first_line: u64, last_line: u64) ReverseBufferIteratorType {
+    const start = buffer.indexOfFirstByteAtRow(first_line);
+    const end = buffer.indexOfFirstByteAtRow(last_line + 1);
+    return .{
+        .pt = &buffer.lines,
+        .start = start,
+        .end = std.math.min(buffer.lines.size - 1, end),
+    };
+}
+
+pub fn ReverseBufferIterator(buffer: *Buffer, start: u64, end: u64) ReverseBufferIteratorType {
+    return .{
+        .pt = &buffer.lines,
+        .start = start,
+        .end = std.math.min(buffer.lines.size - 1, end),
+    };
+}
+
+pub const ReverseBufferIteratorType = struct {
+    const Self = @This();
+
+    pt: *PieceTable,
+    start: u64,
+    end: u64,
+    done: bool = false,
+
+    pub fn next(self: *Self) ?[]const u8 {
+        if (self.done) return null;
+        if (self.end <= self.start or self.end == 0) self.done = true;
+
+        const piece_info = self.pt.findNode(self.end);
+        const content = piece_info.piece.content(self.pt);
+
+        const node_start_abs_index = self.end - content[0..piece_info.relative_index].len;
+        const end = piece_info.relative_index + 1;
+        const start = if (utils.inRange(node_start_abs_index, self.start, self.end))
+            0
+        else
+            self.start - node_start_abs_index;
+
+        if (self.start == self.end) {
+            self.done = true;
+            return content[end - 1 .. end];
+        } else {
+            var string = content[start..end];
+
+            const res = @subWithOverflow(self.end, string.len);
+            if (res.@"1" == 1)
+                self.end = 0
+            else
+                self.end = res.@"0";
+
+            return string;
+        }
+    }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
