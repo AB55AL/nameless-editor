@@ -3,6 +3,8 @@ const print = std.debug.print;
 const unicode = std.unicode;
 const assert = std.debug.assert;
 
+const utils = @import("utils.zig");
+
 pub const ByteType = enum {
     start_byte,
     continue_byte,
@@ -103,3 +105,46 @@ pub fn byteType(byte: u8) ByteType {
         else => return .continue_byte,
     };
 }
+
+pub fn ReverseUtf8View(string: []const u8) ReverseUtf8ViewType {
+    return .{
+        .string = string,
+        .index = if (string.len == 0) 0 else string.len - 1,
+    };
+}
+
+pub const ReverseUtf8ViewType = struct {
+    const Self = @This();
+    string: []const u8,
+    index: u64,
+    done: bool = false,
+
+    pub fn prevSlice(self: *Self) ?[]const u8 {
+        if (self.done) return null;
+        var i: u64 = self.index;
+        utils.assert(byteType(self.string[i]) == .continue_byte or self.string[i] <= 256, "Must start at a continue byte or an ASCII char for reverse iteration");
+
+        var cont_bytes: u8 = 0;
+        while (i >= 0) {
+            const byte = self.string[i];
+            switch (byteType(byte)) {
+                .start_byte => {
+                    const index = self.index + 1;
+                    if (i == 0) self.done = true else self.index = i - 1;
+                    return self.string[i..index];
+                },
+                .continue_byte => {
+                    cont_bytes += 1;
+                    i -= 1;
+                },
+            }
+        }
+
+        return null;
+    }
+
+    pub fn prevCodePoint(self: *Self) ?u21 {
+        const slice = self.prevSlice() orelse return null;
+        return unicode.utf8Decode(slice) catch unreachable;
+    }
+};
