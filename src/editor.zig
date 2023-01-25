@@ -1,6 +1,7 @@
 pub const Buffer = @import("editor/buffer.zig");
 pub const command_line = @import("editor/command_line.zig");
 pub const input = @import("editor/input.zig");
+pub const common_input_functions = @import("editor/common_input_functions.zig");
 pub usingnamespace @import("editor/buffer_ops.zig");
 pub usingnamespace @import("ui/notify.zig");
 pub usingnamespace @import("ui/buffer.zig");
