@@ -132,26 +132,16 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     if (buffer.cursor_index == 0) return;
 
     var i = buffer.cursor_index;
-    var cont_bytes: u8 = 0;
     var characters: u64 = 0;
 
-    { // Backward traverse the buffer while minding UTF-8
-        while (characters != characters_to_delete) {
-            const byte = buffer.lines.byteAt(i - 1);
-
-            switch (utf8.byteType(byte)) {
-                .start_byte => {
-                    cont_bytes = 0;
-                    characters += 1;
-                    i -= 1;
-                },
-                .continue_byte => {
-                    cont_bytes += 1;
-                    i -= 1;
-                },
-            }
-
-            if (cont_bytes > 3) unreachable;
+    var iter = buffer.ReverseBufferIterator(0, i);
+    while (iter.next()) |string| {
+        if (characters == characters_to_delete) break;
+        var view = utf8.ReverseUtf8View(string);
+        while (view.prevSlice()) |slice| {
+            characters += 1;
+            i -= slice.len;
+            if (characters == characters_to_delete) break;
         }
     }
 
@@ -167,26 +157,16 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
 
 pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     var i = buffer.cursor_index;
-    var cont_bytes: u8 = 0;
     var characters: u64 = 0;
 
-    { // Forward traverse the buffer while minding UTF-8
-        while (characters != characters_to_delete and i < buffer.lines.size) {
-            const byte = buffer.lines.byteAt(i);
-
-            switch (utf8.byteType(byte)) {
-                .start_byte => {
-                    cont_bytes = 0;
-                    characters += 1;
-                    i += unicode.utf8ByteSequenceLength(byte) catch unreachable;
-                },
-                .continue_byte => {
-                    cont_bytes += 1;
-                    i += 1;
-                },
-            }
-
-            if (cont_bytes > 3) unreachable;
+    var iter = buffer.BufferIterator(i, buffer.lines.size);
+    while (iter.next()) |string| {
+        if (characters == characters_to_delete) break;
+        var view = unicode.Utf8View.initUnchecked(string).iterator();
+        while (view.nextCodepointSlice()) |slice| {
+            characters += 1;
+            i += slice.len;
+            if (characters == characters_to_delete) break;
         }
     }
 
