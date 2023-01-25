@@ -146,3 +146,8 @@ pub fn abs(val: f32) f32 {
 pub fn fileLocation(comptime location: std.builtin.SourceLocation) []const u8 {
     return location.file ++ " | " ++ location.fn_name ++ ": ";
 }
+
+pub fn atLeastOneIsEqual(comptime T: type, slice: []const T, value: T) bool {
+    for (slice) |v| if (v == value) return true;
+    return false;
+}
