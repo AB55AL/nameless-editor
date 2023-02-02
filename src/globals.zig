@@ -32,8 +32,7 @@ pub const ui = struct {
     pub var visiable_buffers: [2]?buffer_ui.BufferWindow = .{ null, null };
     pub var focused_buffer_window: ?*buffer_ui.BufferWindow = null;
     pub var command_line_buffer_window: buffer_ui.BufferWindow = undefined;
-    var notify_array: [100]notify.Notify = undefined;
-    pub var notifications = utils.FixedArray(notify.Notify).init(&notify_array);
+    pub var notifications = std.BoundedArray(notify.Notify, 100).init(0) catch unreachable;
 
     pub var visiable_buffers_tree: ?*buffer_ui.BufferWindow = null;
 };

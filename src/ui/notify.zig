@@ -15,7 +15,7 @@ pub const Notify = struct {
 };
 
 pub fn notify(title: []const u8, message: []const u8, time: f32) void {
-    if (ui.notifications.full()) return;
+    if (ui.notifications.len == ui.notifications.capacity()) return;
 
     ui.notifications.append(.{
         .title = title,

@@ -75,7 +75,7 @@ pub fn main() !void {
                 while (i >= 0) : (i -= 1) {
                     var n = slice[@intCast(u64, i)];
                     if (n.remaining_time <= 0)
-                        _ = globals.ui.notifications.remove(@intCast(u64, i));
+                        _ = globals.ui.notifications.orderedRemove(@intCast(u64, i));
                 }
             }
         }
@@ -130,7 +130,7 @@ fn bulidUI(allocator: std.mem.Allocator) !void {
 
         ui_lib.containerEnd();
 
-        if (!globals.ui.notifications.empty()) {
+        if (globals.ui.notifications.len > 0) {
             globals.ui.state.max_id = 2000;
             try ui_lib.container(allocator, ui_lib.DynamicRow.getLayout(), .{ .x = ww - 500, .y = 0, .w = ww, .h = wh });
             try notify.notifyWidget(allocator);
