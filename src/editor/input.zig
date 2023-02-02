@@ -11,11 +11,12 @@ pub const KeyUnion = union(enum) {
     function_key: FunctionKey,
 };
 pub const Key = struct {
+    pub const MAX_STRING_LEN = 6 + 14; // 6 for modifiers. 14 for function_key maximum length
+
     key: KeyUnion,
     mod: Modifiers = .none,
-
     pub fn toString(key: Key, out: []u8) []u8 {
-        std.debug.assert(out.len >= 6 + 14); // 6 for modifiers. 14 for function_key maximum length
+        std.debug.assert(out.len >= MAX_STRING_LEN); // 6 for modifiers. 14 for function_key maximum length
 
         var size: u16 = 0;
         const mod_str = key.mod.toString();
