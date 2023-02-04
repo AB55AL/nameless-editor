@@ -11,66 +11,29 @@ const glfw = @import("glfw");
 const core = @import("core");
 const editor = core.editor;
 const input = core.input;
+const cif = core.common_input_functions;
 const Key = input.Key;
+
+const vim_like = @import("vim-like.zig");
 
 var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 var allocator: std.mem.Allocator = undefined;
-var ft_mappings: Table = undefined;
+var arena: std.heap.ArenaAllocator = undefined;
+var arena_allocator: std.mem.Allocator = undefined;
+
 var log_file: fs.File = undefined;
-
-const Table = struct {
-    pub const FunctionType = *const fn () void;
-    pub const KeyHashMap = AutoHashMap(Key, FunctionType);
-    table: StringArrayHashMap(*KeyHashMap),
-
-    pub fn init(alloc: std.mem.Allocator) !Table {
-        return .{
-            .table = StringArrayHashMap(*KeyHashMap).init(alloc),
-        };
-    }
-
-    pub fn deinit(t: *Table) void {
-        while (t.table.popOrNull()) |element| {
-            element.value.deinit();
-            t.table.allocator.destroy(element.value);
-        }
-        t.table.deinit();
-    }
-
-    pub fn addFileType(t: *Table, file_type: []const u8) !void {
-        var m = try t.table.allocator.create(KeyHashMap);
-        m.* = KeyHashMap.init(t.table.allocator);
-        try t.table.put(file_type, m);
-    }
-
-    pub fn get(t: *Table, file_type: []const u8, key: Key) ?FunctionType {
-        var ft = t.table.get(file_type);
-        if (ft == null) return null;
-
-        var function = ft.?.get(key);
-        return function;
-    }
-
-    pub fn put(t: *Table, file_type: []const u8, key: Key, function: FunctionType) !void {
-        var table = t.table.get(file_type) orelse blk: {
-            try t.addFileType(file_type);
-            break :blk t.table.get(file_type).?;
-        };
-        try table.put(key, function);
-    }
-
-    pub fn getOrPut(t: *Table, file_type: []const u8, key: Key, function: FunctionType) !FunctionType {
-        return t.get(file_type, key) orelse t.put(file_type, key, function);
-    }
-};
 
 pub fn init() !void {
     gpa = std.heap.GeneralPurposeAllocator(.{}){};
     allocator = gpa.allocator();
-    ft_mappings = try Table.init(allocator);
-    try ft_mappings.addFileType(""); // Global and fallback file_type
-    setDefaultMappnigs();
+    arena = std.heap.ArenaAllocator.init(allocator);
+    arena_allocator = arena.allocator();
 
+    for (vim_like.state.mappings) |*m| {
+        m.* = core.input.MappingSystem.init(arena_allocator);
+        _ = try m.addFileType(""); // Global and fallback file_type
+    }
+    setDefaultMappnigs();
     {
         const data_path = std.os.getenv("XDG_DATA_HOME") orelse return;
         const log_path = std.mem.concat(allocator, u8, &.{ data_path, "/ne" }) catch return;
@@ -89,30 +52,37 @@ pub fn init() !void {
 }
 
 pub fn deinit() void {
-    ft_mappings.deinit();
+    arena.deinit(); // deinit the mappings
+
     log_file.close();
     _ = gpa.deinit();
 }
 
 pub fn keyInput(key: Key) void {
     var file_type = if (core.editor.focused_buffer) |fb| fb.metadata.file_type else "";
-    var k = ft_mappings.get(file_type, key);
-    if (k) |f| {
-        f();
-        logKey(key);
-    } else if (file_type.len > 0) { // fallback
-        if (ft_mappings.get("", key)) |f| {
-            f();
-            logKey(key);
-        }
-    }
+    vim_like.state.keys.append(key) catch {
+        vim_like.state.keys.len = 0;
+        return;
+    }; // TODO: Notify user then clear array
+
+    logKey(key);
+    const functions = vim_like.getModeFunctions(vim_like.state.mode, file_type, vim_like.state.keys.slice());
+    const f = functions.ft_function orelse functions.default_ft_function orelse return;
+    f();
 }
 
 pub fn characterInput(utf8_seq: []const u8) void {
+    if (vim_like.state.mode != .insert) return;
+
     var fb = core.editor.focused_buffer orelse return;
     fb.insertBeforeCursor(utf8_seq) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
+
+    if (core.editor.command_line_is_open and core.editor.command_line_buffer.lines.byteAt(0) == ':') {
+        fb.clear() catch unreachable;
+        return;
+    }
 
     var focused_buffer_window = core.ui.focused_buffer_window orelse return;
     focused_buffer_window.setWindowCursorToBuffer();
@@ -125,24 +95,77 @@ pub fn characterInput(utf8_seq: []const u8) void {
     _ = log_file.pwrite("\n", end + insert.len + utf8_seq.len) catch |err| print("err={}", .{err});
 }
 
-pub fn map(key: Key, function: Table.FunctionType) void {
-    ft_mappings.put("", key, function) catch |err| {
-        print("input_layer.map()\n\t{}\n", .{err});
+pub fn map(mode: vim_like.Mode, keys: []const Key, function: core.input.MappingSystem.FunctionType) void {
+    vim_like.putFunction(mode, "", keys, function, false) catch |err| {
+        print("input_layer.map()\n\t", .{});
+        switch (err) {
+            error.OverridingFunction, error.OverridingPrefix => {
+                print("{} The following keys have not been mapped as they override an existing mapping =>\t", .{err});
+                var out: [Key.MAX_STRING_LEN]u8 = undefined;
+                for (keys) |k| print("{s} ", .{k.toString(&out)});
+                print("\n", .{});
+            },
+
+            else => {
+                print("{}\n", .{err});
+            },
+        }
     };
 }
 
-pub fn fileTypeMap(file_type: []const u8, key: Key, function: Table.FunctionType) void {
-    ft_mappings.put(file_type, key, function) catch |err| {
+pub fn fileTypeMap(mode: vim_like.Mode, file_type: []const u8, key: Key, function: core.input.MappingSystem.FunctionType) void {
+    vim_like.putMapping(mode, file_type, key, function) catch |err| {
         print("input_layer.map()\n\t{}\n", .{err});
     };
 }
 
 fn setDefaultMappnigs() void {
     const f = input.functionKey;
-    const a = input.asciiKey;
-    _ = f;
-    _ = a;
+    map(.normal, &.{f(.none, .escape)}, vim_like.setNormalMode);
+    map(.insert, &.{f(.none, .escape)}, vim_like.setNormalMode);
+    map(.visual, &.{f(.none, .escape)}, vim_like.setNormalMode);
+
+    setDefaultMappnigsNormalMode();
+    setDefaultMappnigsInsertMode();
+    setDefaultMappnigsVisualMode();
 }
+
+fn setDefaultMappnigsNormalMode() void {
+    const f = input.functionKey;
+    const a = input.asciiKey;
+    map(.normal, &.{a(.shift, .semicolon)}, vim_like.openCommandLine);
+
+    map(.normal, &.{a(.none, .i)}, vim_like.setInsertMode);
+    map(.normal, &.{a(.none, .v)}, vim_like.setVisualMode);
+
+    map(.normal, &.{a(.none, .h)}, cif.moveLeft);
+    map(.normal, &.{a(.none, .j)}, cif.moveDown);
+    map(.normal, &.{a(.none, .k)}, cif.moveUp);
+    map(.normal, &.{a(.none, .l)}, cif.moveRight);
+
+    map(.normal, &.{a(.none, .w)}, vim_like.moveForward);
+    map(.normal, &.{a(.none, .b)}, vim_like.moveBackwards);
+
+    map(.normal, &.{f(.none, .f5)}, vim_like.randomInsertions);
+}
+
+fn setDefaultMappnigsInsertMode() void {
+    const f = input.functionKey;
+    const a = input.asciiKey;
+
+    map(.insert, &.{f(.none, .enter)}, vim_like.enterKey);
+    map(.insert, &.{f(.none, .backspace)}, cif.deleteBackward);
+    map(.insert, &.{f(.none, .delete)}, cif.deleteForward);
+
+    map(.insert, &.{f(.none, .right)}, cif.moveRight);
+    map(.insert, &.{f(.none, .left)}, cif.moveLeft);
+    map(.insert, &.{f(.none, .up)}, cif.moveUp);
+    map(.insert, &.{f(.none, .down)}, cif.moveDown);
+
+    map(.insert, &.{a(.control, .v)}, vim_like.paste);
+}
+
+fn setDefaultMappnigsVisualMode() void {}
 
 fn logKey(key: Key) void {
     const end = log_file.getEndPos() catch return;
