@@ -36,39 +36,6 @@ pub const Rect = struct {
     }
 };
 
-pub const Line = struct {
-    start: math.Vec2(f32),
-    end: math.Vec2(f32),
-    thickness: f32,
-    color: u24,
-};
-
-pub const Triangle = struct {
-    p0: math.Vec2(f32),
-    p1: math.Vec2(f32),
-    p2: math.Vec2(f32),
-    color: u24,
-};
-
-pub const Rectangle = struct {
-    dim: Rect,
-    color: u24,
-};
-
-pub const Circle = struct {
-    x: f32,
-    y: f32,
-    radius: f32,
-    color: u24,
-};
-
-pub const Text = struct {
-    x: f32,
-    y: f32,
-    string: []const u8,
-    color: u24,
-};
-
 pub const Atlas = struct {
     texture_id: u32,
     width: u32,
