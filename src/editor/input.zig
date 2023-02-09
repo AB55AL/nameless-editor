@@ -64,7 +64,7 @@ pub const MappingSystem = struct {
     pub const FunctionType = *const fn () void;
     pub const MappingType = union(enum) { function: FunctionType, khm: *KeyHashMap };
     pub const KeyHashMap = AutoHashMapUnmanaged(Key, MappingType);
-    pub const Error = error{ OverridingFunction, OverridingPrefix };
+    pub const Error = error{ OverridingFunction, OverridingPrefix } || std.mem.Allocator.Error;
 
     arena_allocator: std.mem.Allocator,
     ft_mappings: StringHashMapUnmanaged(*KeyHashMap),
@@ -104,7 +104,7 @@ pub const MappingSystem = struct {
         };
     }
 
-    pub fn put(ms: *MappingSystem, file_type: []const u8, keys: []const Key, function: FunctionType, override_mapping: bool) (Error || std.mem.Allocator.Error)!void {
+    pub fn put(ms: *MappingSystem, file_type: []const u8, keys: []const Key, function: FunctionType, override_mapping: bool) Error!void {
         var mappings = try ms.addFileType(file_type);
 
         switch (keys.len) {
@@ -138,7 +138,7 @@ pub const MappingSystem = struct {
         }
     }
 
-    pub fn getOrCreateKeyHashMap(ms: *MappingSystem, key: Key, key_hash_map: *KeyHashMap, override_mapping: bool) (Error || std.mem.Allocator.Error)!*KeyHashMap {
+    pub fn getOrCreateKeyHashMap(ms: *MappingSystem, key: Key, key_hash_map: *KeyHashMap, override_mapping: bool) Error!*KeyHashMap {
         var mapping_value = key_hash_map.get(key);
         if (mapping_value != null) {
             var mv = &(mapping_value.?);
