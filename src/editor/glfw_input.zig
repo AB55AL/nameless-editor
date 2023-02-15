@@ -27,7 +27,7 @@ pub fn keyInputCallback(window: glfw.Window, glfw_key: glfw.Key, scancode: i32, 
     _ = window;
 
     var mod = @intToEnum(input.Modifiers, (mods.toInt(u8) & 0b111));
-    const key_name = (glfw_key.getName(scancode) catch unreachable);
+    const key_name = (glfw_key.getName(scancode));
 
     const key: input.Key = blk: {
         if (key_name) |kn| {

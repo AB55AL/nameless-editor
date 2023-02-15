@@ -85,7 +85,7 @@ pub fn main() !void {
         c.glClear(c.GL_COLOR_BUFFER_BIT);
 
         glfw_window.updateSize(window, device);
-        var pos = window.getCursorPos() catch glfw.Window.CursorPos{ .xpos = 0, .ypos = 0 };
+        var pos = window.getCursorPos();
         globals.ui.state.mousex = @floatCast(f32, pos.xpos);
         globals.ui.state.mousey = @floatCast(f32, pos.ypos);
 
@@ -96,8 +96,8 @@ pub fn main() !void {
         globals.ui.state.draw_list.deinit();
         globals.ui.state.draw_list = DrawList.init(allocator);
 
-        try window.swapBuffers();
-        try glfw.pollEvents();
+        window.swapBuffers();
+        glfw.pollEvents();
         // if (globals.editor.valid_buffers_count == 0) window.setShouldClose(true);
     }
 }

@@ -118,7 +118,7 @@ pub fn moveBackwards() void {
 pub fn paste() void {
     var fb = editor.focused_buffer orelse return;
 
-    var clipboard = glfw.getClipboardString() catch {
+    var clipboard = glfw.getClipboardString() orelse {
         core.notify("Clipboard", "Empty", 2000);
         return;
     };

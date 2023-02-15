@@ -15,13 +15,13 @@ const GLFW = @This();
 window: glfw.Window,
 
 pub fn init(window_width: u32, window_height: u32) !glfw.Window {
-    try glfw.init(.{});
-    var window = try glfw.Window.create(window_width, window_height, "TestWindow", null, null, .{
+    if (!glfw.init(.{})) return error.WindowNotInitialized;
+    var window = glfw.Window.create(window_width, window_height, "TestWindow", null, null, .{
         .context_version_major = 3,
         .context_version_minor = 3,
         .opengl_profile = glfw.Window.Hints.OpenGLProfile.opengl_core_profile,
-    });
-    try glfw.makeContextCurrent(window);
+    }) orelse unreachable;
+    glfw.makeContextCurrent(window);
 
     _ = c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, &glfw.getProcAddress));
     c.glViewport(0, 0, @intCast(c_int, window_width), @intCast(c_int, window_height));
@@ -40,7 +40,7 @@ pub fn deinit(window: *glfw.Window) void {
 }
 
 pub fn updateSize(window: glfw.Window, device: Device) void {
-    const size = window.getSize() catch return;
+    const size = window.getSize();
     var projection = math.createOrthoMatrix(0, @intToFloat(f32, size.width), @intToFloat(f32, size.height), 0, -1, 1);
     ui.state.window_width = size.width;
     ui.state.window_height = size.height;
