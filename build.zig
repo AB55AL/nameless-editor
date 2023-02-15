@@ -31,6 +31,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
 
     exe.addModule("glfw", glfw_module);
     exe.addModule("freetype", freetype_module);
+    exe.addModule("mecha", bob.createModule(.{ .source_file = .{ .path = "libs/mecha/mecha.zig" } }));
 
     input_layer_module.dependencies.putNoClobber("core", core_module) catch unreachable;
     input_layer_module.dependencies.putNoClobber("glfw", glfw_module) catch unreachable;

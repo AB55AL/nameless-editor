@@ -2,9 +2,8 @@ const std = @import("std");
 const print = @import("std").debug.print;
 const ArrayList = std.ArrayList;
 const count = std.mem.count;
-const fmt = std.fmt;
-const eqlIgnoreCase = std.ascii.eqlIgnoreCase;
-const ascii = std.ascii;
+
+const mecha = @import("mecha");
 
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
@@ -31,8 +30,7 @@ const CommandRunError = error{
     FunctionCommandMismatchedTypes,
 };
 
-const PossibleValuesTag = enum { int, string, float, bool };
-const PossibleValues = union(PossibleValuesTag) {
+const PossibleValues = union(enum) {
     int: i64,
     string: []const u8,
     float: f64,
@@ -97,46 +95,36 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
-    if (fn_info.params.len > 6)
-        @compileError("The command's function should have at most 6 arguments");
     if (fn_info.is_var_args)
         @compileError("The command's function cannot be variadic");
 
-    comptime {
-        if (count(u8, command, " ") > 0)
-            @compileError("The command name shouldn't have a space");
-    }
+    comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
 
     try command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy);
 }
 
 fn runCommand(command_string: []const u8) void {
-    var arena = std.heap.ArenaAllocator.init(internal.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    const allocator = internal.allocator;
 
-    var parsed_string = parse(alloc, command_string) catch |err| {
-        notify.notify("Command Line Error:", "error", 2000);
+    const command_result = parseCommand(allocator, command_string) catch |err| {
         print("{}\n", .{err});
         return;
     };
-    if (parsed_string.len > 128) {
-        print("too many args for command\n", .{});
-        return;
+    var command = command_result.value;
+
+    var buffer: [128]PossibleValues = undefined;
+    var string = command_result.rest;
+    var i: u32 = 0;
+    while (string.len != 0) : (i += 1) {
+        var result = parseArgs(allocator, string) catch |err| {
+            print("{}\n", .{err});
+            return;
+        };
+        buffer[i] = result.value;
+        string = result.rest;
     }
 
-    var command = parsed_string[0];
-    if (parsed_string.len > 1) {
-        var tokens: [128]Token = undefined;
-        var tokens_num = stringToTokens(parsed_string[1..], &tokens);
-
-        var values: [128]PossibleValues = undefined;
-        var pv_num = tokensToValues(tokens[0..tokens_num], &values);
-
-        call(command, values[0..pv_num]);
-    } else {
-        call(command, &[_]PossibleValues{});
-    }
+    call(command, buffer[0..i]);
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
@@ -152,128 +140,6 @@ fn call(command: []const u8, args: []PossibleValues) void {
     } else {
         notify.notify("Command Line Error:", "The command doesn't exist", 3000);
     }
-}
-
-fn parse(allocator: std.mem.Allocator, string: []const u8) ![][]const u8 {
-    var array = ArrayList([]const u8).init(allocator);
-
-    var iter = std.mem.split(u8, string, " ");
-
-    var double_q_num = count(u8, string, "\"");
-    const escaped_double_q_num = count(u8, string, "\\\"");
-
-    const dqn = double_q_num - escaped_double_q_num;
-    if (dqn % 2 != 0) {
-        return ParseError.InvalidNumberOfDoubleQuote;
-    }
-
-    while (iter.next()) |s| {
-        if (array.items.len == 0) {
-            try array.append(s);
-            continue;
-        }
-        if (s.len == 0) continue;
-
-        if (count(u8, s, "\"") > 2)
-            return ParseError.InvalidNumberOfDoubleQuote;
-
-        const top_of_stack = array.items[array.items.len - 1];
-        double_q_num = count(u8, top_of_stack, "\"") - count(u8, top_of_stack, "\\\"");
-
-        if (double_q_num == 1) {
-            if (top_of_stack[0] != '"')
-                return ParseError.DoubleQuoteInvalidPosition;
-
-            var content = try std.mem.concat(allocator, u8, &.{
-                array.pop(),
-                " ",
-                s,
-            });
-            try array.append(content);
-        } else {
-            try array.append(s);
-        }
-    }
-
-    return array.items;
-}
-
-fn tokensToValues(tokens: []Token, pv: []PossibleValues) u16 {
-    var i: u16 = 0;
-    for (tokens) |token, index| {
-        defer i += 1;
-        switch (token.type) {
-            Types.string => {
-                pv[index] = .{ .string = token.content };
-            },
-            Types.int => {
-                const val = fmt.parseInt(i64, token.content, 10) catch unreachable;
-                pv[index] = .{ .int = val };
-            },
-            Types.float => {
-                const val = fmt.parseFloat(f64, token.content) catch unreachable;
-                pv[index] = .{ .float = val };
-            },
-            Types.bool => {
-                if (token.content.len > 1) unreachable;
-                var val = charToBool(token.content[0]);
-                pv[index] = .{ .bool = val };
-            },
-        }
-    }
-
-    return i;
-}
-
-fn stringToTokens(args_str: [][]const u8, out_buffer: []Token) u16 {
-    var num: u16 = 0;
-    for (args_str) |arg, i| {
-        defer num += 1;
-        if (arg[0] == '"' and arg[arg.len - 1] == '"') {
-            if (arg.len == 2) {
-                out_buffer[i] = .{ .type = Types.string, .content = "" };
-            } else {
-                out_buffer[i] = .{ .type = Types.string, .content = arg[1 .. arg.len - 1] }; // strip the ""
-            }
-        } else if (eqlIgnoreCase(arg, "T") or eqlIgnoreCase(arg, "F")) {
-            out_buffer[i] = .{ .type = Types.bool, .content = arg };
-        } else if (isFloat(arg)) {
-            out_buffer[i] = .{ .type = Types.float, .content = arg };
-        } else if (isInt(arg)) {
-            out_buffer[i] = .{ .type = Types.int, .content = arg };
-        } else { // assume double-quote-less string
-            out_buffer[i] = .{ .type = Types.string, .content = arg };
-        }
-    }
-
-    return num;
-}
-
-fn isFloat(str: []const u8) bool {
-    if (count(u8, str, ".") != 1) return false;
-    for (str) |c| {
-        if (ascii.isDigit(c) or c == '.' or c == '-')
-            continue
-        else
-            return false;
-    }
-
-    return true;
-}
-
-fn isInt(str: []const u8) bool {
-    for (str) |c| {
-        if (ascii.isDigit(c) or c == '-')
-            continue
-        else
-            return false;
-    }
-
-    return true;
-}
-
-fn charToBool(char: u8) bool {
-    return if (char == 'T' or char == 't') true else false;
 }
 
 fn beholdMyFunctionInator(comptime function: anytype) type {
@@ -306,4 +172,56 @@ fn argHandler(comptime fn_info: std.builtin.Type.Fn, value: PossibleValues, comp
         .float => |v| if (arg_type == f32 or arg_type == f64) return @floatCast(arg_type, v) else CommandRunError.FunctionCommandMismatchedTypes,
     };
     return val;
+}
+
+const parseCommand = mecha.combine(.{
+    mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }),
+    discardWhiteSpace,
+});
+
+const parseArgs = mecha.combine(.{
+    mecha.oneOf(.{
+        parseBool,
+        parseNumber,
+        parseString,
+        parseQuotlessString,
+    }),
+    discardWhiteSpace,
+});
+
+const parseBool = mecha.map(PossibleValues, toBool, mecha.combine(.{
+    mecha.many(mecha.oneOf(.{
+        mecha.string("true"),
+        mecha.string("false"),
+    }), .{ .max = 1, .collect = false }),
+
+    mecha.discard(mecha.utf8.char(' ')),
+}));
+
+const parseString = mecha.map(PossibleValues, toString, mecha.combine(.{
+    mecha.discard(mecha.utf8.char('"')),
+    mecha.many(mecha.utf8.not(mecha.utf8.char('"')), .{ .collect = false }),
+    mecha.discard(mecha.utf8.char('"')),
+}));
+
+const parseQuotlessString = mecha.map(PossibleValues, toString, mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }));
+
+const parseNumber = mecha.convert(PossibleValues, toFloat, mecha.many(mecha.oneOf(.{
+    mecha.ascii.digit(10),
+    mecha.ascii.char('.'),
+}), .{ .collect = false }));
+
+const discardWhiteSpace = mecha.discard(mecha.many(mecha.ascii.whitespace, .{ .collect = false }));
+
+fn toBool(string: []const u8) PossibleValues {
+    return .{ .bool = std.mem.eql(u8, "true", string) };
+}
+
+fn toString(string: []const u8) PossibleValues {
+    return .{ .string = string };
+}
+
+fn toFloat(allocator: std.mem.Allocator, string: []const u8) mecha.Error!PossibleValues {
+    _ = allocator;
+    return .{ .float = std.fmt.parseFloat(f64, string) catch return mecha.Error.ParserFailed };
 }
