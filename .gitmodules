@@ -4,3 +4,6 @@
 [submodule "libs/mach-glfw"]
 	path = libs/mach-glfw
 	url = https://github.com/hexops/mach-glfw.git
+[submodule "libs/mecha"]
+	path = libs/mecha
+	url = https://github.com/Hejsil/mecha.git
