@@ -276,57 +276,22 @@ fn charToBool(char: u8) bool {
     return if (char == 'T' or char == 't') true else false;
 }
 
-// TODO: Make this not ugly
-fn beholdMyFunctionInator(comptime fn_ptr: anytype) type {
-    const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
+fn beholdMyFunctionInator(comptime function: anytype) type {
+    const fn_info = @typeInfo(@TypeOf(function)).Fn;
 
     return struct {
         fn funcy(args: []PossibleValues) CommandRunError!void {
-            if (args.len > fn_info.params.len and args.len != 0) {
-                print("Command args are greater than the functions args", .{});
-                return;
-            }
-            switch (fn_info.params.len) {
-                0 => fn_ptr(),
-                else => {
-                    if (args.len == 0) return;
-                    switch (fn_info.params.len) {
-                        1 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                        ),
-                        2 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                            try argHandler(fn_info, args[1], 1),
-                        ),
-                        3 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                            try argHandler(fn_info, args[1], 1),
-                            try argHandler(fn_info, args[2], 2),
-                        ),
-                        4 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                            try argHandler(fn_info, args[1], 1),
-                            try argHandler(fn_info, args[2], 2),
-                            try argHandler(fn_info, args[3], 3),
-                        ),
-                        5 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                            try argHandler(fn_info, args[1], 1),
-                            try argHandler(fn_info, args[2], 2),
-                            try argHandler(fn_info, args[3], 3),
-                            try argHandler(fn_info, args[4], 4),
-                        ),
-                        6 => fn_ptr(
-                            try argHandler(fn_info, args[0], 0),
-                            try argHandler(fn_info, args[1], 1),
-                            try argHandler(fn_info, args[2], 2),
-                            try argHandler(fn_info, args[3], 3),
-                            try argHandler(fn_info, args[4], 4),
-                            try argHandler(fn_info, args[5], 5),
-                        ),
-                        else => unreachable,
-                    }
-                },
+            if (fn_info.params.len == 0) {
+                function();
+            } else if (args.len > 0 and args.len == fn_info.params.len) {
+                const Tuple = std.meta.ArgsTuple(@TypeOf(function));
+                var args_tuple: Tuple = undefined;
+                inline for (args_tuple) |_, index|
+                    args_tuple[index] = try argHandler(fn_info, args[index], index);
+
+                @call(.never_inline, function, args_tuple);
+            } else {
+                unreachable;
             }
         }
     };
