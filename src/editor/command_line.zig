@@ -152,7 +152,7 @@ fn beholdMyFunctionInator(comptime function: anytype) type {
             } else if (args.len > 0 and args.len == fn_info.params.len) {
                 const Tuple = std.meta.ArgsTuple(@TypeOf(function));
                 var args_tuple: Tuple = undefined;
-                inline for (args_tuple) |_, index|
+                inline for (args_tuple, 0..) |_, index|
                     args_tuple[index] = try argHandler(fn_info, args[index], index);
 
                 @call(.never_inline, function, args_tuple);

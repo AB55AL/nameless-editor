@@ -122,7 +122,7 @@ pub const Vertex = struct {
 
     pub fn circleIndices(comptime sides: u32) [sides * 3]u16 {
         var array: [sides * 3]u16 = undefined;
-        for (array) |_, i| array[i] = @intCast(u16, i);
+        for (array, 0..) |_, i| array[i] = @intCast(u16, i);
         return array;
     }
 };
@@ -283,7 +283,7 @@ pub fn copyVerticesAndElementsToOpenGL(device: *Device, list: *DrawList) void {
 
 pub fn offsetElementsBy(offset: u16, elements: []u16) u16 {
     var max_element: u16 = 0;
-    for (elements) |_, i| {
+    for (elements, 0..) |_, i| {
         elements[i] += offset;
         max_element = std.math.max(max_element, elements[i]);
     }

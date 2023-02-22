@@ -29,7 +29,7 @@ pub fn init() !void {
     arena = std.heap.ArenaAllocator.init(allocator);
     arena_allocator = arena.allocator();
 
-    for (vim_like.state.mappings) |*m| {
+    for (&vim_like.state.mappings) |*m| {
         m.* = core.input.MappingSystem.init(arena_allocator);
         _ = try m.addFileType(""); // Global and fallback file_type
     }

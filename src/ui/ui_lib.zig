@@ -791,7 +791,7 @@ pub const LocateGlyphCoordsIterator = struct {
         defer self.y = y;
 
         defer self.previous_strings_len += string.len;
-        for (string) |char, i| {
+        for (string, 0..) |char, i| {
             const absolute_index = i + self.previous_strings_len;
             var g = ui.state.font.glyphs.get(char) orelse continue;
             var g_advance = @intToFloat(f32, g.advance);
@@ -882,7 +882,7 @@ pub const LocateGlyphCoordsByIndexType = struct {
         defer self.x = x;
         defer self.y = y;
 
-        for (string) |char, i| {
+        for (string, 0..) |char, i| {
             var g = ui.state.font.glyphs.get(char) orelse continue;
             var g_advance = @intToFloat(f32, g.advance);
             if (i + self.previous_strings_len == self.index) {
@@ -913,7 +913,7 @@ pub fn locateGlyphCoords(pos: math.Vec2(i16), string: []const u8, region: shape2
     var y = region.y;
 
     var previous_line_end: math.Vec2(f32) = .{ .x = 0, .y = 0 };
-    for (string) |char, i| {
+    for (string, 0..) |char, i| {
         var g = ui.state.font.glyphs.get(char) orelse continue;
         var g_advance = @intToFloat(f32, g.advance);
 
@@ -983,7 +983,7 @@ pub fn locateGlyphCoordsByIndex(index: u64, string: []const u8, region: shape2d.
     var x = region.x;
     var y = region.y;
 
-    for (string) |char, i| {
+    for (string, 0..) |char, i| {
         var g = ui.state.font.glyphs.get(char) orelse continue;
         var g_advance = @intToFloat(f32, g.advance);
         if (i == index) {

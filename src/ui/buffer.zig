@@ -79,7 +79,7 @@ pub fn nextBufferWindow() void {
 }
 
 pub fn makeBufferVisable(buffer: *Buffer) void {
-    for (ui.visiable_buffers) |b, i| {
+    for (ui.visiable_buffers, 0..) |b, i| {
         if (b == null) {
             ui.visiable_buffers[i] = .{
                 .buffer = buffer,
@@ -100,7 +100,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     try ui_lib.layoutStart(allocator, ui_lib.Grid2x2.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
 
     ui.state.max_id = 100;
-    for (ui.visiable_buffers) |*buffer_win, i| {
+    for (ui.visiable_buffers, 0..) |*buffer_win, i| {
         if (ui.visiable_buffers[i] == null) continue;
         var bw = &((buffer_win).* orelse continue);
         try ui_lib.layoutStart(allocator, ui_lib.DynamicRow.getLayout(), buffer_window_dim.x, buffer_window_dim.y, 0x272822);
