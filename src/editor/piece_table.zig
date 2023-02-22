@@ -22,7 +22,7 @@ pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     var original_newlines = ArrayList(u64).init(allocator);
 
     @setRuntimeSafety(false);
-    for (buf) |c, i| {
+    for (buf, 0..) |c, i| {
         original_content[i] = c;
         if (c == '\n')
             try original_newlines.append(i);
@@ -82,7 +82,7 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
 
     var newlines_in_string_indices = ArrayList(u64).init(pt.allocator);
     defer newlines_in_string_indices.deinit();
-    for (string) |c, ni|
+    for (string, 0..) |c, ni|
         if (c == '\n')
             try newlines_in_string_indices.append(pt.add.items.len + ni);
 
@@ -238,7 +238,7 @@ pub fn fragmentsOfLine(pt: *PieceTable, line: u64) ![][]const u8 {
     var lines_so_far: u64 = 0;
     var start: u64 = 0;
     var end: u64 = 0;
-    for (array_list.items) |piece, i| {
+    for (array_list.items, 0..) |piece, i| {
         if (line >= lines_so_far and line <= lines_so_far + piece.newlines_count) {
             lines_so_far += piece.newlines_count;
             start = i;
@@ -264,7 +264,7 @@ pub fn fragmentsOfLine(pt: *PieceTable, line: u64) ![][]const u8 {
         fragments[0] = slice[0].getLine(pt, slice[0].newlines_count);
         fragments[1] = slice[1].getLine(pt, 0);
     } else {
-        for (fragments) |_, i| {
+        for (fragments, 0..) |_, i| {
             if (i == 0)
                 fragments[0] = slice[0].getLine(pt, slice[0].newlines_count)
             else if (i == fragments.len - 1)
