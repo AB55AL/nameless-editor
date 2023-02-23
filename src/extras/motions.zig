@@ -5,12 +5,14 @@ const unicode = std.unicode;
 
 const BufferWindow = @import("../ui/buffer.zig").BufferWindow;
 const Buffer = @import("../editor/buffer.zig");
+const BufferIterator = Buffer.BufferIterator;
+const ReverseBufferIterator = Buffer.ReverseBufferIterator;
 const Range = Buffer.Range;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 
 pub fn findCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u21, stop_at: []const u21, stop_after: []const u21) ?u64 {
-    var iter = buffer.BufferIterator(start + 1, buffer.lines.size);
+    var iter = BufferIterator.init(buffer, start + 1, buffer.lines.size);
     var previous_strings_len = start;
     var previous_cp_index: u64 = 0;
     while (iter.next()) |string| {
@@ -33,7 +35,7 @@ pub fn findCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u
 }
 
 pub fn findOutsideBlackList(buffer: *Buffer, start: u64, black_list: []const u21) ?u64 {
-    var iter = buffer.BufferIterator(start + 1, buffer.lines.size);
+    var iter = BufferIterator.init(buffer, start + 1, buffer.lines.size);
     var previous_strings_len = start;
     while (iter.next()) |string| {
         defer previous_strings_len += string.len;
@@ -49,7 +51,7 @@ pub fn findOutsideBlackList(buffer: *Buffer, start: u64, black_list: []const u21
 }
 
 pub fn findCodePoint(buffer: *Buffer, start: u64, code_point: u21) ?u64 {
-    var iter = buffer.bufferIterator(start + 1, buffer.lines.size);
+    var iter = BufferIterator.init(start + 1, buffer.lines.size);
     var previous_strings_len = start;
     while (iter.next()) |string| {
         defer previous_strings_len += string.len;
@@ -64,7 +66,7 @@ pub fn findCodePoint(buffer: *Buffer, start: u64, code_point: u21) ?u64 {
 
 pub fn backFindCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u21, stop_at: []const u21, stop_after: []const u21) ?u64 {
     if (start == 0) return null;
-    var iter = buffer.ReverseBufferIterator(0, start - 1);
+    var iter = ReverseBufferIterator.init(buffer, 0, start - 1);
 
     var next_cp_index: u64 = 0;
     var previous_strings_len = start - 1;

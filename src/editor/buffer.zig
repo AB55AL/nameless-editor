@@ -132,7 +132,7 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     if (buffer.cursor_index == 0) return;
 
     var characters: u64 = 0;
-    var iter = buffer.ReverseBufferIterator(0, buffer.cursor_index - 1);
+    var iter = ReverseBufferIterator.init(buffer, 0, buffer.cursor_index - 1);
     var bytes_to_delete: u64 = 0;
     outer_loop: while (iter.next()) |string| {
         var view = utf8.ReverseUtf8View(string);
@@ -156,7 +156,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     var i = buffer.cursor_index;
     var characters: u64 = 0;
 
-    var iter = buffer.BufferIterator(i, buffer.lines.size);
+    var iter = BufferIterator.init(buffer, i, buffer.lines.size);
     while (iter.next()) |string| {
         if (characters == characters_to_delete) break;
         var view = unicode.Utf8View.initUnchecked(string).iterator();
@@ -363,34 +363,34 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
     return .{ .row = row, .col = col };
 }
 
-pub fn LineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
-    utils.assert(first_line <= last_line, "first_line must be <= last_line");
-    utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
-
-    const start = buffer.indexOfFirstByteAtRow(first_line);
-    const end = buffer.indexOfLastByteAtRow(last_line) + 1;
-    return .{
-        .pt = &buffer.lines,
-        .start = start,
-        .end = end,
-    };
-}
-
 /// BufferIterator is end exclusive
-pub fn BufferIterator(buffer: *Buffer, start: u64, end: u64) BufferIteratorType {
-    return .{
-        .pt = &buffer.lines,
-        .start = start,
-        .end = end,
-    };
-}
-
-pub const BufferIteratorType = struct {
+pub const BufferIterator = struct {
     const Self = @This();
 
     pt: *PieceTable,
     start: u64,
     end: u64,
+
+    pub fn init(buffer: *Buffer, start: u64, end: u64) BufferIterator {
+        return .{
+            .pt = &buffer.lines,
+            .start = start,
+            .end = end,
+        };
+    }
+
+    pub fn initLines(buffer: *Buffer, first_line: u64, last_line: u64) BufferIterator {
+        utils.assert(first_line <= last_line, "first_line must be <= last_line");
+        utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
+
+        const start = buffer.indexOfFirstByteAtRow(first_line);
+        const end = buffer.indexOfLastByteAtRow(last_line) + 1;
+        return .{
+            .pt = &buffer.lines,
+            .start = start,
+            .end = end,
+        };
+    }
 
     pub fn next(self: *Self) ?[]const u8 {
         if (self.start >= self.end) return null;
@@ -407,34 +407,34 @@ pub const BufferIteratorType = struct {
     }
 };
 
-pub fn ReverseLineIterator(buffer: *Buffer, first_line: u64, last_line: u64) ReverseBufferIteratorType {
-    utils.assert(first_line <= last_line, "first_line must be <= last_line");
-    utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
-
-    const start = buffer.indexOfFirstByteAtRow(first_line);
-    const end = buffer.indexOfLastByteAtRow(last_line);
-    return .{
-        .pt = &buffer.lines,
-        .start = start,
-        .end = std.math.min(buffer.lines.size - 1, end),
-    };
-}
-
-pub fn ReverseBufferIterator(buffer: *Buffer, start: u64, end: u64) ReverseBufferIteratorType {
-    return .{
-        .pt = &buffer.lines,
-        .start = start,
-        .end = std.math.min(buffer.lines.size - 1, end),
-    };
-}
-
-pub const ReverseBufferIteratorType = struct {
+pub const ReverseBufferIterator = struct {
     const Self = @This();
 
     pt: *PieceTable,
     start: u64,
     end: u64,
     done: bool = false,
+
+    pub fn init(buffer: *Buffer, start: u64, end: u64) ReverseBufferIterator {
+        return .{
+            .pt = &buffer.lines,
+            .start = start,
+            .end = std.math.min(buffer.lines.size - 1, end),
+        };
+    }
+
+    pub fn initLines(buffer: *Buffer, first_line: u64, last_line: u64) ReverseBufferIterator {
+        utils.assert(first_line <= last_line, "first_line must be <= last_line");
+        utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
+
+        const start = buffer.indexOfFirstByteAtRow(first_line);
+        const end = buffer.indexOfLastByteAtRow(last_line);
+        return .{
+            .pt = &buffer.lines,
+            .start = start,
+            .end = std.math.min(buffer.lines.size - 1, end),
+        };
+    }
 
     pub fn next(self: *Self) ?[]const u8 {
         if (self.done) return null;
