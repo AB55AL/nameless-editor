@@ -131,24 +131,21 @@ pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
 pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     if (buffer.cursor_index == 0) return;
 
-    var i = buffer.cursor_index;
     var characters: u64 = 0;
-
-    var iter = buffer.ReverseBufferIterator(0, i);
-    while (iter.next()) |string| {
-        if (characters == characters_to_delete) break;
+    var iter = buffer.ReverseBufferIterator(0, buffer.cursor_index - 1);
+    var bytes_to_delete: u64 = 0;
+    outer_loop: while (iter.next()) |string| {
         var view = utf8.ReverseUtf8View(string);
         while (view.prevSlice()) |slice| {
             characters += 1;
-            i -= slice.len;
-            if (characters == characters_to_delete) break;
+            bytes_to_delete += slice.len;
+            if (characters == characters_to_delete) break :outer_loop;
         }
     }
 
-    var old_index = buffer.cursor_index;
-    var new_index = i;
-    buffer.cursor_index = new_index;
-    try buffer.lines.delete(buffer.cursor_index, old_index - new_index);
+    const delete_at = buffer.cursor_index -| bytes_to_delete;
+    try buffer.lines.delete(delete_at, bytes_to_delete);
+    buffer.cursor_index -|= bytes_to_delete;
 
     buffer.metadata.dirty = true;
 
@@ -309,6 +306,8 @@ pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
 }
 
 pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
+    utils.assert(row <= buffer.lines.newlines_count + 1, "================= row cannot be greater than the total rows in the buffer");
+
     // in the findNodeWithLine() call we subtract 2 from row because
     // rows in the buffer are 1-based but in buffer.lines they're 0-based so
     // we subtract 1 and because we use 0 as the index for row 1 because that's
@@ -317,6 +316,11 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
         0
     else
         buffer.lines.findNodeWithLine(row - 2).newline_index + 1;
+}
+
+pub fn indexOfLastByteAtRow(buffer: *Buffer, row: u64) u64 {
+    utils.assert(row <= buffer.lines.newlines_count, "row cannot be greater than the total rows in the buffer");
+    return buffer.lines.findNodeWithLine(row -| 1).newline_index;
 }
 
 pub fn getLineLength(buffer: *Buffer, row: u64) u64 {
@@ -360,8 +364,11 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
 }
 
 pub fn LineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIteratorType {
+    utils.assert(first_line <= last_line, "first_line must be <= last_line");
+    utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
+
     const start = buffer.indexOfFirstByteAtRow(first_line);
-    const end = buffer.indexOfFirstByteAtRow(last_line + 1);
+    const end = buffer.indexOfLastByteAtRow(last_line) + 1;
     return .{
         .pt = &buffer.lines,
         .start = start,
@@ -369,6 +376,7 @@ pub fn LineIterator(buffer: *Buffer, first_line: u64, last_line: u64) BufferIter
     };
 }
 
+/// BufferIterator is end exclusive
 pub fn BufferIterator(buffer: *Buffer, start: u64, end: u64) BufferIteratorType {
     return .{
         .pt = &buffer.lines,
@@ -400,8 +408,11 @@ pub const BufferIteratorType = struct {
 };
 
 pub fn ReverseLineIterator(buffer: *Buffer, first_line: u64, last_line: u64) ReverseBufferIteratorType {
+    utils.assert(first_line <= last_line, "first_line must be <= last_line");
+    utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
+
     const start = buffer.indexOfFirstByteAtRow(first_line);
-    const end = buffer.indexOfFirstByteAtRow(last_line + 1);
+    const end = buffer.indexOfLastByteAtRow(last_line);
     return .{
         .pt = &buffer.lines,
         .start = start,
