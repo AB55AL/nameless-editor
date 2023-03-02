@@ -3,6 +3,8 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const assert = std.debug.assert;
 
+const utils = @import("../utils.zig");
+
 const PieceTable = @This();
 
 original: []const u8,
@@ -124,6 +126,7 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
         }
     }
 
+    // FIXME: If an error happens here then the state of the tree will be corrupted
     try pt.add.appendSlice(string);
     pt.size += string.len;
     if (newlines_in_string_indices.items.len > 0) {
@@ -201,87 +204,12 @@ pub fn byteAt(pt: *PieceTable, index: u64) u8 {
     return node.content(pt)[i];
 }
 
-pub fn getLine(pt: *PieceTable, allocator: std.mem.Allocator, line: u64) ![]u8 {
-    var line_fragments = try pt.fragmentsOfLine(line);
-    defer pt.allocator.free(line_fragments);
-    return std.mem.concat(allocator, u8, line_fragments);
-}
-
-// TODO: Make it faster
-pub fn getLines(pt: *PieceTable, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
-    assert(last_line >= first_line);
-    var fragments_of_lines = ArrayList([]const u8).init(pt.allocator);
-    defer fragments_of_lines.deinit();
-    var i: u64 = first_line;
-    while (i <= last_line) : (i += 1) {
-        var line_fragments = try pt.fragmentsOfLine(i);
-        defer pt.allocator.free(line_fragments);
-        try fragments_of_lines.appendSlice(line_fragments);
-    }
-
-    return std.mem.concat(allocator, u8, fragments_of_lines.items);
-}
-
-/// The contents of a line can be spread across multiple pieces,
-/// this function returns an array of slices from all pieces that contain the contents of the line.
-///
-// A piece may contain content from multiple lines.
-// If 1 or 2 nodes are returned, the nodes may have multiple lines.
-// If 3 or more node are returned, the first and last may have multiple lines
-// but nodes in-between will have the contents if the requested line.
-pub fn fragmentsOfLine(pt: *PieceTable, line: u64) ![][]const u8 {
-    var array_list = ArrayList(*PieceNode).init(pt.allocator);
-    defer array_list.deinit();
-    try pt.treeToArray(pt.pieces_root, &array_list);
-
-    var relative_line = line;
-    var lines_so_far: u64 = 0;
-    var start: u64 = 0;
-    var end: u64 = 0;
-    for (array_list.items, 0..) |piece, i| {
-        if (line >= lines_so_far and line <= lines_so_far + piece.newlines_count) {
-            lines_so_far += piece.newlines_count;
-            start = i;
-            end = i + 1;
-
-            var pieces = array_list.items;
-            while (end < pieces.len and lines_so_far <= line) {
-                lines_so_far += pieces[end].newlines_count;
-                end += 1;
-            }
-            break;
-        }
-
-        lines_so_far += piece.newlines_count;
-        relative_line -= piece.newlines_count;
-    }
-
-    var slice = array_list.items[start..end];
-    var fragments = try pt.allocator.alloc([]const u8, slice.len);
-    if (fragments.len == 1) {
-        fragments[0] = slice[0].getLine(pt, relative_line);
-    } else if (fragments.len == 2) {
-        fragments[0] = slice[0].getLine(pt, slice[0].newlines_count);
-        fragments[1] = slice[1].getLine(pt, 0);
-    } else {
-        for (fragments, 0..) |_, i| {
-            if (i == 0)
-                fragments[0] = slice[0].getLine(pt, slice[0].newlines_count)
-            else if (i == fragments.len - 1)
-                fragments[i] = slice[i].getLine(pt, 0)
-            else
-                fragments[i] = slice[i].content(pt);
-        }
-    }
-
-    return fragments;
-}
-
 pub fn findNodeWithLine(pt: *PieceTable, newline_index_of_node: u64) struct {
     piece: *PieceNode,
     index: u64,
     newline_index: u64,
 } {
+    utils.assert(newline_index_of_node <= pt.newlines_count, "newline_index_of_node cannot be greater than the total newlines in the table");
     var piece = pt.pieces_root;
     var piece_index: u64 = 0;
     var piece_index_newline: u64 = 0;
@@ -489,38 +417,6 @@ pub fn printTreeTraverseTrace(pt: *PieceTable, node: ?*PieceNode) void {
     }
 
     print("going up\n", .{});
-}
-
-pub fn buildIntoArrayList(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(u8)) std.mem.Allocator.Error!void {
-    if (node == null) return;
-
-    if (node.?.left) |left|
-        try pt.buildIntoArrayList(left, array_list);
-
-    try array_list.appendSlice(node.?.content(pt));
-
-    if (node.?.right) |right|
-        try pt.buildIntoArrayList(right, array_list);
-}
-
-pub fn buildIntoArray(pt: *PieceTable, array: []u8) []u8 {
-    var start: u64 = 0;
-    while (start < array.len) {
-        var node = pt.findNode(start).piece;
-        pt.splay(node);
-
-        const content = node.content(pt);
-        var slice = array[start..];
-        if (slice.len >= content.len) {
-            std.mem.copy(u8, slice, content);
-            start += content.len;
-        } else {
-            std.mem.copy(u8, slice, content[0..slice.len]);
-            start += slice.len;
-            break;
-        }
-    }
-    return array[0..start];
 }
 
 pub fn treeToArray(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(*PieceNode)) std.mem.Allocator.Error!void {
