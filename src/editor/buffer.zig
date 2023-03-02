@@ -261,23 +261,48 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.moveAbsolute(1, 1);
 }
 
+pub fn lineSize(buffer: *Buffer, line: u64) u64 {
+    return buffer.indexOfLastByteAtRow(line) - buffer.indexOfFirstByteAtRow(line) + 1;
+}
+
+pub fn lineRangeSize(buffer: *Buffer, start_line: u64, end_line: u64) u64 {
+    return buffer.indexOfLastByteAtRow(end_line) - buffer.indexOfFirstByteAtRow(start_line) + 1;
+}
+
 pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
     assert(row <= buffer.lines.newlines_count);
-    return buffer.lines.getLine(allocator, row - 1);
+
+    var line = try allocator.alloc(u8, buffer.lineSize(row));
+    var iter = LineIterator.init(buffer, row, row);
+    var start: u64 = 0;
+    while (iter.next()) |slice| {
+        std.mem.copy(u8, line[start..], slice);
+        start += slice.len;
+    }
+
+    return line;
 }
 
 pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
     assert(last_line >= first_line);
     assert(first_line > 0);
     assert(last_line <= buffer.lines.newlines_count);
-    return buffer.lines.getLines(allocator, first_line - 1, last_line - 1);
+
+    var lines = try allocator.alloc(u8, buffer.lineRangeSize(first_line, last_line));
+    var iter = LineIterator.init(buffer, first_line, last_line);
+    var start: u64 = 0;
+    while (iter.next()) |slice| {
+        std.mem.copy(u8, lines[start..], slice);
+        start += slice.len;
+    }
+
+    return lines;
 }
 
 /// Returns a copy of the entire buffer.
 /// Caller owns memory.
 pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
-    var array = try allocator.alloc(u8, buffer.lines.size);
-    return buffer.lines.buildIntoArray(array);
+    return buffer.getLines(allocator, 1, buffer.lines.newlines_count);
 }
 
 pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
