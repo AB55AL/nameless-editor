@@ -222,12 +222,14 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
 // pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
 // }
 
-// TODO: Use fragmentOfLine() for the slice
-pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) usize {
+pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
     assert(row <= buffer.lines.newlines_count);
-    const slice = buffer.getLine(internal.allocator, row) catch unreachable;
-    defer internal.allocator.free(slice);
-    return unicode.utf8CountCodepoints(slice) catch unreachable;
+    var count: u64 = 0;
+    var iter = LineIterator.init(buffer, row, row);
+    while (iter.next()) |slice|
+        count += unicode.utf8CountCodepoints(slice) catch unreachable;
+
+    return count;
 }
 
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
