@@ -363,6 +363,49 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } 
     return .{ .row = row, .col = col };
 }
 
+pub const LineIterator = struct {
+    const Self = @This();
+
+    buffer: *Buffer,
+    start: u64,
+    end: u64,
+    current_line: u64,
+
+    pub fn init(buffer: *Buffer, first_line: u64, last_line: u64) LineIterator {
+        utils.assert(first_line <= last_line, "first_line must be <= last_line");
+        utils.assert(last_line <= buffer.lines.newlines_count, "last_line cannot be greater than the total rows in the buffer");
+
+        const start = buffer.indexOfFirstByteAtRow(first_line);
+        const end = buffer.indexOfLastByteAtRow(last_line) + 1;
+        return .{
+            .buffer = buffer,
+            .start = start,
+            .end = end,
+            .current_line = first_line,
+        };
+    }
+
+    pub fn next(self: *Self) ?[]const u8 {
+        if (self.start >= self.end) return null;
+
+        const current_line_end = self.buffer.indexOfLastByteAtRow(self.current_line) + 1;
+
+        const piece_info = self.buffer.lines.findNode(self.start);
+        const slice = piece_info.piece.content(&self.buffer.lines)[piece_info.relative_index..];
+
+        const end = if (self.start + slice.len < current_line_end)
+            slice.len
+        else
+            current_line_end -| self.start;
+
+        const relevant_content = slice[0..end];
+        self.start += relevant_content.len;
+        if (self.start >= current_line_end) self.current_line += 1;
+
+        return relevant_content;
+    }
+};
+
 /// BufferIterator is end exclusive
 pub const BufferIterator = struct {
     const Self = @This();
