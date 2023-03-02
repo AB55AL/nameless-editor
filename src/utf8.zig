@@ -95,15 +95,8 @@ pub fn lastByteOfCodeUnit(utf8_string: []const u8, index: usize) usize {
 }
 
 pub fn byteType(byte: u8) ByteType {
-    return switch (byte) {
-        0b0000_0000...0b0111_1111, // ASCII
-        0b1100_0000...0b1101_1111, // 2-byte UTF-8
-        0b1110_0000...0b1110_1111, // 3-byte UTF-8
-        0b1111_0000...0b1111_0111, // 4-byte UTF-8
-        => return .start_byte,
-
-        else => return .continue_byte,
-    };
+    const result = unicode.utf8ByteSequenceLength(byte);
+    return if (result == error.Utf8InvalidStartByte) .continue_byte else .start_byte;
 }
 
 pub fn ReverseUtf8View(string: []const u8) ReverseUtf8ViewType {
@@ -124,18 +117,19 @@ pub const ReverseUtf8ViewType = struct {
         var i: u64 = self.index;
         utils.assert(byteType(self.string[i]) == .continue_byte or self.string[i] <= 256, "Must start at a continue byte or an ASCII char for reverse iteration");
 
-        var cont_bytes: u8 = 0;
+        var cont_bytes: u3 = 0;
         while (i >= 0) {
             const byte = self.string[i];
             switch (byteType(byte)) {
                 .start_byte => {
                     const index = self.index + 1;
-                    if (i == 0) self.done = true else self.index = i - 1;
+                    if (i == 0) self.done = true;
+                    self.index = i -| 1;
                     return self.string[i..index];
                 },
                 .continue_byte => {
                     cont_bytes += 1;
-                    i -= 1;
+                    i -|= 1;
                 },
             }
         }
