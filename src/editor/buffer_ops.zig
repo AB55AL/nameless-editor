@@ -193,13 +193,15 @@ pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
 
 pub fn popPreviousFocusedBufferWindow() ?*BufferWindow {
     var buffer_win = globals.ui.previous_focused_buffer_wins.popOrNull();
-    if (buffer_win != null and buffer_win.?.buffer.state == .valid)
+    if (buffer_win != null and buffer_win.?.buffer.state == .valid and buffer_win.? != &ui.command_line_buffer_window)
         return buffer_win.?
     else
         return globals.ui.visiable_buffers_tree;
 }
 
 pub fn pushAsPreviousBufferWindow(buffer_win: *BufferWindow) void {
+    if (buffer_win == &ui.command_line_buffer_window) return;
+
     var wins = &globals.ui.previous_focused_buffer_wins;
     wins.append(buffer_win) catch {
         _ = wins.orderedRemove(0);
