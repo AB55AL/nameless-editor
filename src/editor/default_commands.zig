@@ -13,10 +13,10 @@ const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
     try add("o", open);
-    try add("or", openRight);
-    try add("ol", openLeft);
-    try add("oa", openAbove);
-    try add("ob", openBelow);
+    try add("or", openEast);
+    try add("ol", openWest);
+    try add("oa", openNorth);
+    try add("ob", openSouth);
 
     try add("save", saveFocused);
     try add("saveAs", saveAsFocused);
@@ -29,37 +29,37 @@ pub fn setDefaultCommands() !void {
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, null) catch |err| {
         print("open command: err={}\n", .{err});
     };
 }
-fn openRight(file_path: []const u8) void {
+fn openEast(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .east) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
-fn openLeft(file_path: []const u8) void {
+fn openWest(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .west) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
-fn openAbove(file_path: []const u8) void {
+fn openNorth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .north) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
-fn openBelow(file_path: []const u8) void {
+fn openSouth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .south) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }
 
 fn saveFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.saveBuffer(fb, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
@@ -72,7 +72,7 @@ fn saveFocused() void {
 
 fn saveAsFocused(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
 
     var fp: []const u8 = undefined;
     if (std.fs.path.isAbsolute(file_path)) {
@@ -114,13 +114,13 @@ fn saveAsFocused(file_path: []const u8) void {
 }
 
 fn forceSaveFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.saveBuffer(fb, true) catch |err|
         print("err={}\n", .{err});
 }
 
 fn killFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.killBuffer(fb) catch |err| {
         if (err == buffer_ops.Error.KillingDirtyBuffer) {
             print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
@@ -131,13 +131,13 @@ fn killFocused() void {
 }
 
 fn forceKillFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.forceKillBuffer(fb) catch |err|
         print("err={}\n", .{err});
 }
 
 fn saveAndQuitFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.saveAndQuit(fb, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
@@ -149,7 +149,7 @@ fn saveAndQuitFocused() void {
 }
 
 fn forceSaveAndQuitFocused() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = buffer_ops.focusedBuffer() orelse return;
     buffer_ops.saveAndQuit(fb, true) catch |err|
         print("err={}\n", .{err});
 }

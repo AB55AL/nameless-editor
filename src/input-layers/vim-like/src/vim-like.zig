@@ -116,7 +116,7 @@ pub fn moveBackwards() void {
 }
 
 pub fn paste() void {
-    var fb = editor.focused_buffer orelse return;
+    var fb = core.focusedBuffer() orelse return;
 
     var clipboard = glfw.getClipboardString() orelse {
         core.notify("Clipboard", "Empty", 2000);
@@ -137,6 +137,6 @@ pub fn randomInsertions() void {
         fbw.buffer.insertBeforeCursor("st") catch |err| {
             print("{}\n", .{err});
         };
-        fbw.setWindowCursorToBuffer();
+        // fbw.setWindowCursorToBuffer();
     }
 }

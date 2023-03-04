@@ -59,7 +59,7 @@ pub fn deinit() void {
 }
 
 pub fn keyInput(key: Key) void {
-    var file_type = if (core.editor.focused_buffer) |fb| fb.metadata.file_type else "";
+    var file_type = if (core.focusedBuffer()) |fb| fb.metadata.file_type else "";
     vim_like.state.keys.append(key) catch {
         vim_like.state.keys.len = 0;
         return;
@@ -74,7 +74,7 @@ pub fn keyInput(key: Key) void {
 pub fn characterInput(utf8_seq: []const u8) void {
     if (vim_like.state.mode != .insert) return;
 
-    var fb = core.editor.focused_buffer orelse return;
+    var fb = core.focusedBuffer() orelse return;
     fb.insertBeforeCursor(utf8_seq) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
@@ -84,9 +84,9 @@ pub fn characterInput(utf8_seq: []const u8) void {
         return;
     }
 
-    var focused_buffer_window = core.ui.focused_buffer_window orelse return;
-    focused_buffer_window.setWindowCursorToBuffer();
-    focused_buffer_window.buffer.resetSelection();
+    // var focused_buffer_window = core.ui.focused_buffer_window orelse return;
+    // focused_buffer_window.setWindowCursorToBuffer();
+    // focused_buffer_window.buffer.resetSelection();
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
@@ -136,6 +136,7 @@ fn setDefaultMappnigsNormalMode() void {
     map(.normal, &.{a(.shift, .semicolon)}, vim_like.openCommandLine);
 
     map(.normal, &.{a(.none, .i)}, vim_like.setInsertMode);
+    map(.normal, &.{a(.control, .i)}, vim_like.setInsertMode);
     map(.normal, &.{a(.none, .v)}, vim_like.setVisualMode);
 
     map(.normal, &.{a(.none, .h)}, cif.moveLeft);

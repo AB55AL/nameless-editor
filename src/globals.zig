@@ -5,7 +5,6 @@ const ArrayList = std.ArrayList;
 const State = @import("ui/ui_lib.zig").State;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
-const BufferNode = buffer_ops.BufferNode;
 const shape2d = @import("ui/shape2d.zig");
 const ui_lib = @import("ui/ui_lib.zig");
 const notify = @import("ui/notify.zig");
@@ -14,27 +13,25 @@ const buffer_ui = @import("ui/buffer.zig");
 const DrawList = @import("ui/draw_command.zig").DrawList;
 
 pub const editor = struct {
-    /// A Pointer to the currently focused buffer
-    pub var focused_buffer: ?*Buffer = null;
     /// A linked list of all the buffers in the editor
     pub var first_buffer: ?*Buffer = undefined;
     /// The number of valid buffers in the linked list
     pub var valid_buffers_count: u32 = 0;
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
-    pub var command_line_is_open: bool = undefined;
-    pub var previous_buffer_index: u32 = undefined;
+    pub var command_line_is_open: bool = false;
 };
 
 pub const ui = struct {
     pub var state: State = undefined;
-    // TODO: Find a better way of presenting visiable_buffers using panels
-    pub var visiable_buffers: [2]?buffer_ui.BufferWindow = .{ null, null };
-    pub var focused_buffer_window: ?*buffer_ui.BufferWindow = null;
-    pub var command_line_buffer_window: buffer_ui.BufferWindow = undefined;
-    pub var notifications = std.BoundedArray(notify.Notify, 100).init(0) catch unreachable;
 
     pub var visiable_buffers_tree: ?*buffer_ui.BufferWindow = null;
+    pub var focused_buffer_window: ?*buffer_ui.BufferWindow = null;
+    pub var previous_focused_buffer_wins = std.BoundedArray(*buffer_ui.BufferWindow, 50).init(0) catch unreachable;
+
+    pub var command_line_buffer_window: buffer_ui.BufferWindow = undefined;
+
+    pub var notifications = std.BoundedArray(notify.Notify, 100).init(0) catch unreachable;
 };
 
 pub const internal = struct {
@@ -44,10 +41,8 @@ pub const internal = struct {
 
 pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !void {
     internal.allocator = allocator;
-    editor.command_line_is_open = false;
-    editor.command_line_buffer = try internal.allocator.create(Buffer);
-    editor.command_line_buffer.* = try Buffer.init(internal.allocator, "", "");
 
+    editor.command_line_buffer = try buffer_ops.createLocalBuffer("");
     ui.command_line_buffer_window = buffer_ui.BufferWindow{
         .buffer = editor.command_line_buffer,
         .first_visiable_row = 1,
