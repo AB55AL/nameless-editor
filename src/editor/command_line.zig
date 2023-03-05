@@ -182,24 +182,22 @@ const parseArgs = mecha.combine(.{
     discardWhiteSpace,
 });
 
-const parseBool = mecha.map(PossibleValues, toBool, mecha.combine(.{
+const parseBool = mecha.map(toBool, mecha.combine(.{
     mecha.many(mecha.oneOf(.{
         mecha.string("true"),
         mecha.string("false"),
     }), .{ .max = 1, .collect = false }),
-
-    mecha.discard(mecha.utf8.char(' ')),
 }));
 
-const parseString = mecha.map(PossibleValues, toString, mecha.combine(.{
+const parseString = mecha.map(toString, mecha.combine(.{
     mecha.discard(mecha.utf8.char('"')),
     mecha.many(mecha.utf8.not(mecha.utf8.char('"')), .{ .collect = false }),
     mecha.discard(mecha.utf8.char('"')),
 }));
 
-const parseQuotlessString = mecha.map(PossibleValues, toString, mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }));
+const parseQuotlessString = mecha.map(toString, mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }));
 
-const parseNumber = mecha.convert(PossibleValues, toFloat, mecha.many(mecha.oneOf(.{
+const parseNumber = mecha.convert(toFloat, mecha.many(mecha.oneOf(.{
     mecha.ascii.digit(10),
     mecha.ascii.char('.'),
 }), .{ .collect = false }));
