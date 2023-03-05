@@ -260,7 +260,7 @@ pub fn clear(buffer: *Buffer) !void {
     try buffer.insureLastByteIsNewline();
     buffer.metadata.dirty = true;
 
-    buffer.moveAbsolute(1, 1);
+    buffer.cursor_index = 0;
 }
 
 pub fn lineSize(buffer: *Buffer, line: u64) u64 {
