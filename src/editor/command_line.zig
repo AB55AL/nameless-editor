@@ -81,7 +81,7 @@ pub fn run() !void {
     std.mem.copy(u8, &command_str, command_line_content);
 
     close();
-    runCommand(command_str[0 .. len - 1]);
+    runCommand(command_str[0..len]);
 }
 
 pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
@@ -187,6 +187,11 @@ const parseBool = mecha.map(toBool, mecha.combine(.{
         mecha.string("true"),
         mecha.string("false"),
     }), .{ .max = 1, .collect = false }),
+
+    mecha.discard(mecha.oneOf(.{
+        mecha.utf8.char(' '),
+        mecha.utf8.char('\n'),
+    })),
 }));
 
 const parseString = mecha.map(toString, mecha.combine(.{
