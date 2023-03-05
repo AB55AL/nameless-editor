@@ -20,11 +20,9 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    const window_width: u32 = 800;
-    const window_height: u32 = 600;
     const allocator = gpa.allocator();
 
-    try globals.initGlobals(allocator, window_width, window_height);
+    try globals.initGlobals(allocator);
     defer globals.deinitGlobals();
 
     try input_layer.init();
