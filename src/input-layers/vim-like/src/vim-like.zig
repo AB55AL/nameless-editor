@@ -4,8 +4,6 @@ const StringArrayHashMap = std.StringArrayHashMap;
 const StringHashMap = std.StringHashMap;
 const AutoHashMap = std.AutoHashMap;
 
-const glfw = @import("glfw");
-
 const input_layer_main = @import("main.zig");
 const core = @import("core");
 const editor = core.editor;
@@ -117,14 +115,15 @@ pub fn moveBackwards() void {
 
 pub fn paste() void {
     var fb = core.focusedBuffer() orelse return;
+    _ = fb;
 
-    var clipboard = glfw.getClipboardString() orelse {
-        core.notify("Clipboard", "Empty", 2000);
-        return;
-    };
-    fb.insertBeforeCursor(clipboard) catch |err| {
-        print("input_layer.paste()\n\t{}\n", .{err});
-    };
+    // var clipboard = glfw.getClipboardString() orelse {
+    //     core.notify("Clipboard", "Empty", 2000);
+    //     return;
+    // };
+    // fb.insertBeforeCursor(clipboard) catch |err| {
+    //     print("input_layer.paste()\n\t{}\n", .{err});
+    // };
 }
 
 pub fn randomInsertions() void {

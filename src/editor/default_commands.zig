@@ -13,10 +13,10 @@ const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
     try add("o", open);
-    try add("or", openEast);
-    try add("ol", openWest);
-    try add("oa", openNorth);
-    try add("ob", openSouth);
+    try add("oe", openEast);
+    try add("ow", openWest);
+    try add("on", openNorth);
+    try add("os", openSouth);
 
     try add("save", saveFocused);
     try add("saveAs", saveAsFocused);
@@ -120,8 +120,8 @@ fn forceSaveFocused() void {
 }
 
 fn killFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.killBuffer(fb) catch |err| {
+    var fbw = buffer_ops.focusedBW() orelse return;
+    buffer_ops.killBufferWindow(fbw) catch |err| {
         if (err == buffer_ops.Error.KillingDirtyBuffer) {
             print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
         } else {
@@ -131,14 +131,14 @@ fn killFocused() void {
 }
 
 fn forceKillFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.forceKillBuffer(fb) catch |err|
+    var fbw = buffer_ops.focusedBW() orelse return;
+    buffer_ops.forceKillBufferWindow(fbw) catch |err|
         print("err={}\n", .{err});
 }
 
 fn saveAndQuitFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.saveAndQuit(fb, false) catch |err| {
+    var fbw = buffer_ops.focusedBW() orelse return;
+    buffer_ops.saveAndQuitWindow(fbw, false) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSaveAndQuit", .{});
@@ -149,7 +149,7 @@ fn saveAndQuitFocused() void {
 }
 
 fn forceSaveAndQuitFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.saveAndQuit(fb, true) catch |err|
+    var fbw = buffer_ops.focusedBW() orelse return;
+    buffer_ops.saveAndQuitWindow(fbw, true) catch |err|
         print("err={}\n", .{err});
 }

@@ -2,19 +2,17 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
-const State = @import("ui/ui_lib.zig").State;
+// const core = @import("core");
+
+const BufferWindow = @import("ui/buffer.zig").BufferWindow;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
-const shape2d = @import("ui/shape2d.zig");
-const ui_lib = @import("ui/ui_lib.zig");
 const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
-const buffer_ui = @import("ui/buffer.zig");
-const DrawList = @import("ui/draw_command.zig").DrawList;
 
 pub const editor = struct {
     /// A linked list of all the buffers in the editor
-    pub var first_buffer: ?*Buffer = undefined;
+    pub var first_buffer: ?*Buffer = null;
     /// The number of valid buffers in the linked list
     pub var valid_buffers_count: u32 = 0;
     /// The buffer of the command_line
@@ -23,13 +21,11 @@ pub const editor = struct {
 };
 
 pub const ui = struct {
-    pub var state: State = undefined;
+    pub var visiable_buffers_tree: ?*BufferWindow = null;
+    pub var focused_buffer_window: ?*BufferWindow = null;
+    pub var previous_focused_buffer_wins = std.BoundedArray(*BufferWindow, 50).init(0) catch unreachable;
 
-    pub var visiable_buffers_tree: ?*buffer_ui.BufferWindow = null;
-    pub var focused_buffer_window: ?*buffer_ui.BufferWindow = null;
-    pub var previous_focused_buffer_wins = std.BoundedArray(*buffer_ui.BufferWindow, 50).init(0) catch unreachable;
-
-    pub var command_line_buffer_window: buffer_ui.BufferWindow = undefined;
+    pub var command_line_buffer_window: BufferWindow = undefined;
 
     pub var notifications = std.BoundedArray(notify.Notify, 100).init(0) catch unreachable;
 };
@@ -39,34 +35,22 @@ pub const internal = struct {
     pub var allocator: std.mem.Allocator = undefined;
 };
 
-pub fn initGlobals(allocator: std.mem.Allocator, window_width: u32, window_height: u32) !void {
+pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
 
     editor.command_line_buffer = try buffer_ops.createLocalBuffer("");
-    ui.command_line_buffer_window = buffer_ui.BufferWindow{
+    ui.command_line_buffer_window = BufferWindow{
         .buffer = editor.command_line_buffer,
         .first_visiable_row = 1,
-    };
-
-    ui.state = State{
-        // .font = try shape2d.Font.init(allocator, "assets/Fira Code Light Nerd Font Complete Mono.otf", 24),
-        .font = try shape2d.Font.init(allocator, "assets/Amiri-Regular.ttf", 24),
-        .window_width = window_width,
-        .window_height = window_height,
-        .draw_list = DrawList.init(allocator),
     };
 }
 
 pub fn deinitGlobals() void {
-    if (editor.first_buffer) |first_buffer| {
-        var buffer: ?*Buffer = first_buffer;
-        while (buffer) |b| {
-            buffer = b.next_buffer;
-            b.deinit();
-        }
+    var buffer: ?*Buffer = editor.first_buffer;
+    while (buffer) |b| {
+        buffer = b.next_buffer;
+        b.deinit();
     }
-
-    ui.state.deinit(internal.allocator);
 
     editor.command_line_buffer.deinitAndDestroy(internal.allocator);
 }

@@ -127,12 +127,12 @@ pub const word = struct {
     pub fn moveForward(buffer_window: *BufferWindow) void {
         const range = forward(buffer_window.buffer);
         buffer_window.buffer.cursor_index = range.end;
-        buffer_window.setWindowCursorToBuffer();
+        // buffer_window.setWindowCursorToBuffer();
     }
 
     pub fn moveBackwards(buffer_window: *BufferWindow) void {
         const range = backward(buffer_window.buffer);
         buffer_window.buffer.cursor_index = range.start;
-        buffer_window.setWindowCursorToBuffer();
+        // buffer_window.setWindowCursorToBuffer();
     }
 };

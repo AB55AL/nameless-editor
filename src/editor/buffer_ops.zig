@@ -6,11 +6,16 @@ const eql = std.mem.eql;
 const assert = std.debug.assert;
 const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
-const globals = @import("../globals.zig");
+
+const globals = @import("../core.zig").globals;
 
 const buffer_ui = @import("../ui/buffer.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
+
+// const editor = @import("../core.zig").editor;
+// const ui = @import("../core.zig").ui;
+// const internal = @import("../globals.zig").internal;
 
 const editor = globals.editor;
 const ui = globals.ui;
@@ -180,8 +185,6 @@ pub fn forceKillBuffer(buffer: *Buffer) !void {
         return Error.KillingInvalidBuffer;
 
     buffer.deinitNoDestroy(internal.allocator);
-    // TODO: Set a new focused buffer window
-    // if (editor.valid_buffers_count > 0) {}
 
     editor.valid_buffers_count -= 1;
 }
@@ -191,12 +194,59 @@ pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
     try killBuffer(buffer);
 }
 
+pub fn killBufferWindow(buffer_window: *BufferWindow) !void {
+    if (buffer_window.buffer.state == .invalid)
+        return Error.KillingInvalidBuffer;
+
+    if (buffer_window.buffer.metadata.dirty)
+        return Error.KillingDirtyBuffer;
+
+    try forceKillBufferWindow(buffer_window);
+}
+
+pub fn forceKillBufferWindow(buffer_window: *BufferWindow) !void {
+    if (buffer_window.buffer.state == .invalid)
+        return Error.KillingInvalidBuffer;
+
+    if (windowCountWithBuffer(buffer_window.buffer) == 1) {
+        try forceKillBuffer(buffer_window.buffer);
+    }
+
+    // Deleting the root node
+    if (buffer_window == ui.visiable_buffers_tree and ui.visiable_buffers_tree.?.first_child != null) {
+        var last_child = ui.visiable_buffers_tree.?.first_child.?.lastSibling();
+        ui.visiable_buffers_tree = last_child;
+        last_child.parent = null;
+
+        var node = ui.visiable_buffers_tree.?.first_child;
+        while (node != null and node != last_child) {
+            node.?.parent = last_child;
+        }
+    } else if (ui.visiable_buffers_tree.?.first_child == null) {
+        ui.visiable_buffers_tree = null;
+    }
+
+    deleteFromPreviousFocusedWindows(buffer_window);
+    buffer_window.remove();
+    internal.allocator.destroy(buffer_window);
+    ui.focused_buffer_window = popPreviousFocusedBufferWindow();
+}
+
+pub fn saveAndQuitWindow(buffer_window: *BufferWindow, force_write: bool) !void {
+    try saveBuffer(buffer_window.buffer, force_write);
+    try killBufferWindow(buffer_window);
+}
+
 pub fn popPreviousFocusedBufferWindow() ?*BufferWindow {
-    var buffer_win = globals.ui.previous_focused_buffer_wins.popOrNull();
-    if (buffer_win != null and buffer_win.?.buffer.state == .valid and buffer_win.? != &ui.command_line_buffer_window)
-        return buffer_win.?
-    else
-        return globals.ui.visiable_buffers_tree;
+    var wins = &globals.ui.previous_focused_buffer_wins;
+
+    while (wins.len != 0) {
+        var buffer_win = wins.popOrNull();
+        if (buffer_win != null and buffer_win.?.buffer.state == .valid and buffer_win.? != &ui.command_line_buffer_window)
+            return buffer_win.?;
+    }
+
+    return null;
 }
 
 pub fn pushAsPreviousBufferWindow(buffer_win: *BufferWindow) void {
@@ -205,15 +255,31 @@ pub fn pushAsPreviousBufferWindow(buffer_win: *BufferWindow) void {
     var wins = &globals.ui.previous_focused_buffer_wins;
     wins.append(buffer_win) catch {
         _ = wins.orderedRemove(0);
-        wins.append(buffer_win) catch |err| {
-            // Should be unreachable
-            std.debug.print("err={!}\n", .{err});
-        };
+        wins.append(buffer_win) catch unreachable;
     };
 }
 
 pub fn focusedBuffer() ?*Buffer {
     return (globals.ui.focused_buffer_window orelse return null).buffer;
+}
+
+pub fn focusedBW() ?*BufferWindow {
+    return (globals.ui.focused_buffer_window orelse return null);
+}
+
+pub fn windowCountWithBuffer(buffer: *Buffer) u32 {
+    var root = ui.visiable_buffers_tree orelse return 0;
+    // TODO: Don't allocate
+    var array = root.treeToArray(internal.allocator) catch unreachable;
+    defer internal.allocator.free(array);
+
+    var count: u32 = 0;
+    for (array) |win| {
+        if (win.buffer.state == .valid and win.buffer.index == buffer.index)
+            count += 1;
+    }
+
+    return count;
 }
 
 pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {
@@ -232,5 +298,24 @@ pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {
 
         ui.visiable_buffers_tree = bw;
         ui.focused_buffer_window = bw;
+    }
+}
+
+pub fn setFocusedWindow(buffer_window: *BufferWindow) void {
+    if (buffer_window == &ui.command_line_buffer_window) return;
+    if (buffer_window.buffer.state == .invalid) return;
+
+    if (ui.focused_buffer_window) |fbw|
+        pushAsPreviousBufferWindow(fbw);
+
+    ui.focused_buffer_window = buffer_window;
+}
+
+fn deleteFromPreviousFocusedWindows(buffer_window: *BufferWindow) void {
+    for (ui.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
+        if (bw == buffer_window) {
+            _ = ui.previous_focused_buffer_wins.orderedRemove(i);
+            break;
+        }
     }
 }

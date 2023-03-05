@@ -11,14 +11,25 @@ fn thisDir() []const u8 {
     return std.fs.path.dirname(@src().file) orelse ".";
 }
 
-pub fn coreModule(bob: *Builder) *Module {
-    return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" } });
+pub fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Module {
+    return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" }, .dependencies = deps });
 }
 
 pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Module) void {
-    var core_module = coreModule(bob);
-    var glfw_module = glfw.module(bob);
+    var mecha_module = bob.createModule(.{ .source_file = .{ .path = "libs/mecha/mecha.zig" } });
     var freetype_module = freetype.module(bob);
+
+    var gui_module = bob.createModule(.{ .source_file = .{ .path = "libs/gui/src/api.zig" }, .dependencies = &.{
+        .{ .name = "tinyvg", .module = bob.createModule(.{ .source_file = .{ .path = "libs/gui/libs/tinyvg/src/lib/tinyvg.zig" } }) },
+        .{ .name = "freetype", .module = freetype_module },
+    } });
+
+    var core_module = coreModule(bob, &.{
+        .{ .name = "mecha", .module = mecha_module },
+        .{ .name = "gui", .module = gui_module },
+    });
+
+    input_layer_module.dependencies.putNoClobber("core", core_module) catch unreachable;
 
     const exe = bob.addExecutable(.{
         .name = "main",
@@ -26,16 +37,14 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
         .optimize = .Debug,
     });
     exe.linkLibC();
-    exe.addIncludePath(comptime thisDir() ++ "/src/ui/glad/include");
-    exe.addCSourceFile(comptime thisDir() ++ "/src/ui/glad/glad.c", &[_][]const u8{});
 
-    exe.addModule("glfw", glfw_module);
     exe.addModule("freetype", freetype_module);
-    exe.addModule("mecha", bob.createModule(.{ .source_file = .{ .path = "libs/mecha/mecha.zig" } }));
-
-    input_layer_module.dependencies.putNoClobber("core", core_module) catch unreachable;
-    input_layer_module.dependencies.putNoClobber("glfw", glfw_module) catch unreachable;
+    exe.addModule("mecha", mecha_module);
+    exe.addModule("core", core_module);
+    exe.addModule("gui", gui_module);
     exe.addModule("input_layer", input_layer_module);
+
+    exe.linkSystemLibrary("SDL2");
 
     var options = bob.addOptions();
     exe.addOptions("options", options);
@@ -48,7 +57,6 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
     const user_config_loaded = if (user_module != null) true else false;
     options.addOption(bool, "user_config_loaded", user_config_loaded);
 
-    glfw.link(bob, exe, .{}) catch |err| print("err={}", .{err});
     freetype.link(bob, exe, .{});
     // freetype.link(bob, exe, .{ .harfbuzz = .{} });
 
