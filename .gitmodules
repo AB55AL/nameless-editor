@@ -7,3 +7,6 @@
 [submodule "libs/mecha"]
 	path = libs/mecha
 	url = https://github.com/Hejsil/mecha.git
+[submodule "libs/gui"]
+	path = libs/gui
+	url = https://github.com/AB55AL/gui.git
