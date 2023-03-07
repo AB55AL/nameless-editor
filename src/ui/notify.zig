@@ -10,18 +10,26 @@ pub const Notify = struct {
     title: []const u8,
     message: []const u8,
     remaining_time: f32,
-    duplicates: u8,
+    duplicates: u32,
 };
 
 pub fn notify(title: []const u8, message: []const u8, time: f32) void {
-    if (ui.notifications.len == ui.notifications.capacity()) return;
+    for (ui.notifications.slice()) |*n| {
+        if (std.mem.eql(u8, n.title, title) and std.mem.eql(u8, n.message, message)) {
+            n.duplicates +|= 1;
+            n.remaining_time = time;
+            return;
+        }
+    }
 
     ui.notifications.append(.{
         .title = title,
         .message = message,
         .remaining_time = time,
         .duplicates = 0,
-    }) catch unreachable;
+    }) catch return;
+}
+
 }
 
 pub fn notifyWidget(allocator: std.mem.Allocator) !void {

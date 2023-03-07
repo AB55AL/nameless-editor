@@ -27,7 +27,7 @@ pub const ui = struct {
 
     pub var command_line_buffer_window: BufferWindow = undefined;
 
-    pub var notifications = std.BoundedArray(notify.Notify, 100).init(0) catch unreachable;
+    pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
 };
 
 pub const internal = struct {
