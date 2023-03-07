@@ -20,7 +20,11 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
+    var gui_gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // defer _ = gui_gpa.deinit();
+
     const allocator = gpa.allocator();
+    const gui_allocator = gui_gpa.allocator();
 
     try globals.initGlobals(allocator);
     defer globals.deinitGlobals();
@@ -37,7 +41,7 @@ pub fn main() !void {
     var win_backend = try gui.SDLBackend.init(800, 600);
     defer win_backend.deinit();
 
-    var win = gui.Window.init(@src(), 0, allocator, win_backend.guiBackend());
+    var win = gui.Window.init(@src(), 0, gui_allocator, win_backend.guiBackend());
     defer win.deinit();
 
     main_loop: while (true) {
