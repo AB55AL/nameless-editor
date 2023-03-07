@@ -45,6 +45,8 @@ pub fn main() !void {
     defer win.deinit();
 
     main_loop: while (true) {
+        var timer = try std.time.Timer.start();
+
         var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
         defer arena_allocator.deinit();
         const arena = arena_allocator.allocator();
@@ -84,6 +86,9 @@ pub fn main() !void {
                 try ui.bufferWidget(@src(), i, bw, false, .{ .rect = bw.rect });
             }
         }
+
+        try core.displayNotifications(globals.ui.notifications.slice());
+        defer core.clearDoneNotifications(&globals.ui.notifications, timer.read());
 
         const end_micros = try win.end();
 
