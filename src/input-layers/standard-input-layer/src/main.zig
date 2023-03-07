@@ -176,7 +176,7 @@ fn paste() void {
     var fb = core.editor.focused_buffer orelse return;
 
     var clipboard = glfw.getClipboardString() catch {
-        core.notify("Clipboard", "Empty", 2000);
+        core.notify("Clipboard", "Empty", 2);
         return;
     };
     fb.insertBeforeCursor(clipboard) catch |err| {

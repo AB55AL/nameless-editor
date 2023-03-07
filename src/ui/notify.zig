@@ -11,6 +11,7 @@ const utils = @import("../utils.zig");
 pub const Notify = struct {
     title: []const u8,
     message: []const u8,
+    /// Remaining time in seconds
     remaining_time: f32,
     duplicates: u32,
 };
@@ -114,13 +115,13 @@ fn notificationWindowSize(notifications: []const Notify) !gui.Size {
 pub fn clearDoneNotifications(notifications: *std.BoundedArray(Notify, 1024), nstime_since_last_frame: u64) void {
     if (notifications.len == 0) return;
 
-    const milli_diff = nstime_since_last_frame / 1000000;
+    const second_diff = @intToFloat(f32, nstime_since_last_frame) / 1000000000;
     var i = notifications.len;
     while (i > 0) {
         i -= 1;
 
         var n = &notifications.slice()[i];
-        n.remaining_time -= @intToFloat(f32, milli_diff);
+        n.remaining_time -= second_diff;
 
         if (n.remaining_time <= 0)
             _ = notifications.orderedRemove(i);

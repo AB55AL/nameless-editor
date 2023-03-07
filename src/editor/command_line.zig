@@ -127,11 +127,11 @@ fn call(command: []const u8, args: []PossibleValues) void {
         f(args) catch |err| {
             if (err == CommandRunError.FunctionCommandMismatchedTypes) {
                 print("The command args do not match the function\n", .{});
-                notify.notify("Command Line Error:", "The command args do not match the function", 3000);
+                notify.notify("Command Line Error:", "The command args do not match the function", 3);
             }
         };
     } else {
-        notify.notify("Command Line Error:", "The command doesn't exist", 3000);
+        notify.notify("Command Line Error:", "The command doesn't exist", 3);
     }
 }
 
