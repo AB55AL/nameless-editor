@@ -169,7 +169,7 @@ fn argHandler(comptime fn_info: std.builtin.Type.Fn, value: PossibleValues, comp
 
 const parseCommand = mecha.combine(.{
     mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }),
-    discardWhiteSpace,
+    discardManyWhiteSpace,
 });
 
 const parseArgs = mecha.combine(.{
@@ -179,7 +179,7 @@ const parseArgs = mecha.combine(.{
         parseString,
         parseQuotlessString,
     }),
-    discardWhiteSpace,
+    discardManyWhiteSpace,
 });
 
 const parseBool = mecha.map(toBool, mecha.combine(.{
@@ -188,10 +188,7 @@ const parseBool = mecha.map(toBool, mecha.combine(.{
         mecha.string("false"),
     }), .{ .max = 1, .collect = false }),
 
-    mecha.discard(mecha.oneOf(.{
-        mecha.utf8.char(' '),
-        mecha.utf8.char('\n'),
-    })),
+    discardWhiteSpace,
 }));
 
 const parseString = mecha.map(toString, mecha.combine(.{
@@ -200,14 +197,15 @@ const parseString = mecha.map(toString, mecha.combine(.{
     mecha.discard(mecha.utf8.char('"')),
 }));
 
-const parseQuotlessString = mecha.map(toString, mecha.many(mecha.utf8.not(mecha.utf8.char(' ')), .{ .collect = false }));
+const parseQuotlessString = mecha.map(toString, mecha.many(mecha.utf8.not(mecha.ascii.whitespace), .{ .collect = false }));
 
 const parseNumber = mecha.convert(toFloat, mecha.many(mecha.oneOf(.{
     mecha.ascii.digit(10),
     mecha.ascii.char('.'),
 }), .{ .collect = false }));
 
-const discardWhiteSpace = mecha.discard(mecha.many(mecha.ascii.whitespace, .{ .collect = false }));
+const discardWhiteSpace = mecha.discard(mecha.ascii.whitespace);
+const discardManyWhiteSpace = mecha.discard(mecha.many(discardWhiteSpace, .{ .collect = false }));
 
 fn toBool(string: []const u8) PossibleValues {
     return .{ .bool = std.mem.eql(u8, "true", string) };
