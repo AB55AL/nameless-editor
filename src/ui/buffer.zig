@@ -46,6 +46,13 @@ pub const BufferWindow = struct {
         return new_window;
     }
 
+    pub fn deinitTree(buffer_window: *BufferWindow, allocator: std.mem.Allocator) void {
+        if (buffer_window.first_child) |fc| fc.deinitTree(allocator);
+        if (buffer_window.next_sibling) |ns| ns.deinitTree(allocator);
+
+        allocator.destroy(buffer_window);
+    }
+
     pub fn remove(buffer_window: *BufferWindow) void {
         if (buffer_window.parent) |parent| {
             if (buffer_window == parent.first_child)
