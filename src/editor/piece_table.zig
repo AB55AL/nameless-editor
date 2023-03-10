@@ -16,7 +16,7 @@ add_newlines: ArrayList(u64),
 size: u64,
 newlines_count: u64,
 
-pieces_root: *PieceNode,
+pieces_root: ?*PieceNode,
 allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
@@ -37,20 +37,25 @@ pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
         .original_newlines = try original_newlines.toOwnedSlice(),
         .add = ArrayList(u8).init(allocator),
         .add_newlines = ArrayList(u64).init(allocator),
-        .pieces_root = try allocator.create(PieceNode),
+        .pieces_root = null,
         .size = original_content.len,
         .newlines_count = 0,
     };
     piece_table.newlines_count = piece_table.original_newlines.len;
     original_newlines.deinit();
 
-    piece_table.pieces_root.* = .{
-        .source = .original,
-        .start = 0,
-        .len = buf.len,
-        .newlines_start = 0,
-        .newlines_count = piece_table.original_newlines.len,
-    };
+    if (buf.len > 0) {
+        var root = try allocator.create(PieceNode);
+        root.* = .{
+            .source = .original,
+            .start = 0,
+            .len = buf.len,
+            .newlines_start = 0,
+            .newlines_count = piece_table.original_newlines.len,
+        };
+
+        piece_table.pieces_root = root;
+    }
 
     return piece_table;
 }
@@ -78,16 +83,6 @@ pub fn deinitTree(pt: *PieceTable, piece: ?*PieceNode) ?*PieceNode {
 }
 
 pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
-    var node_info = pt.findNode(index);
-    var node = node_info.piece;
-    var i = node_info.relative_index;
-
-    if (i == 0 and index > 0) { // Force append to previous node
-        node_info = pt.findNode(index -| 1);
-        node = node_info.piece;
-        i = node.len;
-    }
-
     var newlines_in_string_indices = ArrayList(u64).init(pt.allocator);
     defer newlines_in_string_indices.deinit();
     for (string, 0..) |c, ni|
@@ -97,43 +92,65 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
     try pt.add.ensureUnusedCapacity(string.len);
     try pt.add_newlines.ensureUnusedCapacity(newlines_in_string_indices.items.len);
 
-    pt.splay(node);
-    if (i > 0 and i < node.len) { // split
-        var p1 = node;
-        var p3 = try pt.allocator.create(PieceNode);
-        errdefer pt.allocator.destroy(p3);
-        var new_piece = try pt.allocator.create(PieceNode);
+    if (pt.pieces_root == null) {
+        pt.pieces_root = try pt.allocator.create(PieceNode);
 
-        var split_pieces = node.spilt(pt, i);
+        pt.pieces_root.?.* = .{
+            .source = .add,
+            .start = pt.add.items.len,
+            .len = string.len,
+            .newlines_start = pt.add_newlines.items.len,
+            .newlines_count = newlines_in_string_indices.items.len,
+        };
+    } else {
+        var node_info = pt.findNode(index);
+        var node = node_info.piece;
+        var i = node_info.relative_index;
 
-        split_pieces.right.parent = null;
-        split_pieces.right.left = p1;
-        split_pieces.right.right = p1.right;
-        p3.* = split_pieces.right;
-        if (p3.right) |p3_right| {
-            p3_right.parent = p3;
-            const subtree_info = p3_right.subtreeLengthAndNewlineCount();
-            p3.left_subtree_len -= subtree_info.len;
-            p3.left_subtree_newlines_count -= subtree_info.newlines_count;
+        if (i == 0 and index > 0) { // Force append to previous node
+            node_info = pt.findNode(index -| 1);
+            node = node_info.piece;
+            i = node.len;
         }
 
-        split_pieces.left.parent = p3;
-        split_pieces.left.left = p1.left;
-        split_pieces.left.right = null;
-        p1.* = split_pieces.left;
+        pt.splay(node);
+        if (i > 0 and i < node.len) { // split
+            var p1 = node;
+            var p3 = try pt.allocator.create(PieceNode);
+            errdefer pt.allocator.destroy(p3);
+            var new_piece = try pt.allocator.create(PieceNode);
 
-        pt.pieces_root = p3;
+            var split_pieces = node.spilt(pt, i);
 
-        pt.prependToPiece(p3, new_piece, string.len, newlines_in_string_indices.items.len);
-    } else if (i == 0) {
-        var new_piece = try pt.allocator.create(PieceNode);
-        pt.prependToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
-    } else if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
-        node.len += string.len;
-        node.newlines_count += newlines_in_string_indices.items.len;
-    } else {
-        var new_piece = try pt.allocator.create(PieceNode);
-        pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
+            split_pieces.right.parent = null;
+            split_pieces.right.left = p1;
+            split_pieces.right.right = p1.right;
+            p3.* = split_pieces.right;
+            if (p3.right) |p3_right| {
+                p3_right.parent = p3;
+                const subtree_info = p3_right.subtreeLengthAndNewlineCount();
+                p3.left_subtree_len -= subtree_info.len;
+                p3.left_subtree_newlines_count -= subtree_info.newlines_count;
+            }
+
+            split_pieces.left.parent = p3;
+            split_pieces.left.left = p1.left;
+            split_pieces.left.right = null;
+            p1.* = split_pieces.left;
+
+            pt.pieces_root = p3;
+
+            pt.prependToPiece(p3, new_piece, string.len, newlines_in_string_indices.items.len);
+        } else if (i == 0) {
+            var new_piece = try pt.allocator.create(PieceNode);
+            pt.prependToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
+        } else if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
+            node.len += string.len;
+            node.newlines_count += newlines_in_string_indices.items.len;
+        } else {
+            var new_piece = try pt.allocator.create(PieceNode);
+            pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
+        }
     }
 
     pt.add.appendSliceAssumeCapacity(string);
@@ -144,6 +161,8 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
 }
 
 pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
+    if (pt.pieces_root == null) return;
+
     const allocator = pt.allocator;
     var len: u64 = 0;
 
@@ -218,7 +237,8 @@ pub fn findNodeWithLine(pt: *PieceTable, newline_index_of_node: u64) struct {
     newline_index: u64,
 } {
     utils.assert(newline_index_of_node <= pt.newlines_count, "newline_index_of_node cannot be greater than the total newlines in the table");
-    var piece = pt.pieces_root;
+    utils.assert(pt.pieces_root != null, "pieces_root must not be null");
+    var piece = pt.pieces_root.?;
     var piece_index: u64 = 0;
     var piece_index_newline: u64 = 0;
     var relative_newline_index = newline_index_of_node;
@@ -276,7 +296,7 @@ fn splay(pt: *PieceTable, node: *PieceNode) void {
 }
 
 fn removeRoot(pt: *PieceTable) void {
-    var root = pt.pieces_root;
+    var root = pt.pieces_root.?;
 
     var node: *PieceNode = undefined;
     if (root.left) |left| {
@@ -441,7 +461,8 @@ pub fn findNode(pt: *PieceTable, index: u64) struct {
     piece: *PieceNode,
     relative_index: u64,
 } {
-    var node = pt.pieces_root;
+    utils.assert(pt.pieces_root != null, "pieces_root must not be null");
+    var node = pt.pieces_root.?;
     var relative_index = index;
     while (true) {
         if (relative_index < node.left_subtree_len and node.left != null) {

@@ -238,23 +238,10 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
 }
 
 pub fn clear(buffer: *Buffer) !void {
-    _ = buffer.lines.deinitTree(buffer.lines.pieces_root);
-    var pt = buffer.lines;
-    buffer.lines.pieces_root.* = .{
-        .parent = null,
-        .left = null,
-        .right = null,
+    var root = buffer.lines.deinitTree(buffer.lines.pieces_root);
+    if (root) |r| internal.allocator.destroy(r);
 
-        .left_subtree_len = 0,
-        .left_subtree_newlines_count = 0,
-
-        .newlines_start = pt.add_newlines.items.len,
-        .newlines_count = 0,
-
-        .start = pt.add.items.len,
-        .len = 0,
-        .source = .add,
-    };
+    buffer.lines.pieces_root = null;
     buffer.lines.size = 0;
     buffer.lines.newlines_count = 0;
     try buffer.insureLastByteIsNewline();
