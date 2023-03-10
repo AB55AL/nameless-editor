@@ -88,10 +88,15 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
         if (c == '\n')
             try newlines_in_string_indices.append(pt.add.items.len + ni);
 
+    try pt.add.ensureUnusedCapacity(string.len);
+    try pt.add_newlines.ensureUnusedCapacity(newlines_in_string_indices.items.len);
+
     pt.splay(node);
     if (i > 0 and i < node.len) { // split
         var p1 = node;
         var p3 = try pt.allocator.create(PieceNode);
+        errdefer pt.allocator.destroy(p3);
+        var new_piece = try pt.allocator.create(PieceNode);
 
         var split_pieces = node.spilt(pt, i);
 
@@ -113,26 +118,25 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
 
         pt.pieces_root = p3;
 
-        try pt.prependToPiece(p3, string.len, newlines_in_string_indices.items.len);
+        pt.prependToPiece(p3, new_piece, string.len, newlines_in_string_indices.items.len);
     } else if (i == 0) {
-        //
-        try pt.prependToPiece(node, string.len, newlines_in_string_indices.items.len);
+        var new_piece = try pt.allocator.create(PieceNode);
+        pt.prependToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
     } else {
         if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
             node.len += string.len;
             node.newlines_count += newlines_in_string_indices.items.len;
         } else {
-            try pt.appendToPiece(node, string.len, newlines_in_string_indices.items.len);
+            var new_piece = try pt.allocator.create(PieceNode);
+            pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
         }
     }
 
-    // FIXME: If an error happens here then the state of the tree will be corrupted
-    try pt.add.appendSlice(string);
+    pt.add.appendSliceAssumeCapacity(string);
     pt.size += string.len;
-    if (newlines_in_string_indices.items.len > 0) {
-        try pt.add_newlines.appendSlice(newlines_in_string_indices.items);
-        pt.newlines_count += newlines_in_string_indices.items.len;
-    }
+
+    pt.add_newlines.appendSliceAssumeCapacity(newlines_in_string_indices.items);
+    pt.newlines_count += newlines_in_string_indices.items.len;
 }
 
 pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
@@ -336,10 +340,9 @@ fn removeRoot(pt: *PieceTable) void {
     pt.allocator.destroy(node);
 }
 
-fn prependToPiece(pt: *PieceTable, piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) !void {
+fn prependToPiece(pt: *PieceTable, piece: *PieceNode, new_piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) void {
     pt.splay(piece);
 
-    var new_piece = try pt.allocator.create(PieceNode);
     new_piece.* = .{
         .parent = piece,
         .left = piece.left,
@@ -364,9 +367,8 @@ fn prependToPiece(pt: *PieceTable, piece: *PieceNode, string_len: u64, newlines_
         np_left.parent = new_piece;
 }
 
-fn appendToPiece(pt: *PieceTable, piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) !void {
+fn appendToPiece(pt: *PieceTable, piece: *PieceNode, new_piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) void {
     pt.splay(piece);
-    var new_piece = try pt.allocator.create(PieceNode);
     new_piece.* = .{
         .parent = null, // will become the root
         .left = piece,
