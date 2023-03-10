@@ -35,6 +35,13 @@ const PossibleValues = union(enum) {
     string: []const u8,
     float: f64,
     bool: bool,
+
+    pub fn sameType(pv: PossibleValues, T: anytype) bool {
+        return switch (pv) {
+            .float, .int => (@typeInfo(T) == .Int or @typeInfo(T) == .Float),
+            inline else => |v| std.meta.eql(@TypeOf(v), T),
+        };
+    }
 };
 
 const Token = struct {
@@ -145,26 +152,37 @@ fn beholdMyFunctionInator(comptime function: anytype) type {
             } else if (args.len > 0 and args.len == fn_info.params.len) {
                 const Tuple = std.meta.ArgsTuple(@TypeOf(function));
                 var args_tuple: Tuple = undefined;
-                inline for (args_tuple, 0..) |_, index|
-                    args_tuple[index] = try argHandler(fn_info, args[index], index);
+                inline for (args_tuple, 0..) |_, index| {
+                    if (!args[index].sameType(@TypeOf(args_tuple[index]))) {
+                        return CommandRunError.FunctionCommandMismatchedTypes;
+                    }
+
+                    const ArgTupleType = @TypeOf(args_tuple[index]);
+                    const argtuple_type_info = @typeInfo(ArgTupleType);
+
+                    if (args[index] == .int and (argtuple_type_info == .Int or argtuple_type_info == .Float)) {
+                        if (argtuple_type_info == .Int)
+                            args_tuple[index] = @intCast(ArgTupleType, args[index].int)
+                        else {
+                            args_tuple[index] = @intToFloat(ArgTupleType, args[index].int);
+                        }
+                    } else if (args[index] == .float and argtuple_type_info == .Float) {
+                        args_tuple[index] = @floatCast(ArgTupleType, args[index].float);
+                    } else if (args[index] == .string and std.meta.eql(ArgTupleType, []const u8)) {
+                        args_tuple[index] = args[index].string;
+                    } else if (args[index] == .bool and std.meta.eql(ArgTupleType, bool)) {
+                        args_tuple[index] = args[index].bool;
+                    }
+                }
 
                 @call(.never_inline, function, args_tuple);
-            } else {
-                unreachable;
+            } else if (args.len < fn_info.params.len) {
+                std.debug.print("Missing arguments\n", .{});
+            } else if (args.len > fn_info.params.len) {
+                std.debug.print("Extra arguments\n", .{});
             }
         }
     };
-}
-
-fn argHandler(comptime fn_info: std.builtin.Type.Fn, value: PossibleValues, comptime index: usize) !fn_info.params[index].type.? {
-    const arg_type = fn_info.params[index].type.?;
-    const val = switch (value) {
-        .string => |v| if (@TypeOf(v) == arg_type) return v else return CommandRunError.FunctionCommandMismatchedTypes,
-        .bool => |v| if (@TypeOf(v) == arg_type) return v else return CommandRunError.FunctionCommandMismatchedTypes,
-        .int => |v| if (arg_type == u32 or arg_type == u64 or arg_type == i32 or arg_type == i64) return @intCast(arg_type, v) else return CommandRunError.FunctionCommandMismatchedTypes,
-        .float => |v| if (arg_type == f32 or arg_type == f64) return @floatCast(arg_type, v) else CommandRunError.FunctionCommandMismatchedTypes,
-    };
-    return val;
 }
 
 const parseCommand = mecha.combine(.{
@@ -175,7 +193,8 @@ const parseCommand = mecha.combine(.{
 const parseArgs = mecha.combine(.{
     mecha.oneOf(.{
         parseBool,
-        parseNumber,
+        parseInt,
+        parseFloat,
         parseString,
         parseQuotlessString,
     }),
@@ -199,10 +218,19 @@ const parseString = mecha.map(toString, mecha.combine(.{
 
 const parseQuotlessString = mecha.map(toString, mecha.many(mecha.utf8.not(mecha.ascii.whitespace), .{ .collect = false }));
 
-const parseNumber = mecha.convert(toFloat, mecha.many(mecha.oneOf(.{
+const parseFloat = mecha.convert(toFloat, mecha.many(mecha.oneOf(.{
+    mecha.ascii.char('-'),
     mecha.ascii.digit(10),
     mecha.ascii.char('.'),
 }), .{ .collect = false }));
+
+const parseInt = mecha.convert(toInt, mecha.combine(.{
+    mecha.many(mecha.oneOf(.{
+        mecha.ascii.char('-'),
+        mecha.ascii.digit(10),
+    }), .{ .collect = false }),
+    discardWhiteSpace,
+}));
 
 const discardWhiteSpace = mecha.discard(mecha.ascii.whitespace);
 const discardManyWhiteSpace = mecha.discard(mecha.many(discardWhiteSpace, .{ .collect = false }));
@@ -218,4 +246,19 @@ fn toString(string: []const u8) PossibleValues {
 fn toFloat(allocator: std.mem.Allocator, string: []const u8) mecha.Error!PossibleValues {
     _ = allocator;
     return .{ .float = std.fmt.parseFloat(f64, string) catch return mecha.Error.ParserFailed };
+}
+
+fn toInt(allocator: std.mem.Allocator, string: []const u8) mecha.Error!PossibleValues {
+    _ = allocator;
+    const value = std.fmt.parseInt(i64, string, 10) catch |err| blk: {
+        if (err == error.Overflow) {
+            if (string[0] == '-')
+                break :blk @intCast(i64, std.math.minInt(i64))
+            else
+                break :blk @intCast(i64, std.math.maxInt(i64));
+        }
+
+        return mecha.Error.ParserFailed;
+    };
+    return .{ .int = value };
 }
