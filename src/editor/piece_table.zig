@@ -82,6 +82,12 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
     var node = node_info.piece;
     var i = node_info.relative_index;
 
+    if (i == 0 and index > 0) { // Force append to previous node
+        node_info = pt.findNode(index -| 1);
+        node = node_info.piece;
+        i = node.len;
+    }
+
     var newlines_in_string_indices = ArrayList(u64).init(pt.allocator);
     defer newlines_in_string_indices.deinit();
     for (string, 0..) |c, ni|
@@ -122,14 +128,12 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
     } else if (i == 0) {
         var new_piece = try pt.allocator.create(PieceNode);
         pt.prependToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
+    } else if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
+        node.len += string.len;
+        node.newlines_count += newlines_in_string_indices.items.len;
     } else {
-        if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
-            node.len += string.len;
-            node.newlines_count += newlines_in_string_indices.items.len;
-        } else {
-            var new_piece = try pt.allocator.create(PieceNode);
-            pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
-        }
+        var new_piece = try pt.allocator.create(PieceNode);
+        pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
     }
 
     pt.add.appendSliceAssumeCapacity(string);
