@@ -13,10 +13,6 @@ const buffer_ui = @import("../ui/buffer.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
 
-// const editor = @import("../core.zig").editor;
-// const ui = @import("../core.zig").ui;
-// const internal = @import("../globals.zig").internal;
-
 const editor = globals.editor;
 const ui = globals.ui;
 const internal = globals.internal;
@@ -184,7 +180,7 @@ pub fn forceKillBuffer(buffer: *Buffer) !void {
     if (buffer.state == .invalid)
         return Error.KillingInvalidBuffer;
 
-    buffer.deinitNoDestroy(internal.allocator);
+    buffer.deinitNoDestroy();
 
     editor.valid_buffers_count -= 1;
 }

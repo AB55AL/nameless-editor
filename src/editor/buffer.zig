@@ -11,12 +11,8 @@ const min = std.math.min;
 
 const PieceTable = @import("piece_table.zig");
 const utf8 = @import("../utf8.zig");
-const globals = @import("../globals.zig");
 
 const utils = @import("../utils.zig");
-
-const global = globals.global;
-const internal = globals.internal;
 
 const Buffer = @This();
 
@@ -36,17 +32,17 @@ pub const MetaData = struct {
     file_last_mod_time: i128,
     dirty: bool,
 
-    pub fn setFileType(metadata: *MetaData, new_ft: []const u8) !void {
-        var file_type = try internal.allocator.alloc(u8, new_ft.len);
+    pub fn setFileType(metadata: *MetaData, allocator: std.mem.Allocator, new_ft: []const u8) !void {
+        var file_type = try allocator.alloc(u8, new_ft.len);
         std.mem.copy(u8, file_type, new_ft);
-        internal.allocator.free(metadata.file_type);
+        allocator.free(metadata.file_type);
         metadata.file_type = file_type;
     }
 
-    pub fn setFilePath(metadata: *MetaData, new_fp: []const u8) !void {
-        var file_path = try internal.allocator.alloc(u8, new_fp.len);
+    pub fn setFilePath(metadata: *MetaData, allocator: std.mem.Allocator, new_fp: []const u8) !void {
+        var file_path = try allocator.alloc(u8, new_fp.len);
         std.mem.copy(u8, file_path, new_fp);
-        internal.allocator.free(metadata.file_path);
+        allocator.free(metadata.file_path);
         metadata.file_path = file_path;
     }
 };
@@ -60,6 +56,7 @@ cursor_index: u64,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 state: State,
+allocator: std.mem.Allocator,
 
 next_buffer: ?*Buffer = null,
 
@@ -89,6 +86,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .cursor_index = 0,
         .lines = try PieceTable.init(allocator, buf),
         .state = .valid,
+        .allocator = allocator,
     };
 
     try buffer.insureLastByteIsNewline();
@@ -99,8 +97,8 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 /// Deinits the buffer in the proper way using deinitAndDestroy() or deinitNoDestroy()
 pub fn deinit(buffer: *Buffer) void {
     switch (buffer.state) {
-        .valid => buffer.deinitAndDestroy(internal.allocator),
-        .invalid => internal.allocator.destroy(buffer),
+        .valid => buffer.deinitAndDestroy(),
+        .invalid => buffer.allocator.destroy(buffer),
     }
 }
 
@@ -108,22 +106,22 @@ pub fn deinit(buffer: *Buffer) void {
 /// So pointers to this buffer are all valid through out the life time of the
 /// program.
 /// Sets state to State.invalid
-pub fn deinitNoDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
-    buffer.lines.deinit();
-    allocator.free(buffer.metadata.file_path);
-    allocator.free(buffer.metadata.file_type);
+pub fn deinitNoDestroy(buffer: *Buffer) void {
+    buffer.lines.deinit(buffer.allocator);
+    buffer.allocator.free(buffer.metadata.file_path);
+    buffer.allocator.free(buffer.metadata.file_type);
     buffer.state = .invalid;
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
 /// Pointers to this buffer are all invalidated
-pub fn deinitAndDestroy(buffer: *Buffer, allocator: std.mem.Allocator) void {
-    buffer.deinitNoDestroy(allocator);
-    allocator.destroy(buffer);
+pub fn deinitAndDestroy(buffer: *Buffer) void {
+    buffer.deinitNoDestroy();
+    buffer.allocator.destroy(buffer);
 }
 
 pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
-    try buffer.lines.insert(buffer.cursor_index, string);
+    try buffer.lines.insert(buffer.allocator, buffer.cursor_index, string);
     buffer.cursor_index += string.len;
     buffer.metadata.dirty = true;
 }
@@ -144,7 +142,7 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     }
 
     const delete_at = buffer.cursor_index -| bytes_to_delete;
-    try buffer.lines.delete(delete_at, bytes_to_delete);
+    try buffer.lines.delete(buffer.allocator, delete_at, bytes_to_delete);
     buffer.cursor_index -|= bytes_to_delete;
 
     buffer.metadata.dirty = true;
@@ -169,7 +167,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
 
     var old_index = buffer.cursor_index;
     var new_index = i;
-    try buffer.lines.delete(buffer.cursor_index, new_index - old_index);
+    try buffer.lines.delete(buffer.allocator, buffer.cursor_index, new_index - old_index);
 
     buffer.metadata.dirty = true;
     try buffer.insureLastByteIsNewline();
@@ -187,7 +185,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
         buffer.getIndex(end_row + 1, 1);
     const num_to_delete = end_index - start_index;
 
-    try buffer.lines.delete(start_index, num_to_delete);
+    try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
     buffer.metadata.dirty = true;
 
     try buffer.insureLastByteIsNewline();
@@ -204,7 +202,7 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
         buffer.getIndex(end_row, end_col + 1);
     const num_to_delete = end_index - start_index;
 
-    try buffer.lines.delete(start_index, num_to_delete);
+    try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
     buffer.metadata.dirty = true;
 
     try buffer.insureLastByteIsNewline();
@@ -212,8 +210,8 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.clear();
-    try buffer.lines.delete(0, 1); // Delete newline char
-    try buffer.lines.insert(0, string);
+    try buffer.lines.delete(buffer.allocator, 0, 1); // Delete newline char
+    try buffer.lines.insert(buffer.allocator, 0, string);
     try buffer.insureLastByteIsNewline();
     buffer.metadata.dirty = true;
 }
@@ -234,12 +232,12 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
 
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     if (buffer.lines.size == 0 or buffer.lines.byteAt(buffer.lines.size - 1) != '\n')
-        try buffer.lines.insert(buffer.lines.size, "\n");
+        try buffer.lines.insert(buffer.allocator, buffer.lines.size, "\n");
 }
 
 pub fn clear(buffer: *Buffer) !void {
-    var root = buffer.lines.deinitTree(buffer.lines.pieces_root);
-    if (root) |r| internal.allocator.destroy(r);
+    var root = buffer.lines.deinitTree(buffer.allocator, buffer.lines.pieces_root);
+    if (root) |r| buffer.allocator.destroy(r);
 
     buffer.lines.pieces_root = null;
     buffer.lines.size = 0;

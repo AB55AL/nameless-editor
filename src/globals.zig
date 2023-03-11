@@ -52,6 +52,6 @@ pub fn deinitGlobals() void {
         b.deinit();
     }
 
-    editor.command_line_buffer.deinitAndDestroy(internal.allocator);
+    editor.command_line_buffer.deinitAndDestroy();
     if (ui.visiable_buffers_tree) |tree| tree.deinitTree(internal.allocator);
 }

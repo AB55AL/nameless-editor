@@ -7,7 +7,6 @@ const ArrayList = std.ArrayList;
 
 const core = @import("core");
 const Buffer = core.Buffer;
-const Cursor = core.Cursor;
 
 test "deleteRange()" {
     const original_text =
@@ -24,7 +23,7 @@ test "deleteRange()" {
     ;
 
     var buffer = try Buffer.init(allocator, "", original_text);
-    defer buffer.deinitNoDestroy(allocator);
+    defer buffer.deinitNoDestroy();
 
     try buffer.deleteRange(2, 2, 3, 22);
 
@@ -69,7 +68,7 @@ test "deleteRows()" {
     ;
 
     var buffer = try Buffer.init(allocator, "", original_text);
-    defer buffer.deinitNoDestroy(allocator);
+    defer buffer.deinitNoDestroy();
 
     {
         try buffer.deleteRows(1, 5);
@@ -119,7 +118,7 @@ test "buffer.insertBeforeCursor()" {
     ;
 
     var buffer = try Buffer.init(allocator, "", "HELLO THERE\n");
-    defer buffer.deinitNoDestroy(allocator);
+    defer buffer.deinitNoDestroy();
 
     buffer.cursor_index = 11;
     try buffer.insertBeforeCursor("! GENERAL");
@@ -134,7 +133,7 @@ test "buffer.insertBeforeCursor()" {
 test "buffer.getAllLines()" {
     const this_file = @embedFile("buffer.zig");
     var buffer = try Buffer.init(allocator, "", this_file);
-    defer buffer.deinitNoDestroy(allocator);
+    defer buffer.deinitNoDestroy();
 
     const buffer_slice = try buffer.getAllLines(allocator);
     defer allocator.free(buffer_slice);

@@ -17,7 +17,6 @@ size: u64,
 newlines_count: u64,
 
 pieces_root: ?*PieceNode,
-allocator: std.mem.Allocator,
 
 pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     var original_content = try allocator.alloc(u8, buf.len);
@@ -32,7 +31,6 @@ pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     @setRuntimeSafety(true);
 
     var piece_table = PieceTable{
-        .allocator = allocator,
         .original = original_content,
         .original_newlines = try original_newlines.toOwnedSlice(),
         .add = ArrayList(u8).init(allocator),
@@ -60,30 +58,29 @@ pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     return piece_table;
 }
 
-pub fn deinit(pt: *PieceTable) void {
-    const allocator = pt.allocator;
+pub fn deinit(pt: *PieceTable, allocator: std.mem.Allocator) void {
     allocator.free(pt.original);
     allocator.free(pt.original_newlines);
     pt.add.deinit();
     pt.add_newlines.deinit();
 
-    var root = pt.deinitTree(pt.pieces_root);
+    var root = pt.deinitTree(allocator, pt.pieces_root);
     if (root) |r| allocator.destroy(r);
 }
 
-pub fn deinitTree(pt: *PieceTable, piece: ?*PieceNode) ?*PieceNode {
+pub fn deinitTree(pt: *PieceTable, allocator: std.mem.Allocator, piece: ?*PieceNode) ?*PieceNode {
     if (piece == null) return null;
 
-    var left = pt.deinitTree(piece.?.left);
-    if (left) |l| pt.allocator.destroy(l);
-    var right = pt.deinitTree(piece.?.right);
-    if (right) |r| pt.allocator.destroy(r);
+    var left = pt.deinitTree(allocator, piece.?.left);
+    if (left) |l| allocator.destroy(l);
+    var right = pt.deinitTree(allocator, piece.?.right);
+    if (right) |r| allocator.destroy(r);
 
     return piece.?;
 }
 
-pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
-    var newlines_in_string_indices = ArrayList(u64).init(pt.allocator);
+pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, string: []const u8) !void {
+    var newlines_in_string_indices = ArrayList(u64).init(allocator);
     defer newlines_in_string_indices.deinit();
     for (string, 0..) |c, ni|
         if (c == '\n')
@@ -93,7 +90,7 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
     try pt.add_newlines.ensureUnusedCapacity(newlines_in_string_indices.items.len);
 
     if (pt.pieces_root == null) {
-        pt.pieces_root = try pt.allocator.create(PieceNode);
+        pt.pieces_root = try allocator.create(PieceNode);
 
         pt.pieces_root.?.* = .{
             .source = .add,
@@ -116,9 +113,9 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
         pt.splay(node);
         if (i > 0 and i < node.len) { // split
             var p1 = node;
-            var p3 = try pt.allocator.create(PieceNode);
-            errdefer pt.allocator.destroy(p3);
-            var new_piece = try pt.allocator.create(PieceNode);
+            var p3 = try allocator.create(PieceNode);
+            errdefer allocator.destroy(p3);
+            var new_piece = try allocator.create(PieceNode);
 
             var split_pieces = node.spilt(pt, i);
 
@@ -142,13 +139,13 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
 
             pt.prependToPiece(p3, new_piece, string.len, newlines_in_string_indices.items.len);
         } else if (i == 0) {
-            var new_piece = try pt.allocator.create(PieceNode);
+            var new_piece = try allocator.create(PieceNode);
             pt.prependToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
         } else if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
             node.len += string.len;
             node.newlines_count += newlines_in_string_indices.items.len;
         } else {
-            var new_piece = try pt.allocator.create(PieceNode);
+            var new_piece = try allocator.create(PieceNode);
             pt.appendToPiece(node, new_piece, string.len, newlines_in_string_indices.items.len);
         }
     }
@@ -160,10 +157,9 @@ pub fn insert(pt: *PieceTable, index: u64, string: []const u8) !void {
     pt.newlines_count += newlines_in_string_indices.items.len;
 }
 
-pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
+pub fn delete(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, num_to_delete: u64) !void {
     if (pt.pieces_root == null) return;
 
-    const allocator = pt.allocator;
     var len: u64 = 0;
 
     // Delete one byte at a time
@@ -205,12 +201,12 @@ pub fn delete(pt: *PieceTable, index: u64, num_to_delete: u64) !void {
             }
 
             pt.pieces_root = p2;
-            if (p2.len == 0) pt.removeRoot();
+            if (p2.len == 0) pt.removeRoot(allocator);
         } else {
             if (i == 0) node.start += 1; // delete beginning
             node.len -= 1;
             if (node.len == 0) {
-                pt.removeRoot();
+                pt.removeRoot(allocator);
             } else if (byte_to_be_removed == '\n') {
                 node.newlines_start += 1;
                 node.newlines_count = if (node.newlines_count == 0) 0 else node.newlines_count - 1;
@@ -295,7 +291,7 @@ fn splay(pt: *PieceTable, node: *PieceNode) void {
     pt.pieces_root = node;
 }
 
-fn removeRoot(pt: *PieceTable) void {
+fn removeRoot(pt: *PieceTable, allocator: std.mem.Allocator) void {
     var root = pt.pieces_root.?;
 
     var node: *PieceNode = undefined;
@@ -307,7 +303,7 @@ fn removeRoot(pt: *PieceTable) void {
             if (root.right) |rr| rr.parent = node;
             node.parent = null;
             pt.pieces_root = node;
-            pt.allocator.destroy(root);
+            allocator.destroy(root);
             return;
         }
 
@@ -318,7 +314,7 @@ fn removeRoot(pt: *PieceTable) void {
         if (right.left == null) {
             node.parent = null;
             pt.pieces_root = node;
-            pt.allocator.destroy(root);
+            allocator.destroy(root);
             return;
         }
         node.bubbleUpChangedInfo(-@intCast(i64, node.len), -@intCast(i64, node.newlines_count));
@@ -361,7 +357,7 @@ fn removeRoot(pt: *PieceTable) void {
     }
 
     root.* = node_to_replace_root;
-    pt.allocator.destroy(node);
+    allocator.destroy(node);
 }
 
 fn prependToPiece(pt: *PieceTable, piece: *PieceNode, new_piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) void {
