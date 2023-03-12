@@ -236,7 +236,7 @@ pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
 }
 
 pub fn clear(buffer: *Buffer) !void {
-    var root = buffer.lines.deinitTree(buffer.allocator, buffer.lines.pieces_root);
+    var root = PieceTable.PieceNode.deinitTree(buffer.lines.pieces_root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
 
     buffer.lines.pieces_root = null;

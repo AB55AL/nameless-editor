@@ -64,19 +64,8 @@ pub fn deinit(pt: *PieceTable, allocator: std.mem.Allocator) void {
     pt.add.deinit();
     pt.add_newlines.deinit();
 
-    var root = pt.deinitTree(allocator, pt.pieces_root);
+    var root = PieceNode.deinitTree(pt.pieces_root, allocator);
     if (root) |r| allocator.destroy(r);
-}
-
-pub fn deinitTree(pt: *PieceTable, allocator: std.mem.Allocator, piece: ?*PieceNode) ?*PieceNode {
-    if (piece == null) return null;
-
-    var left = pt.deinitTree(allocator, piece.?.left);
-    if (left) |l| allocator.destroy(l);
-    var right = pt.deinitTree(allocator, piece.?.right);
-    if (right) |r| allocator.destroy(r);
-
-    return piece.?;
 }
 
 pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, string: []const u8) !void {
@@ -499,6 +488,17 @@ pub const PieceNode = struct {
     start: u64,
     len: u64,
     source: Source,
+
+    pub fn deinitTree(piece: ?*PieceNode, allocator: std.mem.Allocator) ?*PieceNode {
+        if (piece == null) return null;
+
+        var left = deinitTree(piece.?.left, allocator);
+        if (left) |l| allocator.destroy(l);
+        var right = deinitTree(piece.?.right, allocator);
+        if (right) |r| allocator.destroy(r);
+
+        return piece;
+    }
 
     pub fn content(piece: *PieceNode, pt: *PieceTable) []const u8 {
         return switch (piece.source) {
