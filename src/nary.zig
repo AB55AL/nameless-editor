@@ -1,4 +1,6 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
+const utils = @import("utils.zig");
 
 pub fn NaryTree(comptime T: type) type {
     return struct {
@@ -95,6 +97,45 @@ pub fn NaryTree(comptime T: type) type {
                 }
             }
 
+            pub fn treeDepth(node: *Node, level: u32) u32 {
+                var res: u32 = level;
+                if (node.first_child) |fc| {
+                    res = fc.treeDepth(level + 1);
+                }
+                if (node.next_sibling) |ns| {
+                    var second_res = ns.treeDepth(level);
+                    if (second_res > res) res = second_res;
+                }
+
+                return res;
+            }
+
+            pub fn treeToArray(root: *Node, allocator: std.mem.Allocator) ![]*Node {
+                var array_list = ArrayList(*Node).init(allocator);
+                defer array_list.deinit();
+
+                const depth = root.treeDepth(0);
+                var level: u32 = 0;
+                while (level <= depth) : (level += 1) {
+                    try treeToArrayHelper(root, level, &array_list);
+                }
+
+                return try array_list.toOwnedSlice();
+            }
+
+            fn treeToArrayHelper(node: *Node, level: u32, array_list: *ArrayList(*Node)) std.mem.Allocator.Error!void {
+                if (level == 0) {
+                    var current_node: ?*Node = node;
+                    while (current_node) |n| {
+                        try array_list.append(n);
+                        current_node = n.next_sibling;
+                    }
+                } else {
+                    if (node.first_child) |fc| try treeToArrayHelper(fc, level - 1, array_list);
+                    if (node.next_sibling) |ns| try treeToArrayHelper(ns, level, array_list);
+                }
+            }
+
             fn concat(new_parent: *Node, first_list: *Node, second_list: *Node) void {
                 std.debug.assert(second_list.previousSibling() == null);
 
@@ -186,6 +227,9 @@ test "nary" {
     n3.appendChild(n3_0);
     n3_0.addAfterSibling(n3_1);
     n3_1.addAfterSibling(n3_2);
+
+    var nodes = try tree.root.?.treeToArray(allocator);
+    defer allocator.free(nodes);
 
     tree.removePromoteLast(n3_1);
     allocator.destroy(n3_1);
