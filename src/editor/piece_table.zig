@@ -523,8 +523,8 @@ pub fn treeFromSlice(allocator: std.mem.Allocator, infos: []const PieceNode.Info
         if (res_root) |r| allocator.destroy(r);
     }
 
-    var size: u64 = 0;
-    var newlines_count: u64 = 0;
+    var size = root.len;
+    var newlines_count = root.newlines_count;
 
     var previous_node = root;
     for (infos[1..]) |piece_info| {
