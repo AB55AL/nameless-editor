@@ -18,6 +18,12 @@ newlines_count: u64,
 
 pieces_root: ?*PieceNode,
 
+pub const TreeInfo = struct {
+    root: *PieceNode,
+    size: u64,
+    newlines_count: u64,
+};
+
 pub fn init(allocator: std.mem.Allocator, buf: []const u8) !PieceTable {
     var original_content = try allocator.alloc(u8, buf.len);
     var original_newlines = ArrayList(u64).init(allocator);
@@ -442,6 +448,43 @@ pub fn treeToArray(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(*P
         try pt.treeToArray(right, array_list);
 }
 
+pub fn piecesCount(pt: *PieceTable) u64 {
+    if (pt.pieces_root == null) return 0;
+    var res: u64 = 0;
+    pt.piecesCountHelper(pt.pieces_root.?, &res);
+    return res;
+}
+
+fn piecesCountHelper(pt: *PieceTable, piece: ?*PieceNode, count: *u64) void {
+    if (piece == null) return;
+
+    if (piece.?.left) |left|
+        pt.piecesCountHelper(left, count);
+
+    count.* += 1;
+
+    if (piece.?.right) |right|
+        pt.piecesCountHelper(right, count);
+}
+
+pub fn treeToPieceInfoArray(pt: *PieceTable, allocator: std.mem.Allocator) std.mem.Allocator.Error![]const PieceNode.Info {
+    var array_list = try ArrayList(PieceNode.Info).initCapacity(allocator, pt.piecesCount());
+    pt.treeToPieceInfoArrayHelper(pt.pieces_root, &array_list) catch unreachable;
+    return array_list.items;
+}
+
+fn treeToPieceInfoArrayHelper(pt: *PieceTable, node: ?*PieceNode, array_list: *ArrayList(PieceNode.Info)) std.mem.Allocator.Error!void {
+    if (node == null) return;
+
+    if (node.?.left) |left|
+        try pt.treeToPieceInfoArrayHelper(left, array_list);
+
+    try array_list.append(node.?.pieceInfo());
+
+    if (node.?.right) |right|
+        try pt.treeToPieceInfoArrayHelper(right, array_list);
+}
+
 pub fn findNode(pt: *PieceTable, index: u64) struct {
     piece: *PieceNode,
     relative_index: u64,
@@ -469,12 +512,75 @@ pub fn findNode(pt: *PieceTable, index: u64) struct {
     };
 }
 
+pub fn treeFromSlice(allocator: std.mem.Allocator, infos: []const PieceNode.Info) !TreeInfo {
+    utils.assert(infos.len > 0, "");
+
+    var root = try allocator.create(PieceNode);
+    root.* = infos[0].toPiece();
+
+    errdefer {
+        var res_root = PieceNode.deinitTree(root, allocator);
+        if (res_root) |r| allocator.destroy(r);
+    }
+
+    var size: u64 = 0;
+    var newlines_count: u64 = 0;
+
+    var previous_node = root;
+    for (infos[1..]) |piece_info| {
+        var node = try allocator.create(PieceNode);
+        node.* = piece_info.toPiece();
+
+        previous_node.right = node;
+        node.parent = previous_node;
+
+        size += piece_info.len;
+        newlines_count += piece_info.newlines_count;
+
+        previous_node = node;
+    }
+
+    return .{
+        .root = root,
+        .size = size,
+        .newlines_count = newlines_count,
+    };
+}
+
+pub fn setTree(pt: *PieceTable, allocator: std.mem.Allocator, new_tree: TreeInfo) void {
+    var old_root = PieceNode.deinitTree(pt.pieces_root, allocator);
+    if (old_root) |r| allocator.destroy(r);
+
+    pt.pieces_root = new_tree.root;
+    pt.size = new_tree.size;
+    pt.newlines_count = new_tree.newlines_count;
+}
+
 const Source = enum(u1) {
     original,
     add,
 };
 
 pub const PieceNode = struct {
+    /// A wrapper around the same members in the PieceNode
+    pub const Info = struct {
+        newlines_start: u64,
+        newlines_count: u64,
+        start: u64,
+        len: u64,
+        source: Source,
+
+        pub fn toPiece(info: Info) PieceNode {
+            return .{
+                .newlines_start = info.newlines_start,
+                .newlines_count = info.newlines_count,
+                .start = info.start,
+                .len = info.len,
+                .source = info.source,
+            };
+        }
+    };
+
     parent: ?*PieceNode = null,
     left: ?*PieceNode = null,
     right: ?*PieceNode = null,
@@ -504,6 +610,16 @@ pub const PieceNode = struct {
         return switch (piece.source) {
             .original => pt.original[piece.start .. piece.start + piece.len],
             .add => pt.add.items[piece.start .. piece.start + piece.len],
+        };
+    }
+
+    pub fn pieceInfo(piece: PieceNode) Info {
+        return .{
+            .newlines_start = piece.newlines_start,
+            .newlines_count = piece.newlines_count,
+            .start = piece.start,
+            .len = piece.len,
+            .source = piece.source,
         };
     }
 
