@@ -42,24 +42,24 @@ pub fn deleteForward() void {
 }
 
 pub fn moveRight() void {
-    var b = (ui.focused_buffer_window orelse return).buffer;
+    var b = (ui.focused_buffer_window orelse return).data.buffer;
     b.moveRelativeColumn(1, false);
     b.resetSelection();
 }
 
 pub fn moveLeft() void {
-    var b = (ui.focused_buffer_window orelse return).buffer;
+    var b = (ui.focused_buffer_window orelse return).data.buffer;
     b.moveRelativeColumn(-1, false);
     b.resetSelection();
 }
 
 pub fn moveUp() void {
-    var b = (ui.focused_buffer_window orelse return).buffer;
+    var b = (ui.focused_buffer_window orelse return).data.buffer;
     b.moveRelativeRow(-1);
 }
 
 pub fn moveDown() void {
-    var b = (ui.focused_buffer_window orelse return).buffer;
+    var b = (ui.focused_buffer_window orelse return).data.buffer;
     b.moveRelativeRow(1);
 }
 

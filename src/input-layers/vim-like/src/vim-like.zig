@@ -105,12 +105,12 @@ pub fn insertNewLineAtCursor() void {
 
 pub fn moveForward() void {
     var fbw = core.ui.focused_buffer_window orelse return;
-    core.motions.word.moveForward(fbw);
+    core.motions.word.moveForward(&fbw.data);
 }
 
 pub fn moveBackwards() void {
     var fbw = core.ui.focused_buffer_window orelse return;
-    core.motions.word.moveBackwards(fbw);
+    core.motions.word.moveBackwards(&fbw.data);
 }
 
 pub fn paste() void {
@@ -131,9 +131,9 @@ pub fn randomInsertions() void {
 
     var i: u32 = 0;
     while (i < 1000) : (i += 1) {
-        const new_cursor = std.crypto.random.int(u64) % fbw.buffer.lines.size;
-        fbw.buffer.cursor_index = new_cursor;
-        fbw.buffer.insertBeforeCursor("st") catch |err| {
+        const new_cursor = std.crypto.random.int(u64) % fbw.data.buffer.lines.size;
+        fbw.data.buffer.cursor_index = new_cursor;
+        fbw.data.buffer.insertBeforeCursor("st") catch |err| {
             print("{}\n", .{err});
         };
         // fbw.setWindowCursorToBuffer();

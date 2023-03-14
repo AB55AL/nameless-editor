@@ -72,7 +72,7 @@ pub fn main() !void {
         }
 
         buffers: {
-            var bw_tree = globals.ui.visiable_buffers_tree orelse {
+            var bw_tree = globals.ui.visiable_buffers_tree.root orelse {
                 command_line.open();
                 break :buffers;
             };
@@ -81,9 +81,9 @@ pub fn main() !void {
             var rect = box.wd.rect;
             defer box.deinit();
 
-            var windows = try bw_tree.getAndSetWindows(arena, rect);
+            var windows = try core.BufferWindow.getAndSetWindows(bw_tree, arena, rect);
             for (windows, 0..) |bw, i| {
-                try ui.bufferWidget(@src(), i, bw, false, .{ .rect = bw.rect });
+                try ui.bufferWidget(@src(), i, bw, false, .{ .rect = bw.data.rect });
             }
         }
 

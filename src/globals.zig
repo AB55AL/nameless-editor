@@ -4,11 +4,14 @@ const ArrayList = std.ArrayList;
 
 // const core = @import("core");
 
-const BufferWindow = @import("ui/buffer.zig").BufferWindow;
+const buffer_ui = @import("ui/buffer.zig");
+const BufferWindow = buffer_ui.BufferWindow;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
 const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
+const BufferWindowTree = buffer_ui.BufferWindowTree;
+const BufferWindowNode = buffer_ui.BufferWindowNode;
 
 pub const editor = struct {
     /// A linked list of all the buffers in the editor
@@ -21,11 +24,11 @@ pub const editor = struct {
 };
 
 pub const ui = struct {
-    pub var visiable_buffers_tree: ?*BufferWindow = null;
-    pub var focused_buffer_window: ?*BufferWindow = null;
-    pub var previous_focused_buffer_wins = std.BoundedArray(*BufferWindow, 50).init(0) catch unreachable;
+    pub var visiable_buffers_tree = BufferWindowTree{};
+    pub var focused_buffer_window: ?*BufferWindowNode = null;
+    pub var previous_focused_buffer_wins = std.BoundedArray(*BufferWindowNode, 50).init(0) catch unreachable;
 
-    pub var command_line_buffer_window: BufferWindow = undefined;
+    pub var command_line_buffer_window: BufferWindowNode = undefined;
 
     pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
 };
@@ -39,10 +42,11 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
 
     editor.command_line_buffer = try buffer_ops.createLocalBuffer("");
-    ui.command_line_buffer_window = BufferWindow{
+
+    ui.command_line_buffer_window = .{ .data = .{
         .buffer = editor.command_line_buffer,
         .first_visiable_row = 1,
-    };
+    } };
 }
 
 pub fn deinitGlobals() void {
@@ -53,5 +57,5 @@ pub fn deinitGlobals() void {
     }
 
     editor.command_line_buffer.deinitAndDestroy();
-    if (ui.visiable_buffers_tree) |tree| tree.deinitTree(internal.allocator);
+    ui.visiable_buffers_tree.deinitTree(internal.allocator);
 }

@@ -23,11 +23,12 @@ const Animation = gui.Animation;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
-pub fn bufferWidget(src: std.builtin.SourceLocation, id_extra: usize, buffer_window: *core.BufferWindow, focus: bool, opts: Options) !void {
-    var bw = BufferWidget.init(src, id_extra, buffer_window, opts);
+pub fn bufferWidget(src: std.builtin.SourceLocation, id_extra: usize, buffer_window_node: *core.BufferWindowNode, focus: bool, opts: Options) !void {
+    var bw = BufferWidget.init(src, id_extra, buffer_window_node, opts);
     defer bw.deinit();
     try bw.install(.{});
 
+    var buffer_window = buffer_window_node.data;
     var buffer = buffer_window.buffer;
     const relative_index = buffer_window.relativeBufferIndexFromAbsolute(buffer_window.buffer.cursor_index);
     var iter = LineIterator.init(buffer, buffer_window.first_visiable_row, buffer.lines.newlines_count);
@@ -54,12 +55,12 @@ pub const BufferWidget = struct {
     insert_pt: Point = Point{},
     cursor_rect: Rect = Rect{},
     corners: [4]?Rect = [_]?Rect{null} ** 4,
-    buffer_window: *core.BufferWindow,
+    buffer_window: *core.BufferWindowNode,
     /// This is used in locateCursor to keep track of how many strings have
     /// been looked at from one call to the next
     accumulated_string_len: u64 = 0,
 
-    pub fn init(src: std.builtin.SourceLocation, id_extra: usize, buffer_window: *core.BufferWindow, opts: Options) BufferWidget {
+    pub fn init(src: std.builtin.SourceLocation, id_extra: usize, buffer_window: *core.BufferWindowNode, opts: Options) BufferWidget {
         const options = defaults.override(opts);
         var bw = BufferWidget{ .wd = WidgetData.init(src, id_extra, options), .buffer_window = buffer_window };
         return bw;
@@ -127,9 +128,9 @@ pub const BufferWidget = struct {
                     },
                     .wheel_y => |y| {
                         if (y >= 0)
-                            bw.scrollUp(1)
+                            bw.data.scrollUp(1)
                         else
-                            bw.scrollDown(1);
+                            bw.data.scrollDown(1);
                     },
                     else => {},
                 }

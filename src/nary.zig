@@ -87,16 +87,6 @@ pub fn NaryTree(comptime T: type) type {
                 return null;
             }
 
-            pub fn countChildrensAtLeast(node: *Node, min_count: u64) bool {
-                var count: u64 = 0;
-                var child = node.first_child;
-                while (child) |c| {
-                    if (count == min_count) return true;
-                    count += 1;
-                    child = c.next_sibling;
-                }
-            }
-
             pub fn treeDepth(node: *Node, level: u32) u32 {
                 var res: u32 = level;
                 if (node.first_child) |fc| {
