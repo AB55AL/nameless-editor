@@ -31,6 +31,19 @@ pub fn NaryTree(comptime T: type) type {
                 last_node.addAfterSibling(new_node);
             }
 
+            pub fn prependListAsChildren(node: *Node, new_list_head: *Node) void {
+                var current_node = new_list_head;
+                while (true) {
+                    current_node.parent = node;
+                    current_node = current_node.next_sibling orelse break;
+                }
+
+                if (node.first_child) |fc|
+                    current_node.next_sibling = fc;
+
+                node.first_child = new_list_head;
+            }
+
             pub fn prependChild(node: *Node, new_node: *Node) void {
                 new_node.parent = node;
                 if (node.first_child) |fc| {
@@ -54,10 +67,10 @@ pub fn NaryTree(comptime T: type) type {
                 if (const_node.parent == null) return null;
                 if (const_node == const_node.parent.?.first_child) return null;
 
-                var node = const_node.parent.?.first_child.?;
-                while (node.next_sibling) |ns| {
-                    if (ns == const_node) break;
-                    node = ns;
+                var node = const_node.parent.?.first_child;
+                while (node) |n| {
+                    if (n.next_sibling == const_node) break;
+                    node = n.next_sibling;
                 }
 
                 return node;
@@ -72,6 +85,22 @@ pub fn NaryTree(comptime T: type) type {
 
             pub fn lastChild(node: *Node) ?*Node {
                 return if (node.first_child) |fc| fc.lastSibling() else null;
+            }
+
+            pub fn remove(node: *Node) void {
+                var parent = node.parent orelse return; // node is root
+                if (parent.first_child == node) {
+                    parent.first_child = node.next_sibling;
+                } else {
+                    var current_node = parent.first_child.?;
+                    while (current_node.next_sibling != node) {
+                        current_node = current_node.next_sibling.?;
+                    }
+                    current_node.next_sibling = node.next_sibling;
+                }
+
+                node.parent = null;
+                node.next_sibling = null;
             }
 
             /// Returns the ith node in the linked list of children
@@ -126,43 +155,56 @@ pub fn NaryTree(comptime T: type) type {
                 }
             }
 
-            fn concat(new_parent: *Node, first_list: *Node, second_list: *Node) void {
-                std.debug.assert(second_list.previousSibling() == null);
+            fn concat(new_parent: *Node, first_list_head: *Node, second_list_head: *Node) void {
+                std.debug.assert(second_list_head.previousSibling() == null);
+                std.debug.assert(first_list_head.previousSibling() == null);
 
-                first_list.lastSibling().next_sibling = second_list;
+                first_list_head.lastSibling().next_sibling = second_list_head;
 
-                var child = first_list.parent.?.first_child;
+                var child: ?*Node = first_list_head;
                 while (child) |c| {
                     c.parent = new_parent;
                     child = c.next_sibling;
                 }
+
+                new_parent.first_child = first_list_head;
             }
         };
 
         root: ?*Node = null,
 
         pub fn removePromoteLast(tree: *Tree, node: *Node) void {
+            // Remove the replacement
+            // Remove the Node
+            // Insert replacement after node.previous_sibling
+            //        OR for root node set replacement as root
+            // Concat node and replacement subtrees
+
+            var node_previous_sibling = node.previousSibling();
+            var node_parent = node.parent;
             var replacment = node.lastChild();
+            if (replacment) |rep| rep.remove();
+            node.remove();
 
-            // Remove the node
-            if (node.previousSibling()) |ps| {
-                ps.next_sibling = replacment orelse node.next_sibling;
-            } else if (node == tree.root) {
-                tree.root = replacment;
-            } else if (node.next_sibling == null and node.parent != null) {
-                node.parent.?.first_child = replacment;
-                if (replacment) |rep| rep.parent = node.parent;
-            }
+            var node_list_of_subtrees = node.first_child;
+            var rep_list_of_subtrees = if (replacment) |rep| rep.first_child else null;
 
-            // Promote the replacement
             if (replacment) |rep| {
-                if (rep.previousSibling()) |ps| {
-                    ps.next_sibling = null;
-                    if (rep.first_child) |fc|
-                        Node.concat(rep, ps, fc);
+                if (node == tree.root)
+                    tree.root = rep
+                else if (node_previous_sibling) |nps|
+                    nps.addAfterSibling(rep)
+                else
+                    node_parent.?.prependChild(rep);
 
-                    rep.first_child = node.first_child;
-                }
+                if (node_list_of_subtrees != null and rep_list_of_subtrees != null)
+                    Node.concat(rep, node_list_of_subtrees.?, rep_list_of_subtrees.?)
+                else if (node_list_of_subtrees) |ns|
+                    rep.prependListAsChildren(ns)
+                else if (rep_list_of_subtrees) |rs|
+                    rep.prependListAsChildren(rs);
+            } else if (node == tree.root) {
+                tree.root = null;
             }
         }
 
@@ -184,22 +226,22 @@ test "nary" {
     var n0 = try allocator.create(Node); n0.* = .{ .data = 0 };
 
     // depth 1
-    var n1 = try allocator.create(Node); n1.* = .{ .data = 0 };
-    var n2 = try allocator.create(Node); n2.* = .{ .data = 0 };
-    var n3 = try allocator.create(Node); n3.* = .{ .data = 0 };
+    var n1 = try allocator.create(Node); n1.* = .{ .data = 1 };
+    var n2 = try allocator.create(Node); n2.* = .{ .data = 2 };
+    var n3 = try allocator.create(Node); n3.* = .{ .data = 3 };
 
     // depth 2
-    var n1_0 = try allocator.create(Node); n1_0.* = .{ .data = 0 };
+    var n1_0 = try allocator.create(Node); n1_0.* = .{ .data = 10 };
 
-    var n2_0 = try allocator.create(Node); n2_0.* = .{.data = 0};
-    var n2_1 = try allocator.create(Node); n2_1.* = .{.data = 0};
+    var n2_0 = try allocator.create(Node); n2_0.* = .{.data = 20};
+    var n2_1 = try allocator.create(Node); n2_1.* = .{.data = 21};
 
-    var n3_0 = try allocator.create(Node); n3_0.* = .{.data = 0};
-    var n3_1 = try allocator.create(Node); n3_1.* = .{.data = 0};
-    var n3_2 = try allocator.create(Node); n3_2.* = .{.data = 0};
+    var n3_0 = try allocator.create(Node); n3_0.* = .{.data = 30};
+    var n3_1 = try allocator.create(Node); n3_1.* = .{.data = 31};
+    var n3_2 = try allocator.create(Node); n3_2.* = .{.data = 32};
 
     // depth 3
-    var n1_1_0 = try allocator.create(Node); n1_1_0.* = .{ .data = 0 };
+    var n1_1_0 = try allocator.create(Node); n1_1_0.* = .{ .data = 110 };
     // zig fmt: on
 
     tree.root = n0;
@@ -224,20 +266,21 @@ test "nary" {
     tree.removePromoteLast(n3_1);
     allocator.destroy(n3_1);
 
+    tree.removePromoteLast(n2);
+    allocator.destroy(n2);
+
     var root = tree.root.?;
     try std.testing.expectEqual(root, n0);
 
     try std.testing.expectEqual(root.getChild(0), n1);
-    try std.testing.expectEqual(root.getChild(1), n2);
+    try std.testing.expectEqual(root.getChild(1), n2_1);
     try std.testing.expectEqual(root.getChild(2), n3);
     try std.testing.expectEqual(root.getChild(3), null);
 
     try std.testing.expectEqual(n1.getChild(0), n1_0);
     try std.testing.expectEqual(n1.getChild(1), null);
 
-    try std.testing.expectEqual(n2.getChild(0), n2_0);
-    try std.testing.expectEqual(n2.getChild(1), n2_1);
-    try std.testing.expectEqual(n2.getChild(2), null);
+    try std.testing.expectEqual(n2_1.getChild(0), n2_0);
 
     try std.testing.expectEqual(n3.getChild(0), n3_0);
     try std.testing.expectEqual(n3.getChild(1), n3_2);
@@ -246,7 +289,13 @@ test "nary" {
     tree.removePromoteLast(root);
     allocator.destroy(root);
 
-    try std.testing.expectEqual(tree.root.?, n3);
+    root = tree.root.?;
+    try std.testing.expectEqual(root, n3);
+    try std.testing.expectEqual(root.getChild(0), n1);
+    try std.testing.expectEqual(root.getChild(1), n2_1);
+    try std.testing.expectEqual(root.getChild(2), n3_0);
+    try std.testing.expectEqual(root.getChild(3), n3_2);
+    try std.testing.expectEqual(root.getChild(4), null);
 
     tree.removePromoteLast(n1_0);
     allocator.destroy(n1_0);
