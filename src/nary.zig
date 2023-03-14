@@ -210,6 +210,7 @@ pub fn NaryTree(comptime T: type) type {
 
         pub fn deinitTree(tree: *Tree, allocator: std.mem.Allocator) void {
             if (tree.root) |root| root.deinitTree(allocator);
+            tree.root = null;
         }
     };
 }
