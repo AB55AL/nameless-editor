@@ -383,25 +383,27 @@ fn prependToPiece(pt: *PieceTable, piece: *PieceNode, new_piece: *PieceNode, str
 }
 
 fn appendToPiece(pt: *PieceTable, piece: *PieceNode, new_piece: *PieceNode, string_len: u64, newlines_count_in_string: u64) void {
-    pt.splay(piece);
-    new_piece.* = .{
-        .parent = null, // will become the root
-        .left = piece,
-        .right = null,
+    if (piece.right) |right| {
+        var pre_piece = right.leftMostNode();
+        pt.prependToPiece(pre_piece, new_piece, string_len, newlines_count_in_string);
+    } else {
+        new_piece.* = .{
+            .parent = new_piece,
+            .left = null,
+            .right = null,
 
-        .left_subtree_len = pt.size,
-        .left_subtree_newlines_count = pt.newlines_count,
+            .left_subtree_len = 0,
+            .left_subtree_newlines_count = 0,
 
-        .newlines_start = pt.add_newlines.items.len,
-        .newlines_count = newlines_count_in_string,
+            .newlines_start = pt.add_newlines.items.len,
+            .newlines_count = newlines_count_in_string,
 
-        .start = pt.add.items.len,
-        .len = string_len,
-        .source = .add,
-    };
-
-    piece.parent = new_piece;
-    pt.pieces_root = new_piece;
+            .start = pt.add.items.len,
+            .len = string_len,
+            .source = .add,
+        };
+        piece.right = new_piece;
+    }
 }
 
 pub fn printTreeTraverseTrace(pt: *PieceTable, node: ?*PieceNode) void {
