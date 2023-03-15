@@ -225,7 +225,7 @@ test "nary" {
 
     const Node = NaryTree(u32).Node;
     var tree = NaryTree(u32){};
-    defer tree.deinitTree(allocator);
+    defer tree.deinitTree(allocator, null);
 
     // zig fmt: off
     // depth 0
