@@ -139,3 +139,55 @@ test "buffer.getAllLines()" {
     defer allocator.free(buffer_slice);
     try expectEqualStrings(this_file, buffer_slice);
 }
+
+test "History" {
+    //              hello
+    //             /     \
+    //          yes       EMPTY
+
+    var buffer = try Buffer.init(allocator, "", "hello");
+    defer buffer.deinitNoDestroy();
+
+    var old_tree_content = try buffer.getAllLines(allocator);
+    defer allocator.free(old_tree_content);
+
+    try buffer.clear();
+    var new_tree_content = try buffer.getAllLines(allocator);
+    defer allocator.free(new_tree_content);
+
+    try buffer.undo();
+    var old_tree_again = try buffer.getAllLines(allocator);
+    defer allocator.free(old_tree_again);
+
+    try expectEqualStrings(old_tree_content, old_tree_again);
+
+    try buffer.replaceAllWith("yes");
+    var yes = try buffer.getAllLines(allocator);
+    defer allocator.free(yes);
+
+    try buffer.pushHistory(true);
+    try buffer.undo();
+
+    try buffer.redo(0);
+    var new_tree_again = try buffer.getAllLines(allocator);
+    defer allocator.free(new_tree_again);
+
+    try expectEqualStrings(new_tree_content, new_tree_again);
+
+    try buffer.undo();
+    try expectEqualStrings(old_tree_content, old_tree_again);
+
+    try buffer.redo(1);
+    try expectEqualStrings("yes\n", yes);
+
+    try buffer.redo(0);
+    try buffer.redo(0);
+    try buffer.redo(0);
+    try buffer.redo(0);
+
+    try buffer.undo();
+    try buffer.undo();
+    try buffer.undo();
+    try buffer.undo();
+    try buffer.undo();
+}

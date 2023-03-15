@@ -11,8 +11,10 @@ const min = std.math.min;
 
 const PieceTable = @import("piece_table.zig");
 const utf8 = @import("../utf8.zig");
-
+const NaryTree = @import("../nary.zig").NaryTree;
 const utils = @import("../utils.zig");
+
+const HistoryTree = NaryTree(HistoryInfo);
 
 const Buffer = @This();
 
@@ -30,7 +32,8 @@ pub const MetaData = struct {
     file_path: []u8,
     file_type: []u8,
     file_last_mod_time: i128,
-    dirty: bool,
+    dirty: bool = false,
+    history_dirty: bool = false,
 
     pub fn setFileType(metadata: *MetaData, allocator: std.mem.Allocator, new_ft: []const u8) !void {
         var file_type = try allocator.alloc(u8, new_ft.len);
@@ -45,6 +48,16 @@ pub const MetaData = struct {
         allocator.free(metadata.file_path);
         metadata.file_path = file_path;
     }
+
+    pub fn setDirty(metadata: *MetaData) void {
+        metadata.dirty = true;
+        metadata.history_dirty = true;
+    }
+};
+
+pub const HistoryInfo = struct {
+    cursor_index: u64,
+    pieces: []const PieceTable.PieceNode.Info,
 };
 
 metadata: MetaData,
@@ -58,6 +71,9 @@ lines: PieceTable,
 state: State,
 allocator: std.mem.Allocator,
 
+history: HistoryTree = HistoryTree{},
+history_node: ?*HistoryTree.Node = null,
+
 next_buffer: ?*Buffer = null,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
@@ -69,7 +85,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     std.mem.copy(u8, fp, file_path);
 
     var iter = std.mem.splitBackwards(u8, file_path, ".");
-    const file_type = if (std.mem.containsAtLeast(u8, file_path, 1, ".")) iter.next().? else "";
+    const file_type = iter.next() orelse "";
     var ft = try allocator.alloc(u8, file_type.len);
     std.mem.copy(u8, ft, file_type);
 
@@ -78,6 +94,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .file_type = ft,
         .file_last_mod_time = 0,
         .dirty = false,
+        .history_dirty = false,
     };
 
     var buffer = Buffer{
@@ -90,6 +107,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     };
 
     try buffer.insureLastByteIsNewline();
+    try buffer.pushHistory(true);
 
     return buffer;
 }
@@ -111,6 +129,12 @@ pub fn deinitNoDestroy(buffer: *Buffer) void {
     buffer.allocator.free(buffer.metadata.file_path);
     buffer.allocator.free(buffer.metadata.file_type);
     buffer.state = .invalid;
+
+    buffer.history.deinitTree(buffer.allocator, deinitHistory);
+}
+
+fn deinitHistory(allocator: std.mem.Allocator, node_data: *HistoryInfo) void {
+    allocator.free(node_data.pieces);
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
@@ -123,7 +147,7 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
     try buffer.lines.insert(buffer.allocator, buffer.cursor_index, string);
     buffer.cursor_index += string.len;
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 }
 
 pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
@@ -145,7 +169,7 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     try buffer.lines.delete(buffer.allocator, delete_at, bytes_to_delete);
     buffer.cursor_index -|= bytes_to_delete;
 
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 
     try buffer.insureLastByteIsNewline();
 }
@@ -169,7 +193,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     var new_index = i;
     try buffer.lines.delete(buffer.allocator, buffer.cursor_index, new_index - old_index);
 
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
     buffer.cursor_index = min(buffer.cursor_index, buffer.lines.size - 1);
 }
@@ -186,7 +210,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     const num_to_delete = end_index - start_index;
 
     try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 
     try buffer.insureLastByteIsNewline();
 }
@@ -203,7 +227,7 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     const num_to_delete = end_index - start_index;
 
     try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 
     try buffer.insureLastByteIsNewline();
 }
@@ -213,7 +237,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.lines.delete(buffer.allocator, 0, 1); // Delete newline char
     try buffer.lines.insert(buffer.allocator, 0, string);
     try buffer.insureLastByteIsNewline();
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 }
 
 // TODO: this
@@ -243,7 +267,7 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.lines.size = 0;
     buffer.lines.newlines_count = 0;
     try buffer.insureLastByteIsNewline();
-    buffer.metadata.dirty = true;
+    buffer.metadata.setDirty();
 
     buffer.cursor_index = 0;
 }
@@ -597,7 +621,7 @@ pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Cursor end
+// Selection
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn setSelection(buffer: *Buffer, const_start: u64, const_end: u64) void {
@@ -614,4 +638,58 @@ pub fn getSelection(buffer: *Buffer) Range {
 
 pub fn resetSelection(buffer: *Buffer) void {
     buffer.selection_start = buffer.cursor_index;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// History
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn pushHistory(buffer: *Buffer, move_to_new_node: bool) !void {
+    var new_node = try buffer.allocator.create(HistoryTree.Node);
+    errdefer buffer.allocator.destroy(new_node);
+    const slice = try buffer.lines.treeToPieceInfoArray(buffer.allocator);
+    new_node.* = .{ .data = .{
+        .cursor_index = buffer.cursor_index,
+        .pieces = slice,
+    } };
+
+    if (buffer.history.root == null)
+        buffer.history.root = new_node;
+
+    if (buffer.history_node) |node|
+        node.appendChild(new_node);
+
+    if (move_to_new_node)
+        buffer.history_node = new_node;
+
+    buffer.metadata.history_dirty = false;
+}
+
+pub fn undo(buffer: *Buffer) !void {
+    if (buffer.history_node == null) return;
+
+    if (buffer.metadata.history_dirty)
+        try buffer.pushHistory(true);
+
+    var node = buffer.history_node.?.parent orelse return;
+
+    var tree_slice = node.data.pieces;
+    var new_tree = try PieceTable.treeFromSlice(buffer.allocator, tree_slice);
+    buffer.lines.setTree(buffer.allocator, new_tree);
+
+    buffer.history_node = node;
+    buffer.cursor_index = node.data.cursor_index;
+    buffer.cursor_index = std.math.min(buffer.cursor_index, buffer.lines.size - 1);
+}
+
+pub fn redo(buffer: *Buffer, index: u64) !void {
+    if (buffer.history_node == null) return;
+    var node = buffer.history_node.?.getChild(index) orelse return;
+
+    var tree_slice = node.data.pieces;
+    var new_tree = try PieceTable.treeFromSlice(buffer.allocator, tree_slice);
+    buffer.lines.setTree(buffer.allocator, new_tree);
+
+    buffer.history_node = node;
+    buffer.cursor_index = node.data.cursor_index;
 }
