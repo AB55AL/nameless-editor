@@ -13,10 +13,15 @@ pub fn NaryTree(comptime T: type) type {
 
             data: T,
 
-            pub fn deinitTree(node: *Node, allocator: std.mem.Allocator) void {
-                if (node.first_child) |fc| fc.deinitTree(allocator);
-                if (node.next_sibling) |ns| ns.deinitTree(allocator);
+            pub const freeDataFn = fn (allocator: std.mem.Allocator, data: *T) void;
+            pub const Data = T;
 
+            pub fn deinitTree(node: *Node, allocator: std.mem.Allocator, comptime freeData: ?freeDataFn) void {
+                if (node.first_child) |fc| fc.deinitTree(allocator, freeData);
+                if (node.next_sibling) |ns| ns.deinitTree(allocator, freeData);
+
+                if (freeData) |free|
+                    free(allocator, &node.data);
                 allocator.destroy(node);
             }
 
@@ -208,8 +213,8 @@ pub fn NaryTree(comptime T: type) type {
             }
         }
 
-        pub fn deinitTree(tree: *Tree, allocator: std.mem.Allocator) void {
-            if (tree.root) |root| root.deinitTree(allocator);
+        pub fn deinitTree(tree: *Tree, allocator: std.mem.Allocator, comptime freeData: ?Node.freeDataFn) void {
+            if (tree.root) |root| root.deinitTree(allocator, freeData);
             tree.root = null;
         }
     };
