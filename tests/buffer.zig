@@ -8,6 +8,13 @@ const ArrayList = std.ArrayList;
 const core = @import("core");
 const Buffer = core.Buffer;
 
+fn bufferEql(expected: []const u8, buffer: *Buffer) !void {
+    var buffer_content = try buffer.getAllLines(allocator);
+    defer allocator.free(buffer_content);
+
+    try expectEqualStrings(expected, buffer_content);
+}
+
 test "deleteRange()" {
     const original_text =
         \\hello there my friend
@@ -140,6 +147,17 @@ test "buffer.getAllLines()" {
     try expectEqualStrings(this_file, buffer_slice);
 }
 
+test "buffer" {
+    var buffer = try Buffer.init(allocator, "", "hello\nthere\n");
+    defer buffer.deinitNoDestroy();
+
+    buffer.cursor_index = 5;
+    try buffer.insertBeforeCursor("i"); // (hello) (i) (\nthere\n)
+    try buffer.deleteBeforeCursor(1); // (hello) (\nthere\n)
+    try buffer.insertBeforeCursor(" "); // (hello) ( ) (\nthere\n)
+
+    try bufferEql("hello \nthere\n", &buffer);
+}
 test "History" {
     //              hello
     //             /     \
