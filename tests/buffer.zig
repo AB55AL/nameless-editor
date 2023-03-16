@@ -32,7 +32,7 @@ test "deleteRange()" {
     var buffer = try Buffer.init(allocator, "", original_text);
     defer buffer.deinitNoDestroy();
 
-    try buffer.deleteRange(2, 2, 3, 22);
+    try buffer.deleteRangeRC(2, 2, 3, 22);
 
     const buffer_slice = try buffer.getAllLines(allocator);
     defer allocator.free(buffer_slice);
@@ -158,6 +158,17 @@ test "buffer" {
 
     try bufferEql("hello \nthere\n", &buffer);
 }
+
+test "utf8 delete" {
+    const original_text = "نعم إنه مدهش Amazing isn't it ?!\n";
+    const target_text = "نه مدهش Amazing isn't it ?!\n";
+    var buffer = try Buffer.init(allocator, "", original_text);
+    defer buffer.deinitNoDestroy();
+
+    try buffer.deleteRange(0, 8);
+    try bufferEql(target_text, &buffer);
+}
+
 test "History" {
     //              hello
     //             /     \

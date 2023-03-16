@@ -144,10 +144,53 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
     buffer.allocator.destroy(buffer);
 }
 
-pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
-    try buffer.lines.insert(buffer.allocator, buffer.cursor_index, string);
-    buffer.cursor_index += string.len;
+pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
+    try buffer.validateInsertionPoint(index);
+    try buffer.lines.insert(buffer.allocator, index, string);
     buffer.metadata.setDirty();
+}
+
+/// End inclusive
+pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
+    const s = std.math.min(start, end);
+    const e = std.math.max(start, end);
+
+    try buffer.validateRange(s, e);
+
+    const num_to_delete = e - s + 1;
+    try buffer.lines.delete(buffer.allocator, s, num_to_delete);
+
+    buffer.metadata.setDirty();
+    try buffer.insureLastByteIsNewline();
+}
+
+pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
+    try buffer.clear();
+    try buffer.lines.delete(buffer.allocator, 0, 1); // Delete newline char
+    try buffer.lines.insert(buffer.allocator, 0, string);
+    try buffer.insureLastByteIsNewline();
+    buffer.metadata.setDirty();
+}
+
+pub fn clear(buffer: *Buffer) !void {
+    var root = PieceTable.PieceNode.deinitTree(buffer.lines.pieces_root, buffer.allocator);
+    if (root) |r| buffer.allocator.destroy(r);
+
+    buffer.lines.pieces_root = null;
+    buffer.lines.size = 0;
+    buffer.lines.newlines_count = 0;
+    try buffer.insureLastByteIsNewline();
+    buffer.metadata.setDirty();
+
+    buffer.cursor_index = 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Convenience insertion and deletion functions
+////////////////////////////////////////////////////////////////////////////////
+pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
+    try buffer.insertAt(buffer.cursor_index, string);
+    buffer.cursor_index += string.len;
 }
 
 pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
@@ -165,13 +208,10 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    const delete_at = buffer.cursor_index -| bytes_to_delete;
-    try buffer.lines.delete(buffer.allocator, delete_at, bytes_to_delete);
     buffer.cursor_index -|= bytes_to_delete;
+    const delete_to = buffer.cursor_index + bytes_to_delete -| 1;
 
-    buffer.metadata.setDirty();
-
-    try buffer.insureLastByteIsNewline();
+    try buffer.deleteRange(buffer.cursor_index, delete_to);
 }
 
 pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
@@ -189,12 +229,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    var old_index = buffer.cursor_index;
-    var new_index = i;
-    try buffer.lines.delete(buffer.allocator, buffer.cursor_index, new_index - old_index);
-
-    buffer.metadata.setDirty();
-    try buffer.insureLastByteIsNewline();
+    try buffer.deleteRange(buffer.cursor_index, i);
     buffer.cursor_index = min(buffer.cursor_index, buffer.lines.size - 1);
 }
 
@@ -206,16 +241,12 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     const end_index = if (end_row >= buffer.lines.newlines_count)
         buffer.lines.size + 1
     else
-        buffer.getIndex(end_row + 1, 1);
-    const num_to_delete = end_index - start_index;
+        buffer.getIndex(end_row + 1, 1) -| 1;
 
-    try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
-    buffer.metadata.setDirty();
-
-    try buffer.insureLastByteIsNewline();
+    try buffer.deleteRange(start_index, end_index);
 }
 
-pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
+pub fn deleteRangeRC(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32, end_col: u32) !void {
     if (start_row > end_row)
         return error.InvalidRange;
 
@@ -223,26 +254,33 @@ pub fn deleteRange(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u32
     const end_index = if (end_row > buffer.lines.newlines_count)
         buffer.lines.size + 1
     else
-        buffer.getIndex(end_row, end_col + 1);
-    const num_to_delete = end_index - start_index;
+        buffer.getIndex(end_row, end_col + 1) -| 1;
 
-    try buffer.lines.delete(buffer.allocator, start_index, num_to_delete);
-    buffer.metadata.setDirty();
-
-    try buffer.insureLastByteIsNewline();
-}
-
-pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
-    try buffer.clear();
-    try buffer.lines.delete(buffer.allocator, 0, 1); // Delete newline char
-    try buffer.lines.insert(buffer.allocator, 0, string);
-    try buffer.insureLastByteIsNewline();
-    buffer.metadata.setDirty();
+    try buffer.deleteRange(start_index, end_index);
 }
 
 // TODO: this
 // pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
 // }
+
+pub fn validateInsertionPoint(buffer: *Buffer, index: u64) !void {
+    const i = std.math.min(index, buffer.lines.size -| 1);
+    if (utf8.byteType(buffer.lines.byteAt(i)) == .continue_byte)
+        return error.invalidInsertionPoint;
+}
+
+pub fn validateRange(buffer: *Buffer, start: u64, end: u64) !void {
+    const s = std.math.min(start, buffer.lines.size -| 1);
+    const e = std.math.min(end + 1, buffer.lines.size -| 1);
+
+    if (utf8.byteType(buffer.lines.byteAt(s)) == .continue_byte)
+        return error.invalidRange;
+
+    if (e == buffer.lines.size - 1)
+        return
+    else if (utf8.byteType(buffer.lines.byteAt(e)) == .continue_byte)
+        return error.invalidRange;
+}
 
 pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
     assert(row <= buffer.lines.newlines_count);
@@ -257,19 +295,6 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     if (buffer.lines.size == 0 or buffer.lines.byteAt(buffer.lines.size - 1) != '\n')
         try buffer.lines.insert(buffer.allocator, buffer.lines.size, "\n");
-}
-
-pub fn clear(buffer: *Buffer) !void {
-    var root = PieceTable.PieceNode.deinitTree(buffer.lines.pieces_root, buffer.allocator);
-    if (root) |r| buffer.allocator.destroy(r);
-
-    buffer.lines.pieces_root = null;
-    buffer.lines.size = 0;
-    buffer.lines.newlines_count = 0;
-    try buffer.insureLastByteIsNewline();
-    buffer.metadata.setDirty();
-
-    buffer.cursor_index = 0;
 }
 
 pub fn lineSize(buffer: *Buffer, line: u64) u64 {
@@ -535,12 +560,7 @@ pub const ReverseBufferIterator = struct {
         } else {
             var string = content[start..end];
 
-            const res = @subWithOverflow(self.end, string.len);
-            if (res.@"1" == 1)
-                self.end = 0
-            else
-                self.end = res.@"0";
-
+            self.end -|= string.len;
             return string;
         }
     }
