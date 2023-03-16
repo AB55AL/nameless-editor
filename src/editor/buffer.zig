@@ -229,7 +229,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    try buffer.deleteRange(buffer.cursor_index, i);
+    try buffer.deleteRange(buffer.cursor_index, i - 1);
     buffer.cursor_index = min(buffer.cursor_index, buffer.lines.size - 1);
 }
 
