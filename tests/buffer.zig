@@ -9,7 +9,7 @@ const random = std.crypto.random;
 
 const test_allocator = std.testing.allocator;
 
-const core = @import("core.zig");
+const core = @import("core");
 const Buffer = core.Buffer;
 
 const Mod = struct {
