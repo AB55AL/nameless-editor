@@ -12,7 +12,7 @@ const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 
 pub fn findCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u21, stop_at: []const u21, stop_after: []const u21) ?u64 {
-    var iter = BufferIterator.init(buffer, start + 1, buffer.lines.size);
+    var iter = BufferIterator.init(buffer, start + 1, buffer.size());
     var previous_strings_len = start;
     var previous_cp_index: u64 = 0;
     while (iter.next()) |string| {
@@ -24,7 +24,7 @@ pub fn findCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u
                 return previous_cp_index
             else if (utils.atLeastOneIsEqual(u21, stop_at, cp))
                 return abs_index
-            else if (utils.atLeastOneIsEqual(u21, stop_after, cp) and abs_index < buffer.lines.size - 1)
+            else if (utils.atLeastOneIsEqual(u21, stop_after, cp) and abs_index < buffer.size() - 1)
                 return abs_index + (unicode.utf8CodepointSequenceLength(cp) catch unreachable);
 
             previous_cp_index = abs_index;
@@ -35,7 +35,7 @@ pub fn findCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []const u
 }
 
 pub fn findOutsideBlackList(buffer: *Buffer, start: u64, black_list: []const u21) ?u64 {
-    var iter = BufferIterator.init(buffer, start + 1, buffer.lines.size);
+    var iter = BufferIterator.init(buffer, start + 1, buffer.size());
     var previous_strings_len = start;
     while (iter.next()) |string| {
         defer previous_strings_len += string.len;
@@ -80,7 +80,7 @@ pub fn backFindCodePointsInLists(buffer: *Buffer, start: u64, stop_before: []con
                 return abs_index - 1
             else if (utils.atLeastOneIsEqual(u21, stop_at, cp))
                 return abs_index + 1
-            else if (utils.atLeastOneIsEqual(u21, stop_after, cp) and abs_index < buffer.lines.size - 1)
+            else if (utils.atLeastOneIsEqual(u21, stop_after, cp) and abs_index < buffer.size() - 1)
                 return next_cp_index + 1;
 
             next_cp_index = abs_index;

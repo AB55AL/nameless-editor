@@ -31,7 +31,7 @@ pub fn bufferWidget(src: std.builtin.SourceLocation, id_extra: usize, buffer_win
     var buffer_window = buffer_window_node.data;
     var buffer = buffer_window.buffer;
     const relative_index = buffer_window.relativeBufferIndexFromAbsolute(buffer_window.buffer.cursor_index);
-    var iter = LineIterator.init(buffer, buffer_window.first_visiable_row, buffer.lines.newlines_count);
+    var iter = LineIterator.init(buffer, buffer_window.first_visiable_row, buffer.lineCount());
     while (iter.next()) |slice| {
         if (try bw.addText(slice, relative_index, opts)) break;
     }

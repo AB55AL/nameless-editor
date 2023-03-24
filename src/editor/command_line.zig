@@ -81,7 +81,7 @@ pub fn close() void {
 
 pub fn run() !void {
     var command_str: [4096]u8 = undefined;
-    var len = editor.command_line_buffer.lines.size;
+    var len = editor.command_line_buffer.size();
 
     const command_line_content = try editor.command_line_buffer.getAllLines(internal.allocator);
     defer internal.allocator.free(command_line_content);

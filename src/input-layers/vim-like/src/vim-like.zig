@@ -131,7 +131,7 @@ pub fn randomInsertions() void {
 
     var i: u32 = 0;
     while (i < 1000) : (i += 1) {
-        const new_cursor = std.crypto.random.int(u64) % fbw.data.buffer.lines.size;
+        const new_cursor = std.crypto.random.int(u64) % fbw.data.buffer.lineCount();
         fbw.data.buffer.cursor_index = new_cursor;
         fbw.data.buffer.insertBeforeCursor("st") catch |err| {
             print("{}\n", .{err});

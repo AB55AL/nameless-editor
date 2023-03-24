@@ -123,7 +123,7 @@ pub const BufferWindow = struct {
     pub fn scrollDown(buffer_win: *BufferWindow, offset: u64) void {
         buffer_win.first_visiable_row += offset;
         buffer_win.first_visiable_row = std.math.min(
-            buffer_win.buffer.lines.newlines_count,
+            buffer_win.buffer.lineCount(),
             buffer_win.first_visiable_row,
         );
     }
