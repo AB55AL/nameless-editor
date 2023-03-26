@@ -264,21 +264,25 @@ pub fn deleteRangeRC(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u
 
 pub fn validateInsertionPoint(buffer: *Buffer, index: u64) !void {
     const i = std.math.min(index, buffer.size() -| 1);
-    if (utf8.byteType(buffer.lines.byteAt(i)) == .continue_byte)
-        return error.invalidInsertionPoint;
+
+    if (i == 0 or
+        i == buffer.size() - 1 or
+        utf8.byteType(buffer.lines.byteAt(i)) == .start_byte)
+        return;
+
+    return error.InvalidInsertionPoint;
 }
 
 pub fn validateRange(buffer: *Buffer, start: u64, end: u64) !void {
     const s = std.math.min(start, buffer.size() -| 1);
     const e = std.math.min(end + 1, buffer.size() -| 1);
 
-    if (utf8.byteType(buffer.lines.byteAt(s)) == .continue_byte)
-        return error.invalidRange;
+    if (e == buffer.size() - 1 or
+        utf8.byteType(buffer.lines.byteAt(s)) == .start_byte or
+        utf8.byteType(buffer.lines.byteAt(e)) == .start_byte)
+        return;
 
-    if (e == buffer.size() - 1)
-        return
-    else if (utf8.byteType(buffer.lines.byteAt(e)) == .continue_byte)
-        return error.invalidRange;
+    return error.InvalidRange;
 }
 
 pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
