@@ -9,8 +9,8 @@ const random = std.crypto.random;
 
 const test_allocator = std.testing.allocator;
 
-const core = @import("core");
-const Buffer = core.Buffer;
+const Buffer = @import("../src/editor/buffer.zig");
+const utf8 = @import("../src/utf8.zig");
 
 const Mod = struct {
     const Operation = union(enum) {
@@ -43,7 +43,7 @@ const Mod = struct {
                     const buffer_slice = try buffer.getAllLines(allocator);
                     defer allocator.free(buffer_slice);
                     for (buffer_slice, 0..) |byte, i|
-                        std.debug.print("{} {} {}\n", .{ i, core.utf8.byteType(byte), byte });
+                        std.debug.print("{} {} {}\n", .{ i, utf8.byteType(byte), byte });
 
                     return err;
                 };
