@@ -102,7 +102,7 @@ pub fn byteType(byte: u8) ByteType {
 pub fn ReverseUtf8View(string: []const u8) ReverseUtf8ViewType {
     return .{
         .string = string,
-        .index = if (string.len == 0) 0 else string.len - 1,
+        .index = string.len,
     };
 }
 
@@ -114,27 +114,23 @@ pub const ReverseUtf8ViewType = struct {
 
     pub fn prevSlice(self: *Self) ?[]const u8 {
         if (self.done) return null;
-        var i: u64 = self.index;
+        var i: u64 = self.index -| 1;
         utils.assert(byteType(self.string[i]) == .continue_byte or self.string[i] <= 256, "Must start at a continue byte or an ASCII char for reverse iteration");
 
-        var cont_bytes: u3 = 0;
-        while (i >= 0) {
-            const byte = self.string[i];
-            switch (byteType(byte)) {
-                .start_byte => {
-                    const index = self.index + 1;
-                    if (i == 0) self.done = true;
-                    self.index = i -| 1;
-                    return self.string[i..index];
-                },
-                .continue_byte => {
-                    cont_bytes += 1;
-                    i -|= 1;
-                },
-            }
+        var byte = self.string[i];
+        var cont_bytes: u4 = 0;
+        while (byteType(byte) == .continue_byte and i >= 0) {
+            i -|= 1;
+            byte = self.string[i];
+            cont_bytes += 1;
         }
 
-        return null;
+        utils.assert(cont_bytes <= 3, "");
+
+        const end = self.index;
+        if (i == 0) self.done = true;
+        self.index = i;
+        return self.string[i..end];
     }
 
     pub fn prevCodePoint(self: *Self) ?u21 {
