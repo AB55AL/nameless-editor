@@ -11,16 +11,20 @@ const Range = Buffer.Range;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 
+pub const white_space = [_]u21{ ' ', '\n', '\t' };
+
 pub fn findCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) ?u64 {
     var offset = unicode.utf8ByteSequenceLength(buffer.lines.byteAt(start)) catch return null;
     var iter = BufferIterator.init(buffer, start + offset, buffer.size());
-    var previous_strings_len = start + offset;
+    var index = start + offset;
     while (iter.next()) |string| {
-        defer previous_strings_len += string.len;
         var view = unicode.Utf8View.initUnchecked(string).iterator();
-        while (view.nextCodepoint()) |cp| {
+        while (view.nextCodepointSlice()) |slice| {
+            defer index += slice.len;
+
+            const cp = unicode.utf8Decode(slice) catch unreachable;
             if (utils.atLeastOneIsEqual(u21, list, cp))
-                return previous_strings_len + view.i -| 1;
+                return index;
         }
     }
 
@@ -30,16 +34,15 @@ pub fn findCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) ?u64
 pub fn findOutsideBlackList(buffer: *Buffer, start: u64, black_list: []const u21) ?u64 {
     var offset = unicode.utf8ByteSequenceLength(buffer.lines.byteAt(start)) catch return null;
     var iter = BufferIterator.init(buffer, start + offset, buffer.size());
-    var previous_strings_len = start + offset;
+    var index = start + offset;
     while (iter.next()) |string| {
-        defer previous_strings_len += string.len;
         var view = unicode.Utf8View.initUnchecked(string).iterator();
+        while (view.nextCodepointSlice()) |slice| {
+            defer index += slice.len;
 
-        var i = view.i;
-        while (view.nextCodepoint()) |cp| {
-            defer i = view.i;
+            const cp = unicode.utf8Decode(slice) catch unreachable;
             if (!utils.atLeastOneIsEqual(u21, black_list, cp)) {
-                return previous_strings_len + i;
+                return index;
             }
         }
     }
@@ -51,17 +54,15 @@ pub fn backFindCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) 
     if (start == 0) return null;
     var iter = ReverseBufferIterator.init(buffer, 0, start - 1);
 
-    var next_cp_index: u64 = 0;
-    var previous_strings_len = start - 1;
+    var index = start;
     while (iter.next()) |string| {
-        previous_strings_len = if (previous_strings_len <= string.len) 0 else previous_strings_len - string.len;
         var view = utf8.ReverseUtf8View(string);
-        while (view.prevCodePoint()) |cp| {
-            const abs_index = previous_strings_len + view.index;
-            if (utils.atLeastOneIsEqual(u21, list, cp))
-                return abs_index + 1;
+        while (view.prevSlice()) |slice| {
+            index -|= slice.len;
 
-            next_cp_index = abs_index;
+            const cp = unicode.utf8Decode(slice) catch unreachable;
+            if (utils.atLeastOneIsEqual(u21, list, cp))
+                return index;
         }
     }
 
@@ -72,55 +73,91 @@ pub fn backFindOutsideBlackList(buffer: *Buffer, start: u64, list: []const u21) 
     if (start == 0) return null;
     var iter = ReverseBufferIterator.init(buffer, 0, start - 1);
 
-    var next_cp_index: u64 = 0;
-    var previous_strings_len = start - 1;
+    var index = start;
     while (iter.next()) |string| {
-        previous_strings_len = if (previous_strings_len <= string.len) 0 else previous_strings_len - string.len;
         var view = utf8.ReverseUtf8View(string);
-        while (view.prevCodePoint()) |cp| {
-            const abs_index = previous_strings_len + view.index;
-            if (!utils.atLeastOneIsEqual(u21, list, cp))
-                return abs_index + 1;
+        while (view.prevSlice()) |slice| {
+            index -|= slice.len;
 
-            next_cp_index = abs_index;
+            const cp = unicode.utf8Decode(slice) catch unreachable;
+            if (!utils.atLeastOneIsEqual(u21, list, cp))
+                return index;
         }
     }
 
     return null;
 }
 
-pub const word = struct {
-    const white_space = [_]u21{ ' ', '\n', '\t' };
-    pub fn forward(buffer: *Buffer) ?Range {
-        const start = buffer.cursor_index;
-        const mid = findCodePointsInList(buffer, start, &white_space) orelse return null;
-        const end = findOutsideBlackList(buffer, mid, &white_space) orelse return null;
+/// The way a motion works is as follows:
+/// Find one of the delimiters and stop there and return.
+/// If the starting point is one of the delimiters then move one character and return
+/// White space is always ignored
+pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
+    const start = buffer.cursor_index;
 
-        buffer.validateRange(start, end) catch return null;
-        return .{ .start = start, .end = end };
-    }
-
-    pub fn backward(buffer: *Buffer) ?Range {
-        if (buffer.cursor_index == 0) {
-            return null;
+    {
+        var cp = buffer.codePointAt(start) catch return null;
+        if (utils.atLeastOneIsEqual(u21, delimiters, cp) and !utils.atLeastOneIsEqual(u21, &white_space, cp)) {
+            var bytes = unicode.utf8CodepointSequenceLength(cp) catch return null;
+            const end = start + bytes;
+            return .{ .start = start, .end = end };
         }
+    }
 
-        const end = buffer.cursor_index;
+    const mid = findCodePointsInList(buffer, start, delimiters) orelse return null;
+    const cp = buffer.codePointAt(mid) catch return null;
 
-        const mid = backFindCodePointsInList(buffer, end, &white_space) orelse return null;
-        const start = backFindOutsideBlackList(buffer, mid, &white_space) orelse return null;
-
-        buffer.validateRange(start, end) catch return null;
+    if (utils.atLeastOneIsEqual(u21, &white_space, cp)) {
+        const end = findOutsideBlackList(buffer, mid, &white_space) orelse return null;
+        buffer.validateRange(start, end) catch unreachable;
         return .{ .start = start, .end = end };
+    } else {
+        buffer.validateRange(start, mid) catch unreachable;
+        return .{ .start = start, .end = mid };
+    }
+}
+
+/// The way a motion works is as follows:
+/// Find one of the delimiters and stop there and return.
+/// If the starting point is one of the delimiters then move one character and return
+/// White space is always ignored
+pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
+    if (buffer.cursor_index == 0) return null;
+
+    const end = buffer.cursor_index;
+    const end_cp = buffer.codePointAt(end) catch return null;
+    const real_end = end + (unicode.utf8CodepointSequenceLength(end_cp) catch return null) -| 1;
+
+    {
+        if (utils.atLeastOneIsEqual(u21, delimiters, end_cp) and !utils.atLeastOneIsEqual(u21, &white_space, end_cp)) {
+            var start = end - 1;
+            while (utf8.byteType(buffer.lines.byteAt(start)) == .continue_byte and start > 0)
+                start -= 1;
+
+            buffer.validateRange(start, real_end) catch unreachable;
+            return .{ .start = start, .end = real_end };
+        }
     }
 
-    pub fn moveForward(buffer_window: *BufferWindow) void {
-        const range = forward(buffer_window.buffer) orelse return;
-        buffer_window.buffer.cursor_index = range.end;
-    }
+    const mid = backFindCodePointsInList(buffer, end, delimiters) orelse return null;
+    const cp = buffer.codePointAt(mid) catch return null;
 
-    pub fn moveBackwards(buffer_window: *BufferWindow) void {
-        const range = backward(buffer_window.buffer) orelse return;
-        buffer_window.buffer.cursor_index = range.start;
+    if (utils.atLeastOneIsEqual(u21, &white_space, cp)) {
+        const start = backFindOutsideBlackList(buffer, mid, &white_space) orelse return null;
+        buffer.validateRange(start, real_end) catch unreachable;
+        return .{ .start = start, .end = real_end };
+    } else {
+        buffer.validateRange(mid, end) catch unreachable;
+        return .{ .start = mid, .end = real_end };
     }
-};
+}
+
+pub fn moveForward(buffer_window: *BufferWindow, delimators: []const u21) void {
+    const range = forward(buffer_window.buffer, delimators) orelse return;
+    buffer_window.buffer.cursor_index = range.endCPFirstByteIndex(buffer_window.buffer);
+}
+
+pub fn moveBackwards(buffer_window: *BufferWindow, delimators: []const u21) void {
+    const range = backward(buffer_window.buffer, delimators) orelse return;
+    buffer_window.buffer.cursor_index = range.start;
+}
