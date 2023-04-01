@@ -21,6 +21,16 @@ const Buffer = @This();
 pub const Range = struct {
     start: u64,
     end: u64,
+
+    /// Returns an index that is an offset of Range.end. The index would be the first
+    /// byte of a utf8 sequence
+    pub fn endCPFirstByteIndex(range: Range, buffer: *Buffer) u64 {
+        var end = range.end;
+        while (utf8.byteType(buffer.lines.byteAt(end)) == .continue_byte and end > 0)
+            end -= 1;
+
+        return end;
+    }
 };
 
 pub const State = enum {
