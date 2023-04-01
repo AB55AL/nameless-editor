@@ -56,7 +56,7 @@ const Mod = struct {
             .insertion_string => |string| try array_list.insertSlice(mod.index, string),
             .deletion_end_index => |end_index| {
                 var count = mod.index;
-                while (count <= end_index) {
+                while (count < end_index) {
                     _ = array_list.orderedRemove(mod.index);
                     count += 1;
                 }
@@ -143,7 +143,7 @@ fn generateMod(buffer: *Buffer, string_len: u64, allocator: std.mem.Allocator) M
         } else {
             var end_index = randomVaildIndex(buffer);
             while (end_index < index) end_index = randomVaildIndex(buffer);
-            end_index += (unicode.utf8ByteSequenceLength(buffer.lines.byteAt(end_index)) catch unreachable) - 1;
+            end_index += (unicode.utf8ByteSequenceLength(buffer.lines.byteAt(end_index)) catch unreachable);
 
             break :blk Mod.Operation{ .deletion_end_index = end_index };
         }
@@ -190,8 +190,8 @@ fn modSlice() []const Mod {
         tests.buffer.Mod{ .index = 0, .operation = tests.buffer.Mod.Operation{ .insertion_string = &.{ 236, 147, 128, 233, 143, 139, 225, 132, 141, 10 } } },
         tests.buffer.Mod{ .index = 6, .operation = tests.buffer.Mod.Operation{ .deletion_end_index = 9 } },
         tests.buffer.Mod{ .index = 3, .operation = tests.buffer.Mod.Operation{ .insertion_string = &.{ 238, 181, 132, 229, 128, 177, 229, 182, 152, 124 } } },
-        tests.buffer.Mod{ .index = 12, .operation = tests.buffer.Mod.Operation{ .deletion_end_index = 12 } },
-        tests.buffer.Mod{ .index = 12, .operation = tests.buffer.Mod.Operation{ .deletion_end_index = 15 } },
+        tests.buffer.Mod{ .index = 12, .operation = tests.buffer.Mod.Operation{ .deletion_end_index = 13 } },
+        tests.buffer.Mod{ .index = 12, .operation = tests.buffer.Mod.Operation{ .deletion_end_index = 16 } },
     };
 }
 
@@ -202,6 +202,8 @@ fn modSlice() []const Mod {
 
 // test "fuzz modify the buffer non-random" {
 //     std.debug.print("\n", .{});
+
+//     const allocator = std.testing.allocator;
 
 //     var mods = comptime modSlice();
 
@@ -224,19 +226,19 @@ fn modSlice() []const Mod {
 //         if (mod_index == target_index) {
 //             std.debug.print("======================================\n", .{});
 //             std.debug.print("BEFORE\n", .{});
-//             printTree(&buffer);
-//             try printContent(buffer_array, &buffer);
+//             // printTree(&buffer);
+//             // try printContent(buffer_array, &buffer);
 //         }
 
-//         try mod.applyToBuffer(&buffer);
+//         try mod.applyToBuffer(&buffer, allocator);
 //         try mod.applyToArrayList(&buffer_array);
 
 //         if (mod_index == target_index) {
 //             std.debug.print("AFTER\n", .{});
-//             printTree(&buffer);
-//             try printContent(buffer_array, &buffer);
+//             // printTree(&buffer);
+//             // try printContent(buffer_array, &buffer);
 //         }
-//         try fuzzEqlTest(&buffer, &buffer_array);
+//         try fuzzEqlTest(&buffer, &buffer_array, allocator);
 //     }
 
 //     std.debug.print("----------------------------------------\n", .{});
@@ -451,7 +453,7 @@ test "utf8 delete" {
     var buffer = try Buffer.init(test_allocator, "", original_text);
     defer buffer.deinitNoDestroy();
 
-    try buffer.deleteRange(0, 8);
+    try buffer.deleteRange(0, 9);
     try bufferEql(target_text, &buffer);
 }
 

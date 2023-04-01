@@ -24,8 +24,8 @@ pub const Range = struct {
 
     /// Returns an index that is an offset of Range.end. The index would be the first
     /// byte of a utf8 sequence
-    pub fn endCPFirstByteIndex(range: Range, buffer: *Buffer) u64 {
-        var end = range.end;
+    pub fn endPreviousCP(range: Range, buffer: *Buffer) u64 {
+        var end = range.end -| 1;
         while (utf8.byteType(buffer.lines.byteAt(end)) == .continue_byte and end > 0)
             end -= 1;
 
@@ -161,13 +161,13 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     try buffer.insureLastByteIsNewline();
 }
 
-/// End inclusive
+/// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
-    const s = std.math.min(start, end);
-    const e = std.math.max(start, end);
+    const s = min(start, end);
+    const e = max(start, end);
 
     try buffer.validateRange(s, e);
-    try buffer.lines.delete(buffer.allocator, s, e);
+    try buffer.lines.delete(buffer.allocator, s, e -| 1);
 
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
@@ -218,7 +218,7 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
     }
 
     buffer.cursor_index -|= bytes_to_delete;
-    const delete_to = buffer.cursor_index + bytes_to_delete -| 1;
+    const delete_to = buffer.cursor_index + bytes_to_delete;
 
     try buffer.deleteRange(buffer.cursor_index, delete_to);
 }
@@ -238,7 +238,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    try buffer.deleteRange(buffer.cursor_index, i - 1);
+    try buffer.deleteRange(buffer.cursor_index, i);
     buffer.cursor_index = min(buffer.cursor_index, buffer.size() - 1);
 }
 
@@ -250,7 +250,7 @@ pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     const end_index = if (end_row >= buffer.lineCount())
         buffer.size() + 1
     else
-        buffer.getIndex(end_row + 1, 1) -| 1;
+        buffer.getIndex(end_row + 1, 1);
 
     try buffer.deleteRange(start_index, end_index);
 }
@@ -263,7 +263,7 @@ pub fn deleteRangeRC(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u
     const end_index = if (end_row > buffer.lineCount())
         buffer.size() + 1
     else
-        buffer.getIndex(end_row, end_col + 1) -| 1;
+        buffer.getIndex(end_row, end_col + 1);
 
     try buffer.deleteRange(start_index, end_index);
 }
@@ -285,7 +285,7 @@ pub fn validateInsertionPoint(buffer: *Buffer, index: u64) !void {
 
 pub fn validateRange(buffer: *Buffer, start: u64, end: u64) !void {
     const s = std.math.min(start, buffer.size() -| 1);
-    const e = std.math.min(end + 1, buffer.size() -| 1);
+    const e = std.math.min(end, buffer.size() -| 1);
 
     if (e == buffer.size() - 1 or
         utf8.byteType(buffer.lines.byteAt(s)) == .start_byte or

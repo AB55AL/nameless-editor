@@ -99,7 +99,8 @@ pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
         var cp = buffer.codePointAt(start) catch return null;
         if (utils.atLeastOneIsEqual(u21, delimiters, cp) and !utils.atLeastOneIsEqual(u21, &white_space, cp)) {
             var bytes = unicode.utf8CodepointSequenceLength(cp) catch return null;
-            const end = start + bytes;
+            std.debug.print("here\n", .{});
+            const end = start + bytes + 1;
             return .{ .start = start, .end = end };
         }
     }
@@ -108,12 +109,12 @@ pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
     const cp = buffer.codePointAt(mid) catch return null;
 
     if (utils.atLeastOneIsEqual(u21, &white_space, cp)) {
-        const end = findOutsideBlackList(buffer, mid, &white_space) orelse return null;
+        const end = 1 + (findOutsideBlackList(buffer, mid, &white_space) orelse return null);
         buffer.validateRange(start, end) catch unreachable;
         return .{ .start = start, .end = end };
     } else {
         buffer.validateRange(start, mid) catch unreachable;
-        return .{ .start = start, .end = mid };
+        return .{ .start = start, .end = mid + 1 };
     }
 }
 
@@ -126,7 +127,7 @@ pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
 
     const end = buffer.cursor_index;
     const end_cp = buffer.codePointAt(end) catch return null;
-    const real_end = end + (unicode.utf8CodepointSequenceLength(end_cp) catch return null) -| 1;
+    const real_end = end + (unicode.utf8CodepointSequenceLength(end_cp) catch return null);
 
     {
         if (utils.atLeastOneIsEqual(u21, delimiters, end_cp) and !utils.atLeastOneIsEqual(u21, &white_space, end_cp)) {
@@ -154,7 +155,7 @@ pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
 
 pub fn moveForward(buffer_window: *BufferWindow, delimators: []const u21) void {
     const range = forward(buffer_window.buffer, delimators) orelse return;
-    buffer_window.buffer.cursor_index = range.endCPFirstByteIndex(buffer_window.buffer);
+    buffer_window.buffer.cursor_index = range.endPreviousCP(buffer_window.buffer);
 }
 
 pub fn moveBackwards(buffer_window: *BufferWindow, delimators: []const u21) void {
