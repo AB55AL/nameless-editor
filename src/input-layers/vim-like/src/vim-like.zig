@@ -104,13 +104,15 @@ pub fn insertNewLineAtCursor() void {
 }
 
 pub fn moveForward() void {
+    const d = core.motions.white_space;
     var fbw = core.ui.focused_buffer_window orelse return;
-    core.motions.word.moveForward(&fbw.data);
+    core.motions.moveForward(&fbw.data, &d);
 }
 
 pub fn moveBackwards() void {
+    const d = core.motions.white_space;
     var fbw = core.ui.focused_buffer_window orelse return;
-    core.motions.word.moveBackwards(&fbw.data);
+    core.motions.moveBackwards(&fbw.data, &d);
 }
 
 pub fn paste() void {
