@@ -11,7 +11,11 @@ const Range = Buffer.Range;
 const utils = @import("../utils.zig");
 const utf8 = @import("../utf8.zig");
 
-pub const white_space = [_]u21{ ' ', '\n', '\t' };
+pub const white_space = blk: {
+    var ws: [std.ascii.whitespace.len]u21 = undefined;
+    for (std.ascii.whitespace, 0..) |c, i| ws[i] = c;
+    break :blk ws;
+};
 
 pub fn findCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) ?u64 {
     var offset = unicode.utf8ByteSequenceLength(buffer.lines.byteAt(start)) catch return null;
@@ -99,7 +103,6 @@ pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
         var cp = buffer.codePointAt(start) catch return null;
         if (utils.atLeastOneIsEqual(u21, delimiters, cp) and !utils.atLeastOneIsEqual(u21, &white_space, cp)) {
             var bytes = unicode.utf8CodepointSequenceLength(cp) catch return null;
-            std.debug.print("here\n", .{});
             const end = start + bytes + 1;
             return .{ .start = start, .end = end };
         }
@@ -151,6 +154,19 @@ pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
         buffer.validateRange(mid, end) catch unreachable;
         return .{ .start = mid, .end = real_end };
     }
+}
+
+pub fn textObject(buffer: *Buffer, delimators: []const u21) ?Range {
+    const cp_at_cursor = buffer.codePointAt(buffer.cursor_index) catch return null;
+
+    const start = if (utils.atLeastOneIsEqual(u21, delimators, cp_at_cursor))
+        buffer.cursor_index
+    else
+        backFindCodePointsInList(buffer, buffer.cursor_index, delimators) orelse return null;
+
+    const end = findCodePointsInList(buffer, buffer.cursor_index, delimators) orelse return null;
+
+    return .{ .start = start, .end = end + 1 };
 }
 
 pub fn moveForward(buffer_window: *BufferWindow, delimators: []const u21) void {
