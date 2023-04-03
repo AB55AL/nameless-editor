@@ -169,12 +169,30 @@ pub fn textObject(buffer: *Buffer, delimators: []const u21) ?Range {
     return .{ .start = start, .end = end + 1 };
 }
 
-pub fn moveForward(buffer_window: *BufferWindow, delimators: []const u21) void {
-    const range = forward(buffer_window.buffer, delimators) orelse return;
-    buffer_window.buffer.cursor_index = range.endPreviousCP(buffer_window.buffer);
+pub fn endOfLine(buffer: *Buffer) Range {
+    const row = buffer.getRowAndCol(buffer.cursor_index).row;
+    return .{ .start = buffer.cursor_index, .end = buffer.indexOfLastByteAtRow(row) + 1 };
 }
 
-pub fn moveBackwards(buffer_window: *BufferWindow, delimators: []const u21) void {
-    const range = backward(buffer_window.buffer, delimators) orelse return;
-    buffer_window.buffer.cursor_index = range.start;
+pub fn startOfLine(buffer: *Buffer) Range {
+    const row = buffer.getRowAndCol(buffer.cursor_index).row;
+    return .{ .start = buffer.indexOfFirstByteAtRow(row), .end = buffer.cursor_index + 1 };
+}
+
+pub fn firstLine(buffer: *Buffer) Range {
+    return .{ .start = 0, .end = buffer.cursor_index + 1 };
+}
+
+pub fn lastLine(buffer: *Buffer) Range {
+    return .{ .start = buffer.cursor_index, .end = buffer.size() };
+}
+
+pub fn findCP(buffer: *Buffer, cp: u21) Range {
+    const end = findCodePointsInList(buffer, buffer.cursor_index, &.{cp});
+    return .{ .start = buffer.cursor_index, .end = end + 1 };
+}
+
+pub fn backFindCP(buffer: *Buffer, cp: u21) Range {
+    const start = backFindCodePointsInList(buffer, buffer.cursor_index, &.{cp});
+    return .{ .start = start, .end = buffer.cursor_index + 1 };
 }
