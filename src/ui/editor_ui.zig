@@ -47,6 +47,8 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) []u8 {
 }
 
 pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height: f32) !void {
+    const buffer_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_resize = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = false, .no_collapse = true };
+    const cli_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = true, .no_resize = true };
     var buffers_focused = false;
     if (!core.cliOpen()) globals.ui.focused_cursor_rect = null;
 
@@ -60,44 +62,8 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         for (wins_to_close.items) |win| core.closeBW(win);
     }
 
-    buffers: {
-        if (!globals.ui.show_buffers) break :buffers;
-
-        const win_flags = imgui.WindowFlags{
-            .no_nav_focus = true,
-            .no_resize = true,
-            .no_scroll_with_mouse = true,
-            .no_scrollbar = true,
-            .no_title_bar = false,
-            .no_collapse = true,
-        };
-
-        if (globals.editor.visiable_buffers_tree.root == null)
-            break :buffers;
-
-        var rect = core.Rect{ .w = os_window_width, .h = os_window_height };
-        var windows = try core.BufferWindow.getAndSetWindows(&globals.editor.visiable_buffers_tree, arena, rect);
-        for (windows, 0..) |bw, i| {
-            imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
-            imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .appearing });
-            const file_path = getBuffer(bw.data.bhandle).?.metadata.file_path;
-            if (bw == core.focusedBW() and globals.ui.focus_buffers) {
-                imgui.setNextWindowFocus();
-                globals.ui.focus_buffers = false;
-                core.command_line.close(false, false);
-            }
-
-            _ = imgui.begin(tmpStringZ("{s}##{}", .{ file_path, i }), .{ .flags = win_flags });
-            defer imgui.end();
-
-            const res = bufferWidget(bw, bw.data.rect.w, bw.data.rect.h);
-            buffers_focused = buffers_focused or res;
-            const res_2 = imgui.isWindowFocused(.{});
-            buffers_focused = res_2 or buffers_focused;
-        }
-    }
-
     if (core.cliOpen()) {
+        // get cli window pos and size
         const center = imgui.getMainViewport().getCenter();
 
         const m_size = imgui.calcTextSize("m", .{})[0];
@@ -111,24 +77,36 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
         imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
         imgui.setNextWindowFocus();
-        _ = imgui.begin("command line", .{
-            .flags = .{
-                .no_nav_focus = true,
-                .no_scroll_with_mouse = true,
-                .no_scrollbar = true,
-                .no_title_bar = true,
-                .no_resize = true,
-            },
-        });
-        defer imgui.end();
-
-        buffers_focused = buffers_focused or imgui.isWindowFocused(.{});
 
         const padding = imgui.getStyle().window_padding;
         core.cliBW().data.rect.x = x - padding[0];
         core.cliBW().data.rect.y = y - padding[1];
-        const res = bufferWidget(core.cliBW(), size[0], size[1]);
+        const res = bufferWidget("command line", core.cliBW(), size[0], size[1], cli_win_flags);
         buffers_focused = buffers_focused or res;
+    }
+
+    buffers: {
+        if (!globals.ui.show_buffers) break :buffers;
+
+        if (globals.editor.visiable_buffers_tree.root == null)
+            break :buffers;
+
+        var rect = core.Rect{ .w = os_window_width, .h = os_window_height };
+        var windows = try core.BufferWindow.getAndSetWindows(&globals.editor.visiable_buffers_tree, arena, rect);
+        for (windows) |bw| {
+            if (bw == core.focusedBW() and globals.ui.focus_buffers) {
+                imgui.setNextWindowFocus();
+                globals.ui.focus_buffers = false;
+                core.command_line.close(false, false);
+            }
+            imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
+            imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .appearing });
+
+            const file_path = getBuffer(bw.data.bhandle).?.metadata.file_path;
+            var win_name = tmpStringZ("{s}##({x})", .{ file_path, @ptrToInt(bw) });
+            const res = bufferWidget(win_name, bw, bw.data.rect.w, bw.data.rect.h, buffer_win_flags);
+            buffers_focused = buffers_focused or res;
+        }
     }
 
     if (!buffers_focused) globals.editor.focused_buffer_window = null;
@@ -136,46 +114,82 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 
-pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, width: f32, height: f32) bool {
-    const static = struct {
-        pub var buf: [max_visible_bytes]u8 = undefined;
-    };
+pub fn bufferWidget(window_name: [:0]const u8, buffer_window_node: *core.BufferWindowNode, width: f32, height: f32, win_flags: imgui.WindowFlags) bool {
+    const child_flags = imgui.WindowFlags{ .no_scroll_with_mouse = true, .no_scrollbar = true, .always_auto_resize = true };
+    _ = width;
+    _ = imgui.begin(window_name, .{ .flags = win_flags });
+    defer imgui.end();
 
     var buffer_window = &buffer_window_node.data;
-    // null is unreachable because buffer windows with invalid buffers are removed in buffers()
-    var buffer = getBuffer(buffer_window.bhandle).?;
-
-    var dl = imgui.getWindowDrawList();
-    _ = imgui.beginChild(tmpStringZ("buffer_window ({x})", .{@ptrToInt(buffer_window)}), .{
-        .border = false,
-        .flags = .{
-            .no_scroll_with_mouse = true,
-            .no_scrollbar = true,
-            .always_auto_resize = true,
-        },
-    });
-    defer imgui.endChild();
-
-    const begin_cursor_pos = imgui.getCursorPos();
 
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h)) -| 2;
     buffer_window.windowFollowCursor();
 
+    var focused = imgui.isWindowFocused(.{});
+
+    var dres = displayLineNumber(buffer_window_node, child_flags);
+    focused = focused or dres;
+
+    imgui.sameLine(.{});
+
+    var bufres = bufferText(buffer_window_node, child_flags);
+    focused = focused or bufres;
+
+    // keep the buffer focused
+    if (focused) {
+        if (buffer_window_node != core.focusedBW()) core.setFocusedBW(buffer_window_node);
+    }
+
+    return focused;
+}
+
+fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFlags) bool {
+    var buffer_window = &buffer_window_node.data;
+    const start_row = buffer_window.first_visiable_row;
+    const end_row = buffer_window.lastVisibleRow();
+
+    const w = imgui.calcTextSize(tmpStringZ("{}", .{end_row}), .{})[0];
+    _ = imgui.beginChild("displayLineNumber", .{ .w = w, .flags = child_flags });
+    defer imgui.endChild();
+
+    for (start_row..end_row + 1) |row|
+        imgui.text("{}", .{row});
+
+    imgui.setCursorPos(imgui.getCursorStartPos());
+    const clicked = imgui.invisibleButton("displayLineNumber button", .{ .w = w, .h = imgui.getContentRegionMax()[1] });
+    const focused = imgui.isItemFocused();
+    return clicked or focused;
+}
+
+fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFlags) bool {
+    const static = struct {
+        pub var buf: [max_visible_bytes]u8 = undefined;
+    };
+
+    var dl = imgui.getWindowDrawList();
+
+    var buffer_window = &buffer_window_node.data;
+    var buffer = getBuffer(buffer_window.bhandle) orelse return false;
+    const start_row = buffer_window.first_visiable_row;
+    const end_row = buffer_window.lastVisibleRow();
+
+    var line_h = imgui.getTextLineHeightWithSpacing();
+
     const cursor_index = buffer.getIndex(buffer_window.cursor());
     const cursor = buffer_window.cursor();
 
-    const start_row = buffer_window.first_visiable_row;
-    const end_row = buffer_window.lastVisibleRow();
+    _ = imgui.beginChild("bufferText", .{ .border = false, .flags = child_flags });
+    defer imgui.endChild();
+
+    const abs_pos = imgui.getCursorScreenPos();
     for (start_row..end_row + 1, 1..) |row, on_screen_row| {
         // render text
         const line = getVisibleLine(buffer, &static.buf, row);
         imgui.textUnformatted(line);
 
-        const pos = imgui.getWindowPos();
-        const abs_x = pos[0];
-        var abs_y = @intToFloat(f32, on_screen_row) * line_h + pos[1];
-        abs_y -= line_h;
+        const abs_x = abs_pos[0];
+        const abs_y = @intToFloat(f32, on_screen_row) * line_h + abs_pos[1] - line_h;
 
         // render selection
         const selection = buffer.selection.get(cursor);
@@ -239,26 +253,13 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, width: f32, heig
                 },
             });
         }
-    }
+    } // for loop
 
-    { // invisible button for interactions
-
-        var pos = begin_cursor_pos;
-        pos[0] -= imgui.getStyle().window_padding[0];
-        imgui.setCursorPos(pos);
-
-        var clicked = imgui.invisibleButton(tmpStringZ("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
-            .w = width,
-            .h = height,
-        });
-
-        var focused = imgui.isItemFocused();
-        if (clicked or focused) {
-            if (buffer_window_node != core.focusedBW()) core.setFocusedBW(buffer_window_node);
-        }
-
-        return focused;
-    }
+    const wh = imgui.getContentRegionMax();
+    imgui.setCursorPos(imgui.getCursorStartPos());
+    var clicked = imgui.invisibleButton("bufferText button", .{ .w = wh[0], .h = wh[1] });
+    var focused = imgui.isItemFocused();
+    return focused or clicked;
 }
 
 pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
