@@ -33,13 +33,6 @@ pub fn main() !void {
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
 
-    /////////////////////
-    {
-        var buffer = try core.openBufferFP("src/main.zig", null);
-        try buffer.insertAt(10, "HEY THERE");
-    }
-    /////////////////////
-
     _ = glfw.init(.{});
     var window = glfw.Window.create(800, 800, "test", null, null, .{}).?;
     defer window.destroy();
@@ -58,8 +51,6 @@ pub fn main() !void {
 
     var show_demo_window = true;
     while (!window.shouldClose()) {
-        // glfw.waitEvents();
-
         imgui.backend.newFrame();
 
         imgui.showDemoWindow(&show_demo_window);
