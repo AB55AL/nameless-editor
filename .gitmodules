@@ -10,3 +10,6 @@
 [submodule "libs/gui"]
 	path = libs/gui
 	url = https://github.com/AB55AL/gui.git
+[submodule "libs/imgui"]
+	path = libs/imgui
+	url = https://github.com/ab55al/imgui.git
