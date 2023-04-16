@@ -252,7 +252,7 @@ pub fn focusedBuffer() ?*Buffer {
 }
 
 pub fn focusedBW() ?*BufferWindowNode {
-    return (globals.ui.focused_buffer_window orelse return null);
+    return globals.ui.focused_buffer_window;
 }
 
 pub fn windowCountWithBuffer(buffer: *Buffer) u32 {

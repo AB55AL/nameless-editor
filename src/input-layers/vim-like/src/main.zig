@@ -148,6 +148,19 @@ fn setDefaultMappnigsNormalMode() void {
     map(.normal, &.{a(.none, .b)}, vim_like.moveBackwards);
 
     map(.normal, &.{f(.none, .f5)}, vim_like.randomInsertions);
+
+    map(.normal, &.{f(.none, .page_up)}, scrollUp);
+    map(.normal, &.{f(.none, .page_down)}, scrollDown);
+}
+
+fn scrollUp() void {
+    var fbw = core.focusedBW() orelse return;
+    fbw.data.scrollUp(1);
+}
+
+fn scrollDown() void {
+    var fbw = core.focusedBW() orelse return;
+    fbw.data.scrollDown(1);
 }
 
 fn setDefaultMappnigsInsertMode() void {

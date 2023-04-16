@@ -2,8 +2,6 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
-const gui = @import("gui");
-
 const globals = @import("../core.zig").globals;
 const ui = globals.ui;
 const editor = globals.editor;
@@ -16,6 +14,18 @@ pub const BufferWindowTree = NaryTree(BufferWindow);
 pub const BufferWindowNode = BufferWindowTree.Node;
 
 pub const BufferWindow = struct {
+    pub const Rect = struct {
+        x: f32 = 0,
+        y: f32 = 0,
+        w: f32 = 0,
+        h: f32 = 0,
+    };
+
+    pub const Size = struct {
+        w: f32 = 0,
+        h: f32 = 0,
+    };
+
     pub const Dir = enum {
         north,
         east,
@@ -26,13 +36,13 @@ pub const BufferWindow = struct {
     percent_of_parent: f32 = 1,
     dir: Dir = .north,
 
-    // Reset every frame
-    rect: gui.Rect = .{},
+    rect: Rect = .{}, // Reset every frame
 
     buffer: *Buffer,
     first_visiable_row: u64,
+    visible_lines: u64 = 0, // Set every frame
 
-    pub fn getAndSetWindows(root: *BufferWindowNode, allocator: std.mem.Allocator, area: gui.Rect) ![]*BufferWindowNode {
+    pub fn getAndSetWindows(root: *BufferWindowNode, allocator: std.mem.Allocator, area: Rect) ![]*BufferWindowNode {
         var tree_array = try root.treeToArray(allocator);
 
         root.data.rect = area;
@@ -44,16 +54,25 @@ pub const BufferWindow = struct {
         return tree_array;
     }
 
-    fn getAndSetSize(buffer_window: *BufferWindowNode, area: gui.Rect) gui.Rect {
+    pub fn lastVisibleRow(buffer_window: *BufferWindow) u64 {
+        var res = buffer_window.first_visiable_row + buffer_window.visible_lines -| 1;
+        if (res == 0)
+            res = 1
+        else if (res > buffer_window.buffer.lineCount())
+            res = buffer_window.buffer.lineCount();
+        return res;
+    }
+
+    fn getAndSetSize(buffer_window: *BufferWindowNode, area: Rect) Rect {
         _ = area;
         if (buffer_window.first_child == null) return buffer_window.data.rect;
 
         var rect = &buffer_window.data.rect;
         var child = buffer_window.first_child;
         while (child) |c| {
-            var child_size: gui.Size = switch (c.data.dir) {
-                .north, .south => gui.Size{ .w = rect.w, .h = rect.h * c.data.percent_of_parent },
-                .east, .west => gui.Size{ .w = rect.w * c.data.percent_of_parent, .h = rect.h },
+            var child_size: Size = switch (c.data.dir) {
+                .north, .south => Size{ .w = rect.w, .h = rect.h * c.data.percent_of_parent },
+                .east, .west => Size{ .w = rect.w * c.data.percent_of_parent, .h = rect.h },
             };
 
             switch (c.data.dir) {
@@ -120,12 +139,19 @@ pub const BufferWindow = struct {
         return absolute -| offset;
     }
 
+    pub fn relativeBufferRowFromAbsolute(buffer_win: *BufferWindow, absolute: u64) u64 {
+        if (buffer_win.first_visiable_row == 1) return absolute;
+        return absolute -| buffer_win.first_visiable_row + 1;
+    }
+
     pub fn scrollDown(buffer_win: *BufferWindow, offset: u64) void {
         buffer_win.first_visiable_row += offset;
         buffer_win.first_visiable_row = std.math.min(
             buffer_win.buffer.lineCount(),
             buffer_win.first_visiable_row,
         );
+
+        buffer_win.resetBufferCursorToBufferWindow();
     }
 
     pub fn scrollUp(buffer_win: *BufferWindow, offset: u64) void {
@@ -133,13 +159,28 @@ pub const BufferWindow = struct {
             buffer_win.first_visiable_row = 1
         else
             buffer_win.first_visiable_row -= offset;
+
+        buffer_win.first_visiable_row = std.math.max(1, buffer_win.first_visiable_row);
+
+        buffer_win.resetBufferCursorToBufferWindow();
+    }
+
+    pub fn resetBufferCursorToBufferWindow(buffer_win: *BufferWindow) void {
+        var cursor = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index);
+
+        if (!utils.inRange(cursor.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
+            if (cursor.row > buffer_win.lastVisibleRow())
+                buffer_win.buffer.moveAbsolute(buffer_win.lastVisibleRow(), cursor.col)
+            else
+                buffer_win.buffer.moveAbsolute(buffer_win.first_visiable_row, cursor.col);
+        }
+    }
+
+    pub fn resetBufferWindowRowsToBufferCursor(buffer_win: *BufferWindow) void {
+        var cursor_row = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index).row;
+
+        if (!utils.inRange(cursor_row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
+            buffer_win.first_visiable_row = cursor_row;
+        }
     }
 };
-
-pub fn nextBufferWindow() void {
-    if (&(ui.visiable_buffers[0] orelse return) == ui.focused_buffer_window) {
-        ui.focused_buffer_window = &(ui.visiable_buffers[1] orelse return);
-    } else {
-        ui.focused_buffer_window = &(ui.visiable_buffers[0] orelse return);
-    }
-}

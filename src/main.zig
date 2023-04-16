@@ -12,19 +12,14 @@ const globals = core.globals;
 const ui = @import("ui/ui.zig");
 
 const input_layer = @import("input_layer");
-const gui = @import("gui");
+const imgui = @import("imgui");
 const options = @import("options");
 const user = @import("user");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-
-    var gui_gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // defer _ = gui_gpa.deinit();
-
     const allocator = gpa.allocator();
-    const gui_allocator = gui_gpa.allocator();
 
     try globals.initGlobals(allocator);
     defer globals.deinitGlobals();
@@ -38,66 +33,58 @@ pub fn main() !void {
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
 
-    var win_backend = try gui.SDLBackend.init(800, 600);
-    defer win_backend.deinit();
+    /////////////////////
+    {
+        var buffer = try core.openBufferFP("src/main.zig", null);
+        try buffer.insertAt(10, "HEY THERE");
+    }
+    /////////////////////
 
-    var win = gui.Window.init(@src(), 0, gui_allocator, win_backend.guiBackend());
-    defer win.deinit();
+    _ = glfw.init(.{});
+    var window = glfw.Window.create(800, 800, "test", null, null, .{}).?;
+    defer window.destroy();
+    glfw.makeContextCurrent(window);
 
-    main_loop: while (true) {
-        var timer = try std.time.Timer.start();
+    imgui.init(allocator);
+    defer imgui.deinit();
 
-        var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer arena_allocator.deinit();
-        const arena = arena_allocator.allocator();
+    imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
 
-        var nstime = win.beginWait(win_backend.hasEvent());
-        try win.begin(arena, nstime);
-        win_backend.clear();
+    _ = imgui.io.addFontFromFileWithConfig("assets/Fira Code Light Nerd Font Complete Mono.otf", 22, null, null);
+    // _ = imgui.io.addFontFromFileWithConfig("assets/Amiri-Regular.ttf", 30, null, &[_]u16{ 0x20, 0xFFFF, 0 });
 
-        const quit = try win_backend.addAllEvents(&win);
-        if (quit) break :main_loop;
+    imgui.backend.init(window.handle, true, "#version 330");
+    defer imgui.backend.deinit();
 
-        // try gui.label(@src(), 0, "fps {d:4.2}", .{gui.FPS()}, .{ .gravity_x = 1.0, .color_text = ui.toColor(0xFFFFFF, 255) });
+    var show_demo_window = true;
+    while (!window.shouldClose()) {
+        // glfw.waitEvents();
+
+        imgui.backend.newFrame();
+
+        imgui.showDemoWindow(&show_demo_window);
+
+        const window_size = window.getSize();
+        imgui.setNextWindowSize(.{ .w = @intToFloat(f32, window_size.width), .h = @intToFloat(f32, window_size.height) });
+        imgui.setNextWindowPos(.{ .x = 0, .y = 0 });
+        try ui.buffers(allocator);
 
         if (globals.editor.command_line_is_open) {
-            var cmd_win = &globals.ui.command_line_buffer_window;
+            _ = imgui.begin("command line", .{
+                .flags = .{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true },
+            });
+            defer imgui.end();
 
-            const static = struct {
-                var rect = gui.Rect{ .x = 500, .y = 500, .w = 200, .h = 50 };
-            };
-            var fw = try gui.floatingWindow(@src(), 0, false, &static.rect, null, .{});
-            defer fw.deinit();
-            try ui.bufferWidget(@src(), 0, cmd_win, true, .{ .expand = .both });
+            const size = imgui.getWindowSize();
+            ui.bufferWidget(&globals.ui.command_line_buffer_window.data, size[0], size[1]);
         }
 
-        buffers: {
-            var bw_tree = globals.ui.visiable_buffers_tree.root orelse {
-                command_line.open();
-                break :buffers;
-            };
+        glfw.pollEvents();
+        ui.handleTextInput();
+        try ui.handleKeyInput(allocator);
 
-            var box = try gui.boxEqual(@src(), 0, .horizontal, .{ .expand = .both });
-            var rect = box.wd.rect;
-            defer box.deinit();
+        imgui.backend.draw(window_size.width, window_size.height);
 
-            var windows = try core.BufferWindow.getAndSetWindows(bw_tree, arena, rect);
-            for (windows, 0..) |bw, i| {
-                try ui.bufferWidget(@src(), i, bw, false, .{ .rect = bw.data.rect });
-            }
-        }
-
-        try core.displayNotifications(globals.ui.notifications.slice());
-        defer core.clearDoneNotifications(&globals.ui.notifications, timer.read());
-
-        const end_micros = try win.end();
-
-        win_backend.setCursor(win.cursorRequested());
-
-        win_backend.renderPresent();
-
-        const wait_event_micros = win.waitTime(end_micros, 60);
-
-        win_backend.waitEventTimeout(wait_event_micros);
+        window.swapBuffers();
     }
 }
