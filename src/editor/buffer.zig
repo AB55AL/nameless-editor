@@ -336,34 +336,44 @@ pub fn codePointSliceAt(buffer: *Buffer, index: u64) ![]const u8 {
     return slice;
 }
 
-pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
-    assert(row <= buffer.lineCount());
+pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
+    utils.assert(row <= buffer.lineCount(), "");
+    utils.assert(buf.len <= buffer.lineSize(row), "");
 
-    var line = try allocator.alloc(u8, buffer.lineSize(row));
     var iter = LineIterator.init(buffer, row, row);
     var start: u64 = 0;
     while (iter.next()) |slice| {
-        std.mem.copy(u8, line[start..], slice);
+        std.mem.copy(u8, buf[start..], slice);
         start += slice.len;
     }
 
-    return line;
+    return buf;
 }
 
-pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
-    assert(last_line >= first_line);
-    assert(first_line > 0);
-    assert(last_line <= buffer.lineCount());
+pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) []u8 {
+    utils.assert(last_line >= first_line, "");
+    utils.assert(first_line > 0, "");
+    utils.assert(last_line <= buffer.lineCount(), "");
+    utils.assert(buf.len <= buffer.lineRangeSize(first_line, last_line), "");
 
-    var lines = try allocator.alloc(u8, buffer.lineRangeSize(first_line, last_line));
     var iter = LineIterator.init(buffer, first_line, last_line);
     var start: u64 = 0;
     while (iter.next()) |slice| {
-        std.mem.copy(u8, lines[start..], slice);
+        std.mem.copy(u8, buf[start..], slice);
         start += slice.len;
     }
 
-    return lines;
+    return buf;
+}
+
+pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
+    var line = try allocator.alloc(u8, buffer.lineSize(row));
+    return getLineBuf(buffer, line, row);
+}
+
+pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
+    var lines = try allocator.alloc(u8, buffer.lineRangeSize(first_line, last_line));
+    return getLinesBuf(buffer, lines, first_line, last_line);
 }
 
 /// Returns a copy of the entire buffer.
