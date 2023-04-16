@@ -321,15 +321,19 @@ pub fn lineRangeSize(buffer: *Buffer, start_line: u64, end_line: u64) u64 {
 }
 
 pub fn codePointAt(buffer: *Buffer, index: u64) !u21 {
-    var array: [4]u8 = undefined;
+    return unicode.utf8Decode(try buffer.codePointSliceAt(index));
+}
 
+pub fn codePointSliceAt(buffer: *Buffer, index: u64) ![]const u8 {
     const byte = buffer.lines.byteAt(index);
     utils.assert(utf8.byteType(byte) == .start_byte, "");
 
     const count = try unicode.utf8ByteSequenceLength(byte);
-    for (0..count) |i| array[i] = buffer.lines.byteAt(index + i);
+    var piece_info = buffer.lines.tree.findNode(index);
+    var i = piece_info.relative_index;
+    const slice = piece_info.piece.content(&buffer.lines)[i .. i + count];
 
-    return unicode.utf8Decode(array[0..count]);
+    return slice;
 }
 
 pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
