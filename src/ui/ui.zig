@@ -34,12 +34,11 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     defer allocator.free(windows);
     for (windows) |bw| {
         imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
-        imgui.newLine();
-        bufferWidget(&bw.data, bw.data.rect.w, bw.data.rect.h);
+        bufferWidget(&bw.data, true, bw.data.rect.w, bw.data.rect.h);
     }
 }
 
-pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) void {
+pub fn bufferWidget(buffer_window: *core.BufferWindow, new_line: bool, width: f32, height: f32) void {
     var id_buf: [100:0]u8 = undefined;
     var id = std.fmt.bufPrint(&id_buf, "buffer_window ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
     id_buf[id.len] = 0;
@@ -52,6 +51,8 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
     });
     defer imgui.endChild();
 
+    if (new_line) imgui.newLine();
+
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h));
     buffer_window.resetBufferWindowRowsToBufferCursor();
@@ -62,6 +63,7 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
         var from = buffer_window.first_visiable_row;
         var to = buffer_window.lastVisibleRow();
         var iter = LineIterator.init(buffer, from, to);
+
         while (iter.next()) |string| {
             imgui.textUnformatted(string);
             if (string[string.len - 1] != '\n') imgui.sameLine(.{ .spacing = 0 });
@@ -78,7 +80,9 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
     var win_pos = imgui.getWindowPos();
     var min: [2]f32 = .{ 0, 0 };
     min[0] = win_pos[0] + padding[0];
-    min[1] = (line_h * @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row) - 1)) + win_pos[1] + padding[1];
+    var relative_row = @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row));
+    if (!new_line) relative_row -= 1;
+    min[1] = (line_h * relative_row) + win_pos[1] + padding[1];
 
     { // get the x position of the cursor
         var from = buffer.indexOfFirstByteAtRow(cursor_row);
