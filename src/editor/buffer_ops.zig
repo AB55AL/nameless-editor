@@ -35,6 +35,7 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
     }
 
     var buffer_node = try internal.allocator.create(editor.BufferNode);
+    errdefer internal.allocator.destroy(buffer_node);
     buffer_node.data = try createLocalBuffer(file_path);
 
     editor.buffers.prepend(buffer_node);
