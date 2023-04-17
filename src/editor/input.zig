@@ -232,6 +232,13 @@ pub const FunctionKey = enum(u7) {
     f24,
     kp_enter,
 
+    left_shift,
+    right_shift,
+    left_control,
+    right_control,
+    left_alt,
+    right_alt,
+
     pub fn toString(key: FunctionKey) []const u8 {
         return switch (key) {
             .space => "<SPACE>",
@@ -279,7 +286,13 @@ pub const FunctionKey = enum(u7) {
             .f23 => "<F23>",
             .f24 => "<F24>",
             .kp_enter => "<KP_ENTER>",
-            .unknown => "UNKNOWN",
+            .left_shift => "<L_SHIFT>",
+            .right_shift => "<R_SHIFT>",
+            .left_control => "<L_CONTROL>",
+            .right_control => "<R_CONTROL>",
+            .left_alt => "<L_ALT>",
+            .right_alt => "<R_ALT>",
+            .unknown => "<UNKNOWN>",
         };
     }
 };

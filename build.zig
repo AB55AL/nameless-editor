@@ -29,6 +29,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
     var imgui = zgui.package(bob, target, optimize, .{ .options = .{ .backend = .glfw_opengl3 } });
 
     input_layer_module.dependencies.putNoClobber("core", core_module) catch unreachable;
+    input_layer_module.dependencies.putNoClobber("imgui", imgui.zgui) catch unreachable;
 
     const exe = bob.addExecutable(.{
         .name = "main",

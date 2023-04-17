@@ -2,8 +2,6 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
-// const core = @import("core");
-
 const buffer_ui = @import("ui/buffer.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const buffer_ops = @import("editor/buffer_ops.zig");
@@ -13,6 +11,8 @@ const utils = @import("utils.zig");
 const BufferWindowTree = buffer_ui.BufferWindowTree;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
 
+const Key = @import("editor/input.zig").Key;
+
 pub const editor = struct {
     /// A linked list of all the buffers in the editor
     pub var first_buffer: ?*Buffer = null;
@@ -21,6 +21,11 @@ pub const editor = struct {
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
+};
+
+pub const input = struct {
+    pub var key_queue = std.BoundedArray(Key, 1024).init(0) catch unreachable;
+    pub var char_queue = std.BoundedArray(u21, 1024).init(0) catch unreachable;
 };
 
 pub const ui = struct {

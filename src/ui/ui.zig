@@ -5,6 +5,7 @@ const unicode = std.unicode;
 
 const input_layer = @import("input_layer");
 const imgui = @import("imgui");
+const glfw = @import("glfw");
 
 const core = @import("core");
 const utils = core.utils;
@@ -114,40 +115,6 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
         .pmax = max,
         .col = 0xFF0000_FF,
     });
-}
-
-pub fn handleTextInput() void {
-    var char_queue = imgui.io.inputQueueCharacters();
-    for (char_queue) |cp| {
-        var seq: [4]u8 = undefined;
-        var bytes = std.unicode.utf8Encode(cp, &seq) catch unreachable;
-        input_layer.characterInput(seq[0..bytes]);
-    }
-}
-
-pub fn handleKeyInput(allocator: std.mem.Allocator) !void {
-    var key_queue = std.PriorityQueue(KeyAndDuration, void, greaterThan).init(allocator, {});
-    defer key_queue.deinit();
-    const start = @enumToInt(imgui.Key.tab);
-    const end = @enumToInt(imgui.Key.keypad_equal) + 1;
-    for (start..end) |k| {
-        const key = @intToEnum(imgui.Key, k);
-        const pressed = imgui.isKeyPressed(key, true);
-        const editor_key = imguiKeyToEditor(key);
-
-        if (!pressed) continue;
-        if (editor_key == .function_key and editor_key.function_key == .unknown) continue;
-
-        const mod = imguiModToEditorMod(imgui.shiftDown(), imgui.controlDown(), imgui.altDown());
-
-        try key_queue.add(.{
-            .key = .{ .key = editor_key, .mod = mod },
-            .duration = imgui.keyDownDuration(key),
-        });
-    }
-
-    while (key_queue.removeOrNull()) |key|
-        input_layer.keyInput(key.key);
 }
 
 pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {
@@ -266,7 +233,7 @@ pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {
     };
 }
 
-pub fn imguiModToEditorMod(shift: bool, control: bool, alt: bool) core.input.Modifiers {
+pub fn modToEditorMod(shift: bool, control: bool, alt: bool) core.input.Modifiers {
     var mod_int: u3 = 0;
     if (shift) mod_int |= @enumToInt(core.input.Modifiers.shift);
     if (control) mod_int |= @enumToInt(core.input.Modifiers.control);

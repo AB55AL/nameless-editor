@@ -7,6 +7,7 @@ const StringHashMap = std.StringHashMap;
 const AutoHashMap = std.AutoHashMap;
 
 const glfw = @import("glfw");
+const imgui = @import("imgui");
 
 const core = @import("core");
 const editor = core.editor;
@@ -56,6 +57,18 @@ pub fn deinit() void {
 
     log_file.close();
     _ = gpa.deinit();
+}
+
+pub fn handleInput() void {
+    while (core.globals.input.char_queue.popOrNull()) |cp| {
+        var seq: [4]u8 = undefined;
+        var bytes = std.unicode.utf8Encode(cp, &seq) catch unreachable;
+        characterInput(seq[0..bytes]);
+    }
+
+    while (core.globals.input.key_queue.popOrNull()) |key| {
+        keyInput(key);
+    }
 }
 
 pub fn keyInput(key: Key) void {

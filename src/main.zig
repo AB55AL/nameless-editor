@@ -10,6 +10,7 @@ const command_line = core.command_line;
 const globals = core.globals;
 
 const ui = @import("ui/ui.zig");
+const ui_glfw = @import("ui/glfw.zig");
 
 const input_layer = @import("input_layer");
 const imgui = @import("imgui");
@@ -36,7 +37,10 @@ pub fn main() !void {
     _ = glfw.init(.{});
     var window = glfw.Window.create(800, 800, "test", null, null, .{}).?;
     defer window.destroy();
+
     glfw.makeContextCurrent(window);
+    window.setKeyCallback(ui_glfw.keyCallback);
+    window.setCharCallback(ui_glfw.charCallback);
 
     imgui.init(allocator);
     defer imgui.deinit();
@@ -51,6 +55,11 @@ pub fn main() !void {
 
     var show_demo_window = true;
     while (!window.shouldClose()) {
+        globals.input.key_queue.resize(0) catch unreachable;
+        globals.input.char_queue.resize(0) catch unreachable;
+        glfw.pollEvents();
+        input_layer.handleInput();
+
         imgui.backend.newFrame();
 
         imgui.showDemoWindow(&show_demo_window);
@@ -69,10 +78,6 @@ pub fn main() !void {
             const size = imgui.getWindowSize();
             ui.bufferWidget(&globals.ui.command_line_buffer_window.data, size[0], size[1]);
         }
-
-        glfw.pollEvents();
-        ui.handleTextInput();
-        try ui.handleKeyInput(allocator);
 
         imgui.backend.draw(window_size.width, window_size.height);
 
