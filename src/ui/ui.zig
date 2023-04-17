@@ -34,11 +34,13 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     defer allocator.free(windows);
     for (windows) |bw| {
         imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
-        bufferWidget(&bw.data, true, bw.data.rect.w, bw.data.rect.h);
+        bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
     }
 }
 
-pub fn bufferWidget(buffer_window: *core.BufferWindow, new_line: bool, width: f32, height: f32) void {
+pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) void {
+    var buffer_window = &buffer_window_node.data;
+
     var id_buf: [100:0]u8 = undefined;
     var id = std.fmt.bufPrint(&id_buf, "buffer_window ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
     id_buf[id.len] = 0;
@@ -50,6 +52,7 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, new_line: bool, width: f3
         .flags = .{ .no_scroll_with_mouse = true, .no_scrollbar = true },
     });
     defer imgui.endChild();
+    const begin_cursor_pos = imgui.getCursorPos();
 
     if (new_line) imgui.newLine();
 
@@ -70,44 +73,65 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, new_line: bool, width: f3
         }
     }
 
-    //
-    // render cursor
-    //
-    const cursor_row = buffer.getRowAndCol(buffer.cursor_index).row;
-    var dl = imgui.getWindowDrawList();
+    { // render cursor
 
-    var padding = imgui.getStyle().window_padding;
-    var win_pos = imgui.getWindowPos();
-    var min: [2]f32 = .{ 0, 0 };
-    min[0] = win_pos[0] + padding[0];
-    var relative_row = @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row));
-    if (!new_line) relative_row -= 1;
-    min[1] = (line_h * relative_row) + win_pos[1] + padding[1];
+        const cursor_row = buffer.getRowAndCol(buffer.cursor_index).row;
+        var dl = imgui.getWindowDrawList();
 
-    { // get the x position of the cursor
-        var from = buffer.indexOfFirstByteAtRow(cursor_row);
-        var to = buffer.cursor_index;
-        var iter = BufferIterator.init(buffer, from, to);
-        while (iter.next()) |string| {
-            var s = imgui.calcTextSize(string, .{});
-            min[0] += s[0];
+        var padding = imgui.getStyle().window_padding;
+        var win_pos = imgui.getWindowPos();
+        var min: [2]f32 = .{ 0, 0 };
+        min[0] = win_pos[0] + padding[0];
+        var relative_row = @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row));
+        if (!new_line) relative_row -= 1;
+        min[1] = (line_h * relative_row) + win_pos[1] + padding[1];
+
+        { // get the x position of the cursor
+            var from = buffer.indexOfFirstByteAtRow(cursor_row);
+            var to = buffer.cursor_index;
+            var iter = BufferIterator.init(buffer, from, to);
+            while (iter.next()) |string| {
+                var s = imgui.calcTextSize(string, .{});
+                min[0] += s[0];
+            }
+        }
+
+        var max = min;
+
+        { // get width and height
+            var slice = buffer.codePointSliceAt(buffer.cursor_index) catch unreachable;
+            var s = imgui.calcTextSize(slice, .{});
+            max[0] += s[0];
+            max[1] += s[1];
+        }
+
+        dl.addRect(.{
+            .pmin = min,
+            .pmax = max,
+            .col = 0xFF0000_FF,
+        });
+    }
+
+    { // invisible button for interactions
+
+        var pos = begin_cursor_pos;
+        pos[0] -= imgui.getStyle().window_padding[0];
+        imgui.setCursorPos(pos);
+
+        id = std.fmt.bufPrint(&id_buf, "##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
+        id_buf[id.len] = 0;
+
+        const clicked = imgui.invisibleButton(&id_buf, .{
+            .w = buffer_window.rect.w,
+            .h = buffer_window.rect.h,
+        });
+
+        if (clicked) {
+            std.debug.print("clicked {s}\n", .{buffer_window.buffer.metadata.file_path});
+
+            if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
         }
     }
-
-    var max = min;
-
-    { // get width and height
-        var slice = buffer.codePointSliceAt(buffer.cursor_index) catch unreachable;
-        var s = imgui.calcTextSize(slice, .{});
-        max[0] += s[0];
-        max[1] += s[1];
-    }
-
-    dl.addRect(.{
-        .pmin = min,
-        .pmax = max,
-        .col = 0xFF0000_FF,
-    });
 }
 
 pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {

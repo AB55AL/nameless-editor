@@ -76,7 +76,7 @@ pub fn main() !void {
             defer imgui.end();
 
             const size = imgui.getWindowSize();
-            ui.bufferWidget(&globals.ui.command_line_buffer_window.data, false, size[0], size[1]);
+            ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
         }
 
         imgui.backend.draw(window_size.width, window_size.height);

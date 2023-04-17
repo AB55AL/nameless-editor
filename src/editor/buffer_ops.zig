@@ -286,7 +286,6 @@ pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {
 
 pub fn setFocusedWindow(buffer_window: *BufferWindowNode) void {
     if (buffer_window == &ui.command_line_buffer_window) return;
-    if (buffer_window.data.buffer.state == .invalid) return;
 
     if (ui.focused_buffer_window) |fbw|
         pushAsPreviousBufferWindow(fbw);
