@@ -14,16 +14,6 @@ const Buffer = core.Buffer;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
-const KeyAndDuration = struct {
-    key: core.input.Key,
-    duration: f32,
-};
-
-fn greaterThan(context: void, a: KeyAndDuration, b: KeyAndDuration) std.math.Order {
-    _ = context;
-    return std.math.order(a.duration, b.duration).invert();
-}
-
 pub fn buffers(allocator: std.mem.Allocator) !void {
     _ = imgui.begin("buffers", .{ .flags = .{
         .no_nav_focus = true,
