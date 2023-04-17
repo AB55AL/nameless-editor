@@ -88,7 +88,7 @@ pub fn run() !void {
     std.mem.copy(u8, &command_str, command_line_content);
 
     close();
-    runCommand(command_str[0..len]);
+    runCommand(command_str[0 .. len - 1]);
 }
 
 pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
@@ -168,6 +168,8 @@ fn beholdMyFunctionInator(comptime function: anytype) type {
                         }
                     } else if (args[index] == .float and argtuple_type_info == .Float) {
                         args_tuple[index] = @floatCast(ArgTupleType, args[index].float);
+                    } else if (args[index] == .float and argtuple_type_info == .Int) {
+                        args_tuple[index] = @floatToInt(ArgTupleType, args[index].float);
                     } else if (args[index] == .string and std.meta.eql(ArgTupleType, []const u8)) {
                         args_tuple[index] = args[index].string;
                     } else if (args[index] == .bool and std.meta.eql(ArgTupleType, bool)) {
