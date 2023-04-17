@@ -34,6 +34,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     defer allocator.free(windows);
     for (windows) |bw| {
         imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
+        imgui.newLine();
         bufferWidget(&bw.data, bw.data.rect.w, bw.data.rect.h);
     }
 }
@@ -50,8 +51,6 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
         .flags = .{ .no_scroll_with_mouse = true, .no_scrollbar = true },
     });
     defer imgui.endChild();
-
-    imgui.newLine();
 
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h));
@@ -79,7 +78,7 @@ pub fn bufferWidget(buffer_window: *core.BufferWindow, width: f32, height: f32) 
     var win_pos = imgui.getWindowPos();
     var min: [2]f32 = .{ 0, 0 };
     min[0] = win_pos[0] + padding[0];
-    min[1] = (line_h * @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row))) + win_pos[1] + padding[1];
+    min[1] = (line_h * @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row) - 1)) + win_pos[1] + padding[1];
 
     { // get the x position of the cursor
         var from = buffer.indexOfFirstByteAtRow(cursor_row);
