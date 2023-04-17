@@ -122,13 +122,11 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         id_buf[id.len] = 0;
 
         const clicked = imgui.invisibleButton(&id_buf, .{
-            .w = buffer_window.rect.w,
-            .h = buffer_window.rect.h,
+            .w = width,
+            .h = height,
         });
 
         if (clicked) {
-            std.debug.print("clicked {s}\n", .{buffer_window.buffer.metadata.file_path});
-
             if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
         }
     }
