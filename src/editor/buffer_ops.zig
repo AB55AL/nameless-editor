@@ -9,6 +9,8 @@ const file_io = @import("file_io.zig");
 
 const globals = @import("../core.zig").globals;
 
+const command_line = @import("command_line.zig");
+
 const buffer_ui = @import("../ui/buffer.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
@@ -291,6 +293,8 @@ pub fn setFocusedWindow(buffer_window: *BufferWindowNode) void {
         pushAsPreviousBufferWindow(fbw);
 
     ui.focused_buffer_window = buffer_window;
+
+    if (buffer_window != &globals.ui.command_line_buffer_window) command_line.close(false);
 }
 
 fn deleteFromPreviousFocusedWindows(buffer_window: *BufferWindowNode) void {
