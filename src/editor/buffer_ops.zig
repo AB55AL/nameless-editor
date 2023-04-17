@@ -20,8 +20,6 @@ const internal = globals.internal;
 
 pub const Error = error{
     SavingPathlessBuffer,
-    SavingInvalidBuffer,
-    KillingInvalidBuffer,
     KillingDirtyBuffer,
 };
 
@@ -36,22 +34,19 @@ pub fn createBuffer(file_path: []const u8) !*Buffer {
         if (buf) |b| return b;
     }
 
-    var buffer = try createLocalBuffer(file_path);
+    var buffer_node = try internal.allocator.create(editor.BufferNode);
+    buffer_node.data = try createLocalBuffer(file_path);
 
-    // Prepend to linked list
-    buffer.next_buffer = editor.first_buffer;
-    editor.first_buffer = buffer;
-    editor.valid_buffers_count += 1;
+    editor.buffers.prepend(buffer_node);
 
-    return buffer;
+    return &buffer_node.data;
 }
 
-/// Opens a file and returns a pointer to a buffer.
-/// Does not add the buffer to the editor.buffers array
+/// Opens a file and returns a buffer.
+/// Does not add the buffer to the editor.buffers list
 /// Always creates a new buffer
-pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
-    var buffer = try internal.allocator.create(Buffer);
-    errdefer internal.allocator.destroy(buffer);
+pub fn createLocalBuffer(file_path: []const u8) !Buffer {
+    var buffer: Buffer = undefined;
 
     if (file_path.len > 0) {
         var out_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
@@ -64,10 +59,10 @@ pub fn createLocalBuffer(file_path: []const u8) !*Buffer {
         var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
         defer internal.allocator.free(buf);
 
-        buffer.* = try Buffer.init(internal.allocator, full_file_path, buf);
+        buffer = try Buffer.init(internal.allocator, full_file_path, buf);
         buffer.metadata.file_last_mod_time = metadata.modified();
     } else {
-        buffer.* = try Buffer.init(internal.allocator, "", "");
+        buffer = try Buffer.init(internal.allocator, "", "");
     }
 
     return buffer;
@@ -89,14 +84,15 @@ pub fn createPathLessBuffer() !*Buffer {
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferI(index: u32) ?*Buffer {
-    if (editor.first_buffer == null) return null;
+    if (editor.buffers.first == null) return null;
 
-    var buffer = editor.first_buffer.?;
+    var buffer_node = editor.buffers.first.?;
+    var buffer = &buffer_node.data;
     while (true) {
-        if (buffer.state == .valid and buffer.index == index) {
+        if (buffer.index == index) {
             return buffer;
-        } else if (buffer.next_buffer) |nb| {
-            buffer = nb;
+        } else if (buffer_node.next) |n| {
+            buffer_node = n;
         } else {
             return null;
         }
@@ -120,9 +116,10 @@ fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
 /// matching either.
 /// Returns null if the buffer isn't found.
 pub fn getBufferFP(file_path: []const u8) !?*Buffer {
-    if (editor.first_buffer == null) return null;
+    if (editor.buffers.first == null) return null;
 
-    var buffer = editor.first_buffer.?;
+    var buffer_node = editor.buffers.first.?;
+    var buffer = &buffer_node.data;
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
     while (true) {
@@ -130,9 +127,7 @@ pub fn getBufferFP(file_path: []const u8) !?*Buffer {
             return buffer;
         }
 
-        buffer = buffer.next_buffer orelse return null;
-        while (buffer.state == .invalid)
-            buffer = buffer.next_buffer orelse return null;
+        buffer_node = buffer_node.next orelse return null;
     }
     return null;
 }
@@ -158,8 +153,6 @@ pub fn openBufferFP(file_path: []const u8, dir: ?Dir) !*Buffer {
 pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
     if (buffer.metadata.file_path.len == 0)
         return Error.SavingPathlessBuffer;
-    if (buffer.state == .invalid)
-        return Error.SavingInvalidBuffer;
 
     try file_io.writeToFile(buffer, force_write);
     buffer.metadata.dirty = false;
@@ -178,12 +171,15 @@ pub fn killBuffer(buffer: *Buffer) !void {
 }
 
 pub fn forceKillBuffer(buffer: *Buffer) !void {
-    if (buffer.state == .invalid)
-        return Error.KillingInvalidBuffer;
-
-    buffer.deinitNoDestroy();
-
-    editor.valid_buffers_count -= 1;
+    var buffer_node = editor.buffers.first;
+    while (buffer_node) |bn| {
+        if (&bn.data == buffer) {
+            editor.buffers.remove(bn);
+            buffer.deinitNoDestroy();
+            internal.allocator.destroy(bn);
+            break;
+        }
+    }
 }
 
 pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
@@ -192,9 +188,6 @@ pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
 }
 
 pub fn killBufferWindow(buffer_window: *BufferWindowNode) !void {
-    if (buffer_window.data.buffer.state == .invalid)
-        return Error.KillingInvalidBuffer;
-
     if (buffer_window.data.buffer.metadata.dirty)
         return Error.KillingDirtyBuffer;
 
@@ -202,9 +195,6 @@ pub fn killBufferWindow(buffer_window: *BufferWindowNode) !void {
 }
 
 pub fn forceKillBufferWindow(buffer_window: *BufferWindowNode) !void {
-    if (buffer_window.data.buffer.state == .invalid)
-        return Error.KillingInvalidBuffer;
-
     if (windowCountWithBuffer(buffer_window.data.buffer) == 1) {
         try forceKillBuffer(buffer_window.data.buffer);
     }
@@ -230,7 +220,7 @@ pub fn popPreviousFocusedBufferWindow() ?*BufferWindowNode {
 
     while (wins.len != 0) {
         var buffer_win = wins.popOrNull();
-        if (buffer_win != null and buffer_win.?.data.buffer.state == .valid and buffer_win.? != &ui.command_line_buffer_window)
+        if (buffer_win != null and buffer_win.? != &ui.command_line_buffer_window)
             return buffer_win.?;
     }
 
@@ -263,7 +253,7 @@ pub fn windowCountWithBuffer(buffer: *Buffer) u32 {
 
     var count: u32 = 0;
     for (array) |win| {
-        if (win.data.buffer.state == .valid and win.data.buffer.index == buffer.index)
+        if (win.data.buffer.index == buffer.index)
             count += 1;
     }
 

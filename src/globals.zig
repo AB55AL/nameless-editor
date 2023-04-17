@@ -14,10 +14,10 @@ const BufferWindowNode = buffer_ui.BufferWindowNode;
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
+    pub const BufferNode = std.SinglyLinkedList(Buffer).Node;
+
     /// A linked list of all the buffers in the editor
-    pub var first_buffer: ?*Buffer = null;
-    /// The number of valid buffers in the linked list
-    pub var valid_buffers_count: u32 = 0;
+    pub var buffers = std.SinglyLinkedList(Buffer){};
     /// The buffer of the command_line
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
@@ -46,7 +46,8 @@ pub const internal = struct {
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
 
-    editor.command_line_buffer = try buffer_ops.createLocalBuffer("");
+    editor.command_line_buffer = try allocator.create(Buffer);
+    editor.command_line_buffer.* = try buffer_ops.createLocalBuffer("");
 
     ui.command_line_buffer_window = .{ .data = .{
         .buffer = editor.command_line_buffer,
@@ -55,12 +56,12 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
 }
 
 pub fn deinitGlobals() void {
-    var buffer: ?*Buffer = editor.first_buffer;
-    while (buffer) |b| {
-        buffer = b.next_buffer;
-        b.deinit();
+    while (editor.buffers.popFirst()) |buffer_node| {
+        buffer_node.data.deinitNoDestroy();
+        internal.allocator.destroy(buffer_node);
     }
 
     editor.command_line_buffer.deinitAndDestroy();
+
     ui.visiable_buffers_tree.deinitTree(internal.allocator, null);
 }

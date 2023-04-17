@@ -33,11 +33,6 @@ pub const Range = struct {
     }
 };
 
-pub const State = enum {
-    invalid,
-    valid,
-};
-
 pub const MetaData = struct {
     file_path: []u8,
     file_type: []u8,
@@ -78,13 +73,10 @@ selection_start: u64 = 0,
 cursor_index: u64,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
-state: State,
 allocator: std.mem.Allocator,
 
 history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
-
-next_buffer: ?*Buffer = null,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
@@ -112,7 +104,6 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .cursor_index = 0,
         .lines = try PieceTable.init(allocator, buf),
-        .state = .valid,
         .allocator = allocator,
     };
 
@@ -122,29 +113,17 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     return buffer;
 }
 
-/// Deinits the buffer in the proper way using deinitAndDestroy() or deinitNoDestroy()
-pub fn deinit(buffer: *Buffer) void {
-    switch (buffer.state) {
-        .valid => buffer.deinitAndDestroy(),
-        .invalid => buffer.allocator.destroy(buffer),
-    }
-}
-
 /// Deinits the members of the buffer but does not destroy the buffer.
-/// So pointers to this buffer are all valid through out the life time of the
-/// program.
-/// Sets state to State.invalid
 pub fn deinitNoDestroy(buffer: *Buffer) void {
     buffer.lines.deinit(buffer.allocator);
     buffer.allocator.free(buffer.metadata.file_path);
     buffer.allocator.free(buffer.metadata.file_type);
-    buffer.state = .invalid;
 
-    buffer.history.deinitTree(buffer.allocator, deinitHistory);
-}
-
-fn deinitHistory(allocator: std.mem.Allocator, node_data: *HistoryInfo) void {
-    allocator.free(node_data.pieces);
+    buffer.history.deinitTree(buffer.allocator, struct {
+        fn f(allocator: std.mem.Allocator, node_data: *HistoryInfo) void {
+            allocator.free(node_data.pieces);
+        }
+    }.f);
 }
 
 /// Deinits the members of the buffer and destroys the buffer.
