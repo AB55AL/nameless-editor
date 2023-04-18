@@ -61,9 +61,35 @@ pub fn codePoint(mod: Modifiers, code_point: u21) Key {
 }
 
 pub const MappingSystem = struct {
+    const HashContext = struct {
+        pub fn hash(self: HashContext, keys: []const Key) u32 {
+            _ = self;
+            var wh = std.hash.Wyhash.init(0);
+
+            for (keys) |key| {
+                switch (key.key) {
+                    .code_point => |cp| wh.update(std.mem.asBytes(&cp)),
+                    .function_key => |fk| wh.update(std.mem.asBytes(&fk)),
+                }
+
+                wh.update(std.mem.asBytes(&key.mod));
+            }
+
+            return @truncate(u32, wh.final());
+        }
+
+        pub fn eql(self: HashContext, a: []const Key, b: []const Key, b_index: usize) bool {
+            _ = b_index;
+            _ = self;
+            if (a.len != b.len) return false;
+            for (a, b) |av, bv| if (!std.meta.eql(av, bv)) return false;
+            return true;
+        }
+    };
+
     pub const FunctionType = *const fn () void;
-    pub const MappingType = union(enum) { function: FunctionType, khm: *KeyHashMap };
-    pub const KeyHashMap = AutoHashMapUnmanaged(Key, MappingType);
+    pub const KeyHashMapType = std.ArrayHashMapUnmanaged([]const Key, FunctionType, HashContext, false);
+    pub const KeyHashMap = KeyHashMapType;
     pub const Error = error{ OverridingFunction, OverridingPrefix } || std.mem.Allocator.Error;
 
     arena_allocator: std.mem.Allocator,
@@ -76,87 +102,51 @@ pub const MappingSystem = struct {
         };
     }
 
-    pub fn get(ms: *MappingSystem, file_type: []const u8, keys: []const Key) ?MappingType {
+    pub fn get(ms: *MappingSystem, file_type: []const u8, keys: []const Key) ?FunctionType {
         var ft_mapping = ms.ft_mappings.get(file_type) orelse return null;
-
-        if (keys.len == 1) {
-            var mapping = ft_mapping.get(keys[0]) orelse return null;
-            return mapping;
-        } else {
-            var khm = (ft_mapping.get(keys[0]).?).khm;
-            for (keys[1..]) |key| {
-                var mapping = (khm.get(key) orelse return null);
-                switch (mapping) {
-                    .function => return mapping,
-                    .khm => |k| khm = k,
-                }
-            }
-
-            return .{ .khm = khm };
-        }
+        return ft_mapping.get(keys);
     }
 
-    pub fn addFileType(ms: *MappingSystem, file_type: []const u8) !*KeyHashMap {
+    pub fn getOrCreateFileType(ms: *MappingSystem, file_type: []const u8) !*KeyHashMap {
         return ms.ft_mappings.get(file_type) orelse {
-            var khm = try ms.createKeyHashMap();
+            var khm = try ms.arena_allocator.create(KeyHashMap);
+            khm.* = KeyHashMap{};
+
             try ms.ft_mappings.put(ms.arena_allocator, file_type, khm);
             return khm;
         };
     }
 
     pub fn put(ms: *MappingSystem, file_type: []const u8, keys: []const Key, function: FunctionType, override_mapping: bool) Error!void {
-        var mappings = try ms.addFileType(file_type);
+        _ = override_mapping;
+        var mappings = try ms.getOrCreateFileType(file_type);
 
-        switch (keys.len) {
-            1 => try mappings.put(ms.arena_allocator, keys[0], .{ .function = function }), // could conflict with prefix
-            2 => {
-                var khm = try ms.getOrCreateKeyHashMap(keys[0], mappings, override_mapping);
+        var keys_slice = try ms.arena_allocator.alloc(Key, keys.len);
+        std.mem.copy(Key, keys_slice, keys);
 
-                if (!override_mapping) {
-                    const value = khm.get(keys[1]);
-                    if (value != null and meta.activeTag(value.?) == .khm)
-                        return Error.OverridingPrefix;
-                }
-
-                try khm.put(ms.arena_allocator, keys[1], .{ .function = function });
-            },
-            else => {
-                var khm = try ms.getOrCreateKeyHashMap(keys[0], mappings, override_mapping);
-
-                for (keys[1 .. keys.len - 1]) |key| {
-                    if (!override_mapping) {
-                        const value = khm.get(key);
-                        if (value != null and meta.activeTag(value.?) == .khm)
-                            return Error.OverridingPrefix;
-                    }
-
-                    khm = try ms.getOrCreateKeyHashMap(key, khm, override_mapping);
-                }
-
-                try khm.put(ms.arena_allocator, keys[keys.len - 1], .{ .function = function });
-            },
-        }
+        try mappings.put(ms.arena_allocator, keys_slice, function);
     }
 
-    pub fn getOrCreateKeyHashMap(ms: *MappingSystem, key: Key, key_hash_map: *KeyHashMap, override_mapping: bool) Error!*KeyHashMap {
-        var mapping_value = key_hash_map.get(key);
-        if (mapping_value != null) {
-            var mv = &(mapping_value.?);
-            switch (mv.*) {
-                .function => if (!override_mapping) return Error.OverridingFunction,
-                .khm => return mv.khm,
-            }
+    pub fn arePrefixKeys(ms: *MappingSystem, file_type: []const u8, prefix_keys: []const Key) bool {
+        var mappings: *KeyHashMapType = ms.ft_mappings.get(file_type) orelse return false;
+
+        var iter = mappings.iterator();
+        iter_loop: while (iter.next()) |kv| {
+            var full_keys = kv.key_ptr.*;
+            if (prefix_keys.len >= full_keys.len) continue :iter_loop;
+
+            const part_keys = full_keys[0..prefix_keys.len];
+
+            const eql = blk: {
+                for (prefix_keys, part_keys) |a, b|
+                    if (!std.meta.eql(a, b)) break :blk false;
+                break :blk true;
+            };
+
+            if (eql) return true;
         }
 
-        var khm = try ms.createKeyHashMap();
-        try key_hash_map.put(ms.arena_allocator, key, .{ .khm = khm });
-        return khm;
-    }
-
-    fn createKeyHashMap(ms: *MappingSystem) !*KeyHashMap {
-        var khm = try ms.arena_allocator.create(KeyHashMap);
-        khm.* = KeyHashMap{};
-        return khm;
+        return false;
     }
 };
 
