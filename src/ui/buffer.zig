@@ -2,6 +2,8 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
+const imgui = @import("imgui");
+
 const globals = @import("../core.zig").globals;
 const ui = globals.ui;
 const editor = globals.editor;
@@ -14,6 +16,33 @@ pub const BufferWindowTree = NaryTree(BufferWindow);
 pub const BufferWindowNode = BufferWindowTree.Node;
 
 pub const BufferWindow = struct {
+    pub const CursorRect = struct {
+        left: f32,
+        top: f32,
+        right: f32,
+        bottom: f32,
+
+        col: u32 = 0xFFFFFFFF,
+        rounding: f32 = 0.0,
+        flags: struct {
+            closed: bool = false,
+            round_corners_top_left: bool = false,
+            round_corners_top_right: bool = false,
+            round_corners_bottom_left: bool = false,
+            round_corners_bottom_right: bool = false,
+            round_corners_none: bool = false,
+        } = .{},
+        thickness: f32 = 1.0,
+
+        pub fn leftTop(rect: CursorRect) [2]f32 {
+            return .{ rect.left, rect.top };
+        }
+
+        pub fn rightBottom(rect: CursorRect) [2]f32 {
+            return .{ rect.right, rect.bottom };
+        }
+    };
+
     pub const Rect = struct {
         x: f32 = 0,
         y: f32 = 0,

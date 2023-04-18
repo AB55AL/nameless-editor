@@ -105,10 +105,22 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             max[1] += s[1];
         }
 
+        var rect = getCursorRect(min, max);
+
         dl.addRect(.{
-            .pmin = min,
-            .pmax = max,
-            .col = 0xFF0000_FF,
+            .pmin = rect.leftTop(),
+            .pmax = rect.rightBottom(),
+            .col = rect.col,
+            .rounding = rect.rounding,
+            .flags = .{
+                .closed = rect.flags.closed,
+                .round_corners_top_left = rect.flags.round_corners_top_left,
+                .round_corners_top_right = rect.flags.round_corners_top_right,
+                .round_corners_bottom_left = rect.flags.round_corners_bottom_left,
+                .round_corners_bottom_right = rect.flags.round_corners_bottom_right,
+                .round_corners_none = rect.flags.round_corners_none,
+            },
+            .thickness = rect.rounding,
         });
     }
 
@@ -130,6 +142,20 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
         }
     }
+}
+
+pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
+    var rect = if (@hasDecl(input_layer, "cursorRect"))
+        input_layer.cursorRect(min[0], min[1], max[0], max[1])
+    else
+        core.BufferWindow.CursorRect{
+            .left = min[0],
+            .top = min[1],
+            .right = max[0],
+            .bottom = max[1],
+        };
+
+    return rect;
 }
 
 pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {
