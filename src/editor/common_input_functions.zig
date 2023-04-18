@@ -27,12 +27,14 @@ pub fn cycleWindows() void {
 pub fn deleteBackward() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
     const index = fbw.buffer.getIndex(fbw.cursor);
+    const old_size = fbw.buffer.size();
+
     fbw.buffer.deleteBefore(index, 1) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 
-    // var focused_buffer_window = ui.focused_buffer_window orelse return;
-    // focused_buffer_window.setWindowCursorToBuffer();
+    const deleted_bytes = old_size - fbw.buffer.size();
+    fbw.cursor = fbw.buffer.getRowAndCol(index - deleted_bytes);
 }
 
 pub fn deleteForward() void {
