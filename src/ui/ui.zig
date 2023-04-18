@@ -100,6 +100,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
         { // get width and height
             var slice = buffer.codePointSliceAt(buffer.cursor_index) catch unreachable;
+            if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
             var s = imgui.calcTextSize(slice, .{});
             max[0] += s[0];
             max[1] += s[1];
