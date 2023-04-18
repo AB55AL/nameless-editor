@@ -430,7 +430,7 @@ test "buffer" {
 
     const index: u64 = 5;
     try buffer.insertAt(index, "i"); // (hello) (i) (\nthere\n)
-    try buffer.deleteBefore(index + 1, 1); // (hello) (\nthere\n)
+    try buffer.deleteBefore(index + 1); // (hello) (\nthere\n)
     try buffer.insertAt(index, " "); // (hello) ( ) (\nthere\n)
 
     try bufferEql("hello \nthere\n", &buffer);

@@ -206,43 +206,23 @@ pub fn insertAtRC(buffer: *Buffer, rc: RowCol, string: []const u8) !void {
     try buffer.insertAt(index, string);
 }
 
-pub fn deleteBefore(buffer: *Buffer, index: u64, characters_to_delete: u64) !void {
+pub fn deleteBefore(buffer: *Buffer, index: u64) !void {
     if (index == 0) return;
 
-    var characters: u64 = 0;
-    var iter = ReverseBufferIterator.init(buffer, 0, index - 1);
-    var bytes_to_delete: u64 = 0;
-    outer_loop: while (iter.next()) |string| {
-        var view = utf8.ReverseUtf8View(string);
-        while (view.prevSlice()) |slice| {
-            characters += 1;
-            bytes_to_delete += slice.len;
-            if (characters == characters_to_delete) break :outer_loop;
-        }
+    var i = index - 1;
+    var byte = buffer.lines.byteAt(i);
+    while (utf8.byteType(byte) == .continue_byte) {
+        i -= 1;
+        byte = buffer.lines.byteAt(i);
     }
 
-    const i = index -| bytes_to_delete;
-    const delete_to = i + bytes_to_delete;
-
-    try buffer.deleteRange(i, delete_to);
+    try buffer.deleteRange(i, index);
 }
 
-pub fn deleteAfterCursor(buffer: *Buffer, index: u64, characters_to_delete: u64) !void {
-    var i = index;
-    var characters: u64 = 0;
-
-    var iter = BufferIterator.init(buffer, i, buffer.size());
-    while (iter.next()) |string| {
-        if (characters == characters_to_delete) break;
-        var view = unicode.Utf8View.initUnchecked(string).iterator();
-        while (view.nextCodepointSlice()) |slice| {
-            characters += 1;
-            i += slice.len;
-            if (characters == characters_to_delete) break;
-        }
-    }
-
-    try buffer.deleteRange(index, i);
+pub fn deleteAfterCursor(buffer: *Buffer, index: u64) !void {
+    var byte = buffer.lines.byteAt(index);
+    var len = try unicode.utf8ByteSequenceLength(byte);
+    try buffer.deleteRange(index, index + len);
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
@@ -327,9 +307,16 @@ pub fn codePointAt(buffer: *Buffer, index: u64) !u21 {
     return unicode.utf8Decode(try buffer.codePointSliceAt(index));
 }
 
-pub fn codePointSliceAt(buffer: *Buffer, index: u64) ![]const u8 {
-    const byte = buffer.lines.byteAt(index);
-    utils.assert(utf8.byteType(byte) == .start_byte, "");
+pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
+    var index = const_index;
+    var byte = buffer.lines.byteAt(index);
+
+    while (utf8.byteType(byte) != .start_byte) {
+        // if we're here then the buffer contains invalid utf8 or the index is in
+        // an invalid position, either way just move forward until we find a valid position
+        index += 1;
+        byte = buffer.lines.byteAt(index);
+    }
 
     const count = try unicode.utf8ByteSequenceLength(byte);
     var piece_info = buffer.lines.tree.findNode(index);

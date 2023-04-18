@@ -29,7 +29,7 @@ pub fn deleteBackward() void {
     const index = fbw.buffer.getIndex(fbw.cursor);
     const old_size = fbw.buffer.size();
 
-    fbw.buffer.deleteBefore(index, 1) catch |err| {
+    fbw.buffer.deleteBefore(index) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 
@@ -40,7 +40,7 @@ pub fn deleteBackward() void {
 pub fn deleteForward() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
     const index = fbw.buffer.getIndex(fbw.cursor);
-    fbw.buffer.deleteAfterCursor(index, 1) catch |err| {
+    fbw.buffer.deleteAfterCursor(index) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
