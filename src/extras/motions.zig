@@ -26,7 +26,7 @@ pub fn findCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) ?u64
         while (view.nextCodepointSlice()) |slice| {
             defer index += slice.len;
 
-            const cp = unicode.utf8Decode(slice) catch unreachable;
+            const cp = unicode.utf8Decode(slice) catch return null;
             if (utils.atLeastOneIsEqual(u21, list, cp))
                 return index;
         }
@@ -44,7 +44,7 @@ pub fn findOutsideBlackList(buffer: *Buffer, start: u64, black_list: []const u21
         while (view.nextCodepointSlice()) |slice| {
             defer index += slice.len;
 
-            const cp = unicode.utf8Decode(slice) catch unreachable;
+            const cp = unicode.utf8Decode(slice) catch return null;
             if (!utils.atLeastOneIsEqual(u21, black_list, cp)) {
                 return index;
             }
@@ -64,7 +64,7 @@ pub fn backFindCodePointsInList(buffer: *Buffer, start: u64, list: []const u21) 
         while (view.prevSlice()) |slice| {
             index -|= slice.len;
 
-            const cp = unicode.utf8Decode(slice) catch unreachable;
+            const cp = unicode.utf8Decode(slice) catch return null;
             if (utils.atLeastOneIsEqual(u21, list, cp))
                 return index;
         }
@@ -83,7 +83,7 @@ pub fn backFindOutsideBlackList(buffer: *Buffer, start: u64, list: []const u21) 
         while (view.prevSlice()) |slice| {
             index -|= slice.len;
 
-            const cp = unicode.utf8Decode(slice) catch unreachable;
+            const cp = unicode.utf8Decode(slice) catch return null;
             if (!utils.atLeastOneIsEqual(u21, list, cp))
                 return index;
         }
@@ -113,10 +113,10 @@ pub fn forward(buffer: *Buffer, cursor_index: u64, delimiters: []const u21) ?Ran
 
     if (utils.atLeastOneIsEqual(u21, &white_space, cp)) {
         const end = 1 + (findOutsideBlackList(buffer, mid, &white_space) orelse return null);
-        buffer.validateRange(start, end) catch unreachable;
+        buffer.validateRange(start, end) catch return null;
         return .{ .start = start, .end = end };
     } else {
-        buffer.validateRange(start, mid) catch unreachable;
+        buffer.validateRange(start, mid) catch return null;
         return .{ .start = start, .end = mid + 1 };
     }
 }
@@ -138,7 +138,7 @@ pub fn backward(buffer: *Buffer, index: u64, delimiters: []const u21) ?Range {
             while (utf8.byteType(buffer.lines.byteAt(start)) == .continue_byte and start > 0)
                 start -= 1;
 
-            buffer.validateRange(start, real_end) catch unreachable;
+            buffer.validateRange(start, real_end) catch return null;
             return .{ .start = start, .end = real_end };
         }
     }
@@ -148,10 +148,10 @@ pub fn backward(buffer: *Buffer, index: u64, delimiters: []const u21) ?Range {
 
     if (utils.atLeastOneIsEqual(u21, &white_space, cp)) {
         const start = backFindOutsideBlackList(buffer, mid, &white_space) orelse return null;
-        buffer.validateRange(start, real_end) catch unreachable;
+        buffer.validateRange(start, real_end) catch return null;
         return .{ .start = start, .end = real_end };
     } else {
-        buffer.validateRange(mid, end) catch unreachable;
+        buffer.validateRange(mid, end) catch return null;
         return .{ .start = mid, .end = real_end };
     }
 }
@@ -169,31 +169,31 @@ pub fn textObject(buffer: *Buffer, index: u64, delimators: []const u21) ?Range {
     return .{ .start = start, .end = end + 1 };
 }
 
-pub fn endOfLine(buffer: *Buffer, index:u64) Range {
+pub fn endOfLine(buffer: *Buffer, index: u64) Range {
     const row = buffer.getRowAndCol(index).row;
     return .{ .start = index, .end = buffer.indexOfLastByteAtRow(row) + 1 };
 }
 
-pub fn startOfLine(buffer: *Buffer, index:u64) Range {
+pub fn startOfLine(buffer: *Buffer, index: u64) Range {
     const row = buffer.getRowAndCol(index).row;
     return .{ .start = buffer.indexOfFirstByteAtRow(row), .end = index + 1 };
 }
 
-pub fn firstLine(buffer: *Buffer, index:u64) Range {
+pub fn firstLine(buffer: *Buffer, index: u64) Range {
     _ = buffer;
     return .{ .start = 0, .end = index + 1 };
 }
 
-pub fn lastLine(buffer: *Buffer, index:u64) Range {
+pub fn lastLine(buffer: *Buffer, index: u64) Range {
     return .{ .start = index, .end = buffer.size() };
 }
 
-pub fn findCP(buffer: *Buffer, cp: u21, index:u64) Range {
+pub fn findCP(buffer: *Buffer, cp: u21, index: u64) Range {
     const end = findCodePointsInList(buffer, index, &.{cp});
     return .{ .start = index, .end = end + 1 };
 }
 
-pub fn backFindCP(buffer: *Buffer, cp: u21, index:u64) Range {
+pub fn backFindCP(buffer: *Buffer, cp: u21, index: u64) Range {
     const start = backFindCodePointsInList(buffer, index, &.{cp});
     return .{ .start = start, .end = index + 1 };
 }
