@@ -6,6 +6,10 @@ const input_layer_main = @import("main.zig");
 const vim_like = @import("vim-like.zig");
 const core = @import("core");
 
+const editor = core.editor;
+const input = core.input;
+const Key = input.Key;
+
 pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindow.CursorRect {
     var rect: core.BufferWindow.CursorRect = .{
         .top = top,
@@ -70,4 +74,28 @@ pub fn handleInput() void {
     while (core.globals.input.key_queue.popOrNull()) |key| {
         input_layer_main.keyInput(key);
     }
+}
+
+pub fn map(mode: vim_like.Mode, keys: []const Key, function: core.input.MappingSystem.FunctionType) void {
+    vim_like.putFunction(mode, "", keys, function, false) catch |err| {
+        print("input_layer.map()\n\t", .{});
+        switch (err) {
+            error.OverridingFunction, error.OverridingPrefix => {
+                print("{} The following keys have not been mapped as they override an existing mapping =>\t", .{err});
+                var out: [Key.MAX_STRING_LEN]u8 = undefined;
+                for (keys) |k| print("{s} ", .{k.toString(&out)});
+                print("\n", .{});
+            },
+
+            else => {
+                print("{}\n", .{err});
+            },
+        }
+    };
+}
+
+pub fn fileTypeMap(mode: vim_like.Mode, file_type: []const u8, key: Key, function: core.input.MappingSystem.FunctionType) void {
+    vim_like.putMapping(mode, file_type, key, function) catch |err| {
+        print("input_layer.map()\n\t{}\n", .{err});
+    };
 }

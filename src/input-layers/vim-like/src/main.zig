@@ -16,6 +16,8 @@ const cif = core.common_input_functions;
 const Key = input.Key;
 
 const vim_like = @import("vim-like.zig");
+const context = @import("context.zig");
+const map = context.map;
 
 pub var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 pub var allocator: std.mem.Allocator = undefined;
@@ -23,8 +25,6 @@ pub var arena: std.heap.ArenaAllocator = undefined;
 pub var arena_allocator: std.mem.Allocator = undefined;
 
 pub var log_file: fs.File = undefined;
-
-pub const context = @import("context.zig");
 
 pub fn keyInput(key: Key) void {
     var file_type = if (core.focusedBuffer()) |fb| fb.metadata.file_type else "";
@@ -61,30 +61,6 @@ pub fn characterInput(utf8_seq: []const u8) void {
     _ = log_file.pwrite(insert, end) catch |err| print("err={}", .{err});
     _ = log_file.pwrite(utf8_seq, end + insert.len) catch |err| print("err={}", .{err});
     _ = log_file.pwrite("\n", end + insert.len + utf8_seq.len) catch |err| print("err={}", .{err});
-}
-
-pub fn map(mode: vim_like.Mode, keys: []const Key, function: core.input.MappingSystem.FunctionType) void {
-    vim_like.putFunction(mode, "", keys, function, false) catch |err| {
-        print("input_layer.map()\n\t", .{});
-        switch (err) {
-            error.OverridingFunction, error.OverridingPrefix => {
-                print("{} The following keys have not been mapped as they override an existing mapping =>\t", .{err});
-                var out: [Key.MAX_STRING_LEN]u8 = undefined;
-                for (keys) |k| print("{s} ", .{k.toString(&out)});
-                print("\n", .{});
-            },
-
-            else => {
-                print("{}\n", .{err});
-            },
-        }
-    };
-}
-
-pub fn fileTypeMap(mode: vim_like.Mode, file_type: []const u8, key: Key, function: core.input.MappingSystem.FunctionType) void {
-    vim_like.putMapping(mode, file_type, key, function) catch |err| {
-        print("input_layer.map()\n\t{}\n", .{err});
-    };
 }
 
 pub fn setDefaultMappnigs() void {
