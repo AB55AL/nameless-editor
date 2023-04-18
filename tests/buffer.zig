@@ -128,7 +128,7 @@ fn randomUTF8String(size: u64, allocator: std.mem.Allocator) []const u8 {
 fn randomVaildIndex(buffer: *Buffer) u64 {
     var row = random.intRangeAtMost(u64, 1, buffer.lineCount());
     var col = random.intRangeAtMost(u64, 1, buffer.countCodePointsAtRow(row));
-    var index = buffer.getIndex(row, col);
+    var index = buffer.getIndex(.{ .row = row, .col = col });
     return index;
 }
 
@@ -400,15 +400,13 @@ test "buffer.insertBeforeCursor()" {
     var buffer = try Buffer.init(test_allocator, "", "HELLO THERE\n");
     defer buffer.deinitNoDestroy();
 
-    buffer.cursor_index = 11;
-    try buffer.insertBeforeCursor("! GENERAL");
+    try buffer.insertAt(11, "! GENERAL");
 
     // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
 
     try bufferEql(string[0..21], &buffer);
 
-    buffer.cursor_index = 21;
-    try buffer.insertBeforeCursor("KENOBI\n");
+    try buffer.insertAt(21, "KENOBI\n");
 
     const buffer_slice = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(buffer_slice);
@@ -430,19 +428,10 @@ test "buffer" {
     defer buffer.deinitNoDestroy();
     // std.debug.print("DONE DEINITG\n", .{});
 
-    buffer.cursor_index = 5;
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
-    try buffer.insertBeforeCursor("i"); // (hello) (i) (\nthere\n)
-
-    // std.debug.print("AFTER i INSERT\n", .{});
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
-    try buffer.deleteBeforeCursor(1); // (hello) (\nthere\n)
-    // std.debug.print("AFTER i delete\n", .{});
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
-    // std.debug.print("==\n", .{});
-    try buffer.insertBeforeCursor(" "); // (hello) ( ) (\nthere\n)
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
+    const index: u64 = 5;
+    try buffer.insertAt(index, "i"); // (hello) (i) (\nthere\n)
+    try buffer.deleteBefore(index + 1, 1); // (hello) (\nthere\n)
+    try buffer.insertAt(index, " "); // (hello) ( ) (\nthere\n)
 
     try bufferEql("hello \nthere\n", &buffer);
 }
@@ -472,43 +461,40 @@ test "History" {
     var new_tree_content = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(new_tree_content);
 
-    try buffer.undo();
+    _ = try buffer.undo(0);
     var old_tree_again = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(old_tree_again);
 
     try expectEqualStrings(old_tree_content, old_tree_again);
 
-    // std.debug.print("ABOUT TO DO YES\n", .{});
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
     try buffer.replaceAllWith("yes");
-    // std.debug.print("DONE WITH YES\n", .{});
-    // buffer.lines.tree.printTreeTraverseTrace(&buffer.lines, buffer.lines.tree.root);
+
     var yes = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(yes);
 
-    try buffer.pushHistory(true);
-    try buffer.undo();
+    try buffer.pushHistory(0, true);
+    _ = try buffer.undo(0);
 
-    try buffer.redo(0);
+    _ = try buffer.redo(0);
     var new_tree_again = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(new_tree_again);
 
     try expectEqualStrings(new_tree_content, new_tree_again);
 
-    try buffer.undo();
+    _ = try buffer.undo(0);
     try expectEqualStrings(old_tree_content, old_tree_again);
 
-    try buffer.redo(1);
+    _ = try buffer.redo(1);
     try expectEqualStrings("yes\n", yes);
 
-    try buffer.redo(0);
-    try buffer.redo(0);
-    try buffer.redo(0);
-    try buffer.redo(0);
+    _ = try buffer.redo(0);
+    _ = try buffer.redo(0);
+    _ = try buffer.redo(0);
+    _ = try buffer.redo(0);
 
-    try buffer.undo();
-    try buffer.undo();
-    try buffer.undo();
-    try buffer.undo();
-    try buffer.undo();
+    _ = try buffer.undo(0);
+    _ = try buffer.undo(0);
+    _ = try buffer.undo(0);
+    _ = try buffer.undo(0);
+    _ = try buffer.undo(0);
 }

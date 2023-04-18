@@ -33,6 +33,34 @@ pub const Range = struct {
     }
 };
 
+pub const Position = struct {
+    index: u64,
+    row: u64,
+    col: u64,
+
+    pub fn rowCol(pos: Position) RowCol {
+        return .{
+            .row = pos.row,
+            .col = pos.col,
+        };
+    }
+};
+
+pub const RowCol = struct {
+    row: u64 = 1,
+    col: u64 = 1,
+
+    pub fn moveRelativeColumn(rc: RowCol, buffer: *Buffer, col_offset: i64, stop_before_newline: bool) Position {
+        const index = buffer.getIndex(rc);
+        return buffer.moveRelativeColumn(index, col_offset, stop_before_newline);
+    }
+
+    pub fn moveRelativeRow(rc: RowCol, buffer: *Buffer, row_offset: i64) Position {
+        const index = buffer.getIndex(rc);
+        return buffer.moveRelativeRow(index, row_offset);
+    }
+};
+
 pub const MetaData = struct {
     file_path: []u8,
     file_type: []u8,
@@ -70,7 +98,7 @@ index: u32,
 /// Represents the start index of the selection.
 selection_start: u64 = 0,
 /// The cursor index in the buffer. It also represents the end index of the selection.
-cursor_index: u64,
+selection_end: u64 = 0,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 allocator: std.mem.Allocator,
@@ -102,13 +130,12 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var buffer = Buffer{
         .index = static.index,
         .metadata = metadata,
-        .cursor_index = 0,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,
     };
 
     try buffer.insureLastByteIsNewline();
-    try buffer.pushHistory(true);
+    try buffer.pushHistory(0, true);
 
     return buffer;
 }
@@ -169,23 +196,21 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.lines.tree = .{};
     try buffer.insureLastByteIsNewline();
     buffer.metadata.setDirty();
-
-    buffer.cursor_index = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Convenience insertion and deletion functions
 ////////////////////////////////////////////////////////////////////////////////
-pub fn insertBeforeCursor(buffer: *Buffer, string: []const u8) !void {
-    try buffer.insertAt(buffer.cursor_index, string);
-    buffer.cursor_index += string.len;
+pub fn insertAtRC(buffer: *Buffer, rc: RowCol, string: []const u8) !void {
+    const index = buffer.getIndex(rc);
+    try buffer.insertAt(index, string);
 }
 
-pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
-    if (buffer.cursor_index == 0) return;
+pub fn deleteBefore(buffer: *Buffer, index: u64, characters_to_delete: u64) !void {
+    if (index == 0) return;
 
     var characters: u64 = 0;
-    var iter = ReverseBufferIterator.init(buffer, 0, buffer.cursor_index - 1);
+    var iter = ReverseBufferIterator.init(buffer, 0, index - 1);
     var bytes_to_delete: u64 = 0;
     outer_loop: while (iter.next()) |string| {
         var view = utf8.ReverseUtf8View(string);
@@ -196,14 +221,14 @@ pub fn deleteBeforeCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    buffer.cursor_index -|= bytes_to_delete;
-    const delete_to = buffer.cursor_index + bytes_to_delete;
+    const i = index -| bytes_to_delete;
+    const delete_to = i + bytes_to_delete;
 
-    try buffer.deleteRange(buffer.cursor_index, delete_to);
+    try buffer.deleteRange(i, delete_to);
 }
 
-pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
-    var i = buffer.cursor_index;
+pub fn deleteAfterCursor(buffer: *Buffer, index: u64, characters_to_delete: u64) !void {
+    var i = index;
     var characters: u64 = 0;
 
     var iter = BufferIterator.init(buffer, i, buffer.size());
@@ -217,19 +242,18 @@ pub fn deleteAfterCursor(buffer: *Buffer, characters_to_delete: u64) !void {
         }
     }
 
-    try buffer.deleteRange(buffer.cursor_index, i);
-    buffer.cursor_index = min(buffer.cursor_index, buffer.size() - 1);
+    try buffer.deleteRange(index, i);
 }
 
 pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
     assert(start_row <= end_row);
     assert(end_row <= buffer.lineCount());
 
-    const start_index = buffer.getIndex(start_row, 1);
+    const start_index = buffer.getIndex(.{ .row = start_row, .col = 1 });
     const end_index = if (end_row >= buffer.lineCount())
         buffer.size() + 1
     else
-        buffer.getIndex(end_row + 1, 1);
+        buffer.getIndex(.{ .row = end_row + 1, .col = 1 });
 
     try buffer.deleteRange(start_index, end_index);
 }
@@ -238,11 +262,11 @@ pub fn deleteRangeRC(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u
     if (start_row > end_row)
         return error.InvalidRange;
 
-    const start_index = buffer.getIndex(start_row, start_col);
+    const start_index = buffer.getIndex(.{ .row = start_row, .col = start_col });
     const end_index = if (end_row > buffer.lineCount())
         buffer.size() + 1
     else
-        buffer.getIndex(end_row, end_col + 1);
+        buffer.getIndex(.{ .row = end_row, .col = end_col + 1 });
 
     try buffer.deleteRange(start_index, end_index);
 }
@@ -361,7 +385,9 @@ pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
     return buffer.getLines(allocator, 1, buffer.lineCount());
 }
 
-pub fn getIndex(buffer: *Buffer, row: u64, col: u64) u64 {
+pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
+    const row = rc.row;
+    const col = rc.col;
     assert(row <= buffer.lineCount());
     assert(row > 0);
     assert(col > 0);
@@ -418,7 +444,7 @@ pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
     return j - i;
 }
 
-pub fn getRowAndCol(buffer: *Buffer, index_: u64) struct { row: u64, col: u64 } {
+pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
     var index = min(index_, buffer.size());
 
     var row: u64 = 0;
@@ -602,11 +628,13 @@ pub fn lineCount(buffer: *Buffer) u64 {
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64, stop_before_newline: bool) void {
-    if (col_offset == 0) return;
-    if (buffer.cursor_index == 0 and col_offset <= 0) return;
+pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_before_newline: bool) Position {
+    if (col_offset == 0 or (index == 0 and col_offset <= 0)) {
+        const rc = buffer.getRowAndCol(index);
+        return .{ .index = index, .row = rc.row, .col = rc.col };
+    }
 
-    var i = buffer.cursor_index;
+    var i = index;
     if (col_offset > 0) {
         var characters: u64 = 0;
         while (characters != col_offset) {
@@ -649,27 +677,38 @@ pub fn moveRelativeColumn(buffer: *Buffer, col_offset: i64, stop_before_newline:
         }
     }
 
-    buffer.cursor_index = min(i, buffer.size() - 1);
+    const rc = buffer.getRowAndCol(i);
+    return .{
+        .index = i,
+        .row = rc.row,
+        .col = rc.col,
+    };
 }
 
-pub fn moveRelativeRow(buffer: *Buffer, row_offset: i64) void {
-    if (buffer.size() == 0) return;
-    if (row_offset == 0) return;
+pub fn moveRelativeRow(buffer: *Buffer, index: u64, row_offset: i64) Position {
+    if (buffer.size() == 0 or row_offset == 0) {
+        const rc = buffer.getRowAndCol(index);
+        return .{ .index = index, .row = rc.row, .col = rc.col };
+    }
 
-    const cursor = buffer.getRowAndCol(buffer.cursor_index);
+    const cursor = buffer.getRowAndCol(index);
 
     var new_row = @intCast(i64, cursor.row) + row_offset;
     if (row_offset < 0) new_row = max(1, new_row) else new_row = min(new_row, buffer.lineCount());
 
-    buffer.cursor_index = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
+    const i = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
 
     const old_col = cursor.col;
-    moveRelativeColumn(buffer, @intCast(i64, old_col - 1), true);
+    return moveRelativeColumn(buffer, i, @intCast(i64, old_col - 1), true);
 }
 
-pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
-    if (row > buffer.lineCount()) return;
-    buffer.cursor_index = buffer.getIndex(row, col);
+pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) Position {
+    const r = std.math.min(buffer.lineCount(), row);
+    return .{
+        .index = buffer.getIndex(.{ .row = r, .col = col }),
+        .row = r,
+        .col = col,
+    };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -679,29 +718,30 @@ pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) void {
 pub fn setSelection(buffer: *Buffer, const_start: u64, const_end: u64) void {
     const end = std.math.min(const_end, buffer.size());
     buffer.selection_start = const_start;
-    buffer.cursor_index = end;
+    buffer.selection_end = end;
 }
 
 pub fn getSelection(buffer: *Buffer) Range {
-    const start = std.math.min(buffer.selection_start, buffer.cursor_index);
-    const end = std.math.max(buffer.selection_start, buffer.cursor_index);
+    const start = std.math.min(buffer.selection_start, buffer.selection_end);
+    const end = std.math.max(buffer.selection_start, buffer.selection_end);
     return .{ .start = start, .end = end };
 }
 
 pub fn resetSelection(buffer: *Buffer) void {
-    buffer.selection_start = buffer.cursor_index;
+    buffer.selection_start = 0;
+    buffer.selection_end = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // History
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn pushHistory(buffer: *Buffer, move_to_new_node: bool) !void {
+pub fn pushHistory(buffer: *Buffer, cursor_index: u64, move_to_new_node: bool) !void {
     var new_node = try buffer.allocator.create(HistoryTree.Node);
     errdefer buffer.allocator.destroy(new_node);
     const slice = try buffer.lines.tree.treeToPieceInfoArray(buffer.allocator);
     new_node.* = .{ .data = .{
-        .cursor_index = buffer.cursor_index,
+        .cursor_index = std.math.min(cursor_index, buffer.size() -| 1),
         .pieces = slice,
     } };
 
@@ -717,31 +757,32 @@ pub fn pushHistory(buffer: *Buffer, move_to_new_node: bool) !void {
     buffer.metadata.history_dirty = false;
 }
 
-pub fn undo(buffer: *Buffer) !void {
-    if (buffer.history_node == null) return;
+pub fn undo(buffer: *Buffer, cursor_index: u64) !u64 {
+    if (buffer.history_node == null) return cursor_index;
 
     if (buffer.metadata.history_dirty)
-        try buffer.pushHistory(true);
+        try buffer.pushHistory(cursor_index, true);
 
-    var node = buffer.history_node.?.parent orelse return;
+    var node = buffer.history_node.?.parent orelse return cursor_index;
 
     var tree_slice = node.data.pieces;
     var new_tree = try PieceTable.SplayTree.treeFromSlice(buffer.allocator, tree_slice);
     buffer.lines.tree.deinitAndSetAsNewTree(buffer.allocator, new_tree);
 
     buffer.history_node = node;
-    buffer.cursor_index = node.data.cursor_index;
-    buffer.cursor_index = std.math.min(buffer.cursor_index, buffer.size() - 1);
+
+    return node.data.cursor_index;
 }
 
-pub fn redo(buffer: *Buffer, index: u64) !void {
-    if (buffer.history_node == null) return;
-    var node = buffer.history_node.?.getChild(index) orelse return;
+pub fn redo(buffer: *Buffer, index: u64) !?u64 {
+    if (buffer.history_node == null) return null;
+    var node = buffer.history_node.?.getChild(index) orelse return null;
 
     var tree_slice = node.data.pieces;
     var new_tree = try PieceTable.SplayTree.treeFromSlice(buffer.allocator, tree_slice);
     buffer.lines.tree.deinitAndSetAsNewTree(buffer.allocator, new_tree);
 
     buffer.history_node = node;
-    buffer.cursor_index = node.data.cursor_index;
+
+    return node.data.cursor_index;
 }

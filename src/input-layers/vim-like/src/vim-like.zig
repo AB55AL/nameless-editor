@@ -11,6 +11,8 @@ const input = core.input;
 const Key = input.Key;
 const cif = core.common_input_functions;
 
+const Position = core.Buffer.Position;
+
 pub const Mode = enum {
     normal,
     insert,
@@ -94,16 +96,25 @@ pub fn insertNewLineAtCursor() void {
 
 pub fn moveForward() void {
     const d = core.motions.white_space;
-    var fbw = core.ui.focused_buffer_window orelse return;
-    const range = core.motions.forward(fbw.data.buffer, &d) orelse return;
-    fbw.data.buffer.cursor_index = range.endPreviousCP(fbw.data.buffer);
+    var fbw = &(core.ui.focused_buffer_window orelse return).data;
+    const buffer = fbw.buffer;
+    const index = buffer.getIndex(fbw.cursor);
+    const range = core.motions.forward(fbw.buffer, index, &d) orelse return;
+    const end = range.endPreviousCP(fbw.buffer);
+
+    const rc = buffer.getRowAndCol(end);
+    fbw.cursor = rc;
 }
 
 pub fn moveBackwards() void {
     const d = core.motions.white_space;
-    var fbw = core.ui.focused_buffer_window orelse return;
-    const range = core.motions.backward(fbw.data.buffer, &d) orelse return;
-    fbw.data.buffer.cursor_index = range.start;
+    var fbw = &(core.ui.focused_buffer_window orelse return).data;
+    var buffer = fbw.buffer;
+    const index = buffer.getIndex(fbw.cursor);
+    const range = core.motions.backward(buffer, index, &d) orelse return;
+
+    const rc = buffer.getRowAndCol(range.start);
+    fbw.cursor = rc;
 }
 
 pub fn paste() void {
@@ -117,18 +128,4 @@ pub fn paste() void {
     // fb.insertBeforeCursor(clipboard) catch |err| {
     //     print("input_layer.paste()\n\t{}\n", .{err});
     // };
-}
-
-pub fn randomInsertions() void {
-    var fbw = core.ui.focused_buffer_window orelse return;
-
-    var i: u32 = 0;
-    while (i < 1000) : (i += 1) {
-        const new_cursor = std.crypto.random.int(u64) % fbw.data.buffer.lineCount();
-        fbw.data.buffer.cursor_index = new_cursor;
-        fbw.data.buffer.insertBeforeCursor("st") catch |err| {
-            print("{}\n", .{err});
-        };
-        // fbw.setWindowCursorToBuffer();
-    }
 }

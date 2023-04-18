@@ -65,10 +65,11 @@ pub const BufferWindow = struct {
     percent_of_parent: f32 = 1,
     dir: Dir = .north,
 
-    rect: Rect = .{}, // Reset every frame
-
     buffer: *Buffer,
     first_visiable_row: u64,
+    cursor: Buffer.RowCol = .{},
+
+    rect: Rect = .{}, // Reset every frame
     visible_lines: u64 = 0, // Set every frame
 
     pub fn getAndSetWindows(root: *BufferWindowNode, allocator: std.mem.Allocator, area: Rect) ![]*BufferWindowNode {
@@ -195,18 +196,20 @@ pub const BufferWindow = struct {
     }
 
     pub fn resetBufferCursorToBufferWindow(buffer_win: *BufferWindow) void {
-        var cursor = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index);
+        var cursor = buffer_win.cursor;
 
         if (!utils.inRange(cursor.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
-            if (cursor.row > buffer_win.lastVisibleRow())
+            var pos = if (cursor.row > buffer_win.lastVisibleRow())
                 buffer_win.buffer.moveAbsolute(buffer_win.lastVisibleRow(), cursor.col)
             else
                 buffer_win.buffer.moveAbsolute(buffer_win.first_visiable_row, cursor.col);
+
+            buffer_win.cursor = pos.rowCol();
         }
     }
 
     pub fn resetBufferWindowRowsToBufferCursor(buffer_win: *BufferWindow) void {
-        var cursor_row = buffer_win.buffer.getRowAndCol(buffer_win.buffer.cursor_index).row;
+        var cursor_row = buffer_win.cursor.row;
 
         if (!utils.inRange(cursor_row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
             buffer_win.first_visiable_row = cursor_row;

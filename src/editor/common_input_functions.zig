@@ -25,8 +25,9 @@ pub fn cycleWindows() void {
 }
 
 pub fn deleteBackward() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    fb.deleteBeforeCursor(1) catch |err| {
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+    const index = fbw.buffer.getIndex(fbw.cursor);
+    fbw.buffer.deleteBefore(index, 1) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 
@@ -35,32 +36,41 @@ pub fn deleteBackward() void {
 }
 
 pub fn deleteForward() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    fb.deleteAfterCursor(1) catch |err| {
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+    const index = fbw.buffer.getIndex(fbw.cursor);
+    fbw.buffer.deleteAfterCursor(index, 1) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
 
 pub fn moveRight() void {
-    var b = (ui.focused_buffer_window orelse return).data.buffer;
-    b.moveRelativeColumn(1, false);
-    b.resetSelection();
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+    const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, false);
+    fbw.cursor = pos.rowCol();
+    fbw.buffer.resetSelection();
 }
 
 pub fn moveLeft() void {
-    var b = (ui.focused_buffer_window orelse return).data.buffer;
-    b.moveRelativeColumn(-1, false);
-    b.resetSelection();
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+    const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, false);
+    fbw.cursor = pos.rowCol();
+    fbw.buffer.resetSelection();
 }
 
 pub fn moveUp() void {
-    var b = (ui.focused_buffer_window orelse return).data.buffer;
-    b.moveRelativeRow(-1);
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+
+    const pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
+    fbw.cursor = pos.rowCol();
+    fbw.buffer.resetSelection();
 }
 
 pub fn moveDown() void {
-    var b = (ui.focused_buffer_window orelse return).data.buffer;
-    b.moveRelativeRow(1);
+    var fbw = &(buffer_ops.focusedBW() orelse return).data;
+
+    const pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
+    fbw.cursor = pos.rowCol();
+    fbw.buffer.resetSelection();
 }
 
 pub fn toggleCommandLine() void {

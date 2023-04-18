@@ -42,13 +42,18 @@ pub fn keyInput(key: Key) void {
 pub fn characterInput(utf8_seq: []const u8) void {
     if (vim_like.state.mode != .insert) return;
 
-    var fb = core.focusedBuffer() orelse return;
-    fb.insertBeforeCursor(utf8_seq) catch |err| {
+    var fbw = &(core.focusedBW() orelse return).data;
+    var buffer = fbw.buffer;
+    const index = buffer.getIndex(fbw.cursor);
+
+    buffer.insertAt(index, utf8_seq) catch |err| {
         print("input_layer.characterInputCallback()\n\t{}\n", .{err});
     };
 
+    fbw.cursor = fbw.buffer.getRowAndCol(index + utf8_seq.len);
+
     if (core.editor.command_line_is_open and core.editor.command_line_buffer.lines.byteAt(0) == ':') {
-        fb.clear() catch unreachable;
+        buffer.clear() catch unreachable;
         return;
     }
 
@@ -90,8 +95,6 @@ pub fn setDefaultMappnigsNormalMode() void {
 
     map(.normal, &.{a(.none, .w)}, vim_like.moveForward);
     map(.normal, &.{a(.none, .b)}, vim_like.moveBackwards);
-
-    map(.normal, &.{f(.none, .f5)}, vim_like.randomInsertions);
 
     map(.normal, &.{f(.none, .page_up)}, scrollUp);
     map(.normal, &.{f(.none, .page_down)}, scrollDown);

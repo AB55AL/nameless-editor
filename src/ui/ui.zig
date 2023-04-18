@@ -61,6 +61,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     buffer_window.resetBufferWindowRowsToBufferCursor();
 
     var buffer = buffer_window.buffer;
+    const cursor_index = buffer.getIndex(buffer_window.cursor);
 
     {
         var from = buffer_window.first_visiable_row;
@@ -75,7 +76,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
     { // render cursor
 
-        const cursor_row = buffer.getRowAndCol(buffer.cursor_index).row;
+        const cursor_row = buffer_window.cursor.row;
         var dl = imgui.getWindowDrawList();
 
         var padding = imgui.getStyle().window_padding;
@@ -88,7 +89,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
         { // get the x position of the cursor
             var from = buffer.indexOfFirstByteAtRow(cursor_row);
-            var to = buffer.cursor_index;
+            var to = cursor_index;
             var iter = BufferIterator.init(buffer, from, to);
             while (iter.next()) |string| {
                 var s = imgui.calcTextSize(string, .{});
@@ -99,7 +100,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         var max = min;
 
         { // get width and height
-            var slice = buffer.codePointSliceAt(buffer.cursor_index) catch unreachable;
+            var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
             if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
             var s = imgui.calcTextSize(slice, .{});
             max[0] += s[0];

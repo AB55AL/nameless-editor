@@ -96,8 +96,8 @@ pub fn backFindOutsideBlackList(buffer: *Buffer, start: u64, list: []const u21) 
 /// Find one of the delimiters and stop there and return.
 /// If the starting point is one of the delimiters then move one character and return
 /// White space is always ignored
-pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
-    const start = buffer.cursor_index;
+pub fn forward(buffer: *Buffer, cursor_index: u64, delimiters: []const u21) ?Range {
+    const start = cursor_index;
 
     {
         var cp = buffer.codePointAt(start) catch return null;
@@ -125,10 +125,10 @@ pub fn forward(buffer: *Buffer, delimiters: []const u21) ?Range {
 /// Find one of the delimiters and stop there and return.
 /// If the starting point is one of the delimiters then move one character and return
 /// White space is always ignored
-pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
-    if (buffer.cursor_index == 0) return null;
+pub fn backward(buffer: *Buffer, index: u64, delimiters: []const u21) ?Range {
+    if (index == 0) return null;
 
-    const end = buffer.cursor_index;
+    const end = index;
     const end_cp = buffer.codePointAt(end) catch return null;
     const real_end = end + (unicode.utf8CodepointSequenceLength(end_cp) catch return null);
 
@@ -156,43 +156,44 @@ pub fn backward(buffer: *Buffer, delimiters: []const u21) ?Range {
     }
 }
 
-pub fn textObject(buffer: *Buffer, delimators: []const u21) ?Range {
-    const cp_at_cursor = buffer.codePointAt(buffer.cursor_index) catch return null;
+pub fn textObject(buffer: *Buffer, index: u64, delimators: []const u21) ?Range {
+    const cp_at_cursor = buffer.codePointAt(index) catch return null;
 
     const start = if (utils.atLeastOneIsEqual(u21, delimators, cp_at_cursor))
-        buffer.cursor_index
+        index
     else
-        backFindCodePointsInList(buffer, buffer.cursor_index, delimators) orelse return null;
+        backFindCodePointsInList(buffer, index, delimators) orelse return null;
 
-    const end = findCodePointsInList(buffer, buffer.cursor_index, delimators) orelse return null;
+    const end = findCodePointsInList(buffer, index, delimators) orelse return null;
 
     return .{ .start = start, .end = end + 1 };
 }
 
-pub fn endOfLine(buffer: *Buffer) Range {
-    const row = buffer.getRowAndCol(buffer.cursor_index).row;
-    return .{ .start = buffer.cursor_index, .end = buffer.indexOfLastByteAtRow(row) + 1 };
+pub fn endOfLine(buffer: *Buffer, index:u64) Range {
+    const row = buffer.getRowAndCol(index).row;
+    return .{ .start = index, .end = buffer.indexOfLastByteAtRow(row) + 1 };
 }
 
-pub fn startOfLine(buffer: *Buffer) Range {
-    const row = buffer.getRowAndCol(buffer.cursor_index).row;
-    return .{ .start = buffer.indexOfFirstByteAtRow(row), .end = buffer.cursor_index + 1 };
+pub fn startOfLine(buffer: *Buffer, index:u64) Range {
+    const row = buffer.getRowAndCol(index).row;
+    return .{ .start = buffer.indexOfFirstByteAtRow(row), .end = index + 1 };
 }
 
-pub fn firstLine(buffer: *Buffer) Range {
-    return .{ .start = 0, .end = buffer.cursor_index + 1 };
+pub fn firstLine(buffer: *Buffer, index:u64) Range {
+    _ = buffer;
+    return .{ .start = 0, .end = index + 1 };
 }
 
-pub fn lastLine(buffer: *Buffer) Range {
-    return .{ .start = buffer.cursor_index, .end = buffer.size() };
+pub fn lastLine(buffer: *Buffer, index:u64) Range {
+    return .{ .start = index, .end = buffer.size() };
 }
 
-pub fn findCP(buffer: *Buffer, cp: u21) Range {
-    const end = findCodePointsInList(buffer, buffer.cursor_index, &.{cp});
-    return .{ .start = buffer.cursor_index, .end = end + 1 };
+pub fn findCP(buffer: *Buffer, cp: u21, index:u64) Range {
+    const end = findCodePointsInList(buffer, index, &.{cp});
+    return .{ .start = index, .end = end + 1 };
 }
 
-pub fn backFindCP(buffer: *Buffer, cp: u21) Range {
-    const start = backFindCodePointsInList(buffer, buffer.cursor_index, &.{cp});
-    return .{ .start = start, .end = buffer.cursor_index + 1 };
+pub fn backFindCP(buffer: *Buffer, cp: u21, index:u64) Range {
+    const start = backFindCodePointsInList(buffer, index, &.{cp});
+    return .{ .start = start, .end = index + 1 };
 }
