@@ -301,7 +301,6 @@ fn deleteFromPreviousFocusedWindows(buffer_window: *BufferWindowNode) void {
     for (ui.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
         if (bw == buffer_window) {
             _ = ui.previous_focused_buffer_wins.orderedRemove(i);
-            break;
         }
     }
 }
