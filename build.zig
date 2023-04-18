@@ -77,7 +77,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
 
 pub fn build(bob: *Builder) void {
     // const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer/src/main.zig";
-    const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/vim-like/src/main.zig";
+    const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/vim-like/src/context.zig";
     var module = bob.createModule(.{
         .source_file = .{ .path = standard_input_layer_root_path },
     });

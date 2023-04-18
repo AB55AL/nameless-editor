@@ -17,78 +17,14 @@ const Key = input.Key;
 
 const vim_like = @import("vim-like.zig");
 
-var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
-var allocator: std.mem.Allocator = undefined;
-var arena: std.heap.ArenaAllocator = undefined;
-var arena_allocator: std.mem.Allocator = undefined;
+pub var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
+pub var allocator: std.mem.Allocator = undefined;
+pub var arena: std.heap.ArenaAllocator = undefined;
+pub var arena_allocator: std.mem.Allocator = undefined;
 
-var log_file: fs.File = undefined;
+pub var log_file: fs.File = undefined;
 
-pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindow.CursorRect {
-    var rect: core.BufferWindow.CursorRect = .{
-        .top = top,
-        .left = left,
-        .bottom = bottom,
-        .right = right,
-        .col = 0xFFFFFF_FF,
-    };
-
-    switch (vim_like.state.mode) {
-        .insert => {
-            rect.right = rect.left;
-        },
-        else => {},
-    }
-
-    return rect;
-}
-
-pub fn init() !void {
-    gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    allocator = gpa.allocator();
-    arena = std.heap.ArenaAllocator.init(allocator);
-    arena_allocator = arena.allocator();
-
-    for (&vim_like.state.mappings) |*m| {
-        m.* = core.input.MappingSystem.init(arena_allocator);
-        _ = try m.getOrCreateFileType(""); // Global and fallback file_type
-    }
-    setDefaultMappnigs();
-    {
-        const data_path = std.os.getenv("XDG_DATA_HOME") orelse return;
-        const log_path = std.mem.concat(allocator, u8, &.{ data_path, "/ne" }) catch return;
-        defer allocator.free(log_path);
-        var dir = fs.openDirAbsolute(log_path, .{}) catch return;
-        defer dir.close();
-
-        log_file = (dir.openFile("input-log", .{ .mode = .write_only }) catch |err| if (err == fs.Dir.OpenError.FileNotFound)
-            dir.createFile("input-log", .{})
-        else
-            err) catch return;
-
-        const end = log_file.getEndPos() catch return;
-        _ = log_file.pwrite("\n---------------new editor instance---------------\n", end) catch |err| print("err={}", .{err});
-    }
-}
-
-pub fn deinit() void {
-    arena.deinit(); // deinit the mappings
-
-    log_file.close();
-    _ = gpa.deinit();
-}
-
-pub fn handleInput() void {
-    while (core.globals.input.char_queue.popOrNull()) |cp| {
-        var seq: [4]u8 = undefined;
-        var bytes = std.unicode.utf8Encode(cp, &seq) catch unreachable;
-        characterInput(seq[0..bytes]);
-    }
-
-    while (core.globals.input.key_queue.popOrNull()) |key| {
-        keyInput(key);
-    }
-}
+pub const context = @import("context.zig");
 
 pub fn keyInput(key: Key) void {
     var file_type = if (core.focusedBuffer()) |fb| fb.metadata.file_type else "";
@@ -151,7 +87,7 @@ pub fn fileTypeMap(mode: vim_like.Mode, file_type: []const u8, key: Key, functio
     };
 }
 
-fn setDefaultMappnigs() void {
+pub fn setDefaultMappnigs() void {
     const f = input.functionKey;
     map(.normal, &.{f(.none, .escape)}, vim_like.setNormalMode);
     map(.insert, &.{f(.none, .escape)}, vim_like.setNormalMode);
@@ -162,7 +98,7 @@ fn setDefaultMappnigs() void {
     setDefaultMappnigsVisualMode();
 }
 
-fn setDefaultMappnigsNormalMode() void {
+pub fn setDefaultMappnigsNormalMode() void {
     const f = input.functionKey;
     const a = input.asciiKey;
     map(.normal, &.{a(.shift, .semicolon)}, vim_like.openCommandLine);
