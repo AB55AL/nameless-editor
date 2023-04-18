@@ -41,30 +41,19 @@ pub fn putFunction(mode: Mode, file_type: []const u8, keys: []const Key, functio
     try getMapping(mode).put(file_type, keys, function, override_mapping);
 }
 
-pub fn getModeFunctions(mode: Mode, file_type: []const u8, slice: []const Key) MappingFunctions {
+pub fn getModeFunctions(mode: Mode, file_type: []const u8, keys: []const Key) MappingFunctions {
     var mapping = getMapping(mode);
-    if (mapping.get(file_type, slice)) |map| {
-        switch (map) {
-            .function => |f| {
-                state.keys.len = 0; // clear
-                return .{ .ft_function = f };
-            },
-            .khm => return .{}, // Keys are a prefix
-        }
-    }
 
-    if (mapping.get("", slice)) |map| {
-        switch (map) {
-            .function => |f| {
-                state.keys.len = 0; // clear
-                return .{ .default_ft_function = f };
-            },
-            .khm => return .{}, // keys are a prefix
-        }
-    }
+    var mapping_functions = MappingFunctions{
+        .ft_function = mapping.get(file_type, keys),
+        .default_ft_function = mapping.get("", keys),
+    };
 
-    state.keys.len = 0; // clear
-    return .{};
+    // TODO: Don's forget to ask if i need to wait for more keys
+    if (!mapping.arePrefixKeys(file_type, keys) and !mapping.arePrefixKeys("", keys))
+        state.keys.len = 0;
+
+    return mapping_functions;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

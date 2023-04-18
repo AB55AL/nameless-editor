@@ -32,7 +32,7 @@ pub fn init() !void {
 
     for (&vim_like.state.mappings) |*m| {
         m.* = core.input.MappingSystem.init(arena_allocator);
-        _ = try m.addFileType(""); // Global and fallback file_type
+        _ = try m.getOrCreateFileType(""); // Global and fallback file_type
     }
     setDefaultMappnigs();
     {
