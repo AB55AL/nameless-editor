@@ -34,7 +34,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
     const exe = bob.addExecutable(.{
         .name = "main",
         .root_source_file = .{ .path = comptime thisDir() ++ "/src/main.zig" },
-        .optimize = .Debug,
+        .optimize = optimize,
     });
     exe.linkLibC();
 
