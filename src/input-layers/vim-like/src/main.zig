@@ -24,6 +24,25 @@ var arena_allocator: std.mem.Allocator = undefined;
 
 var log_file: fs.File = undefined;
 
+pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindow.CursorRect {
+    var rect: core.BufferWindow.CursorRect = .{
+        .top = top,
+        .left = left,
+        .bottom = bottom,
+        .right = right,
+        .col = 0xFFFFFF_FF,
+    };
+
+    switch (vim_like.state.mode) {
+        .insert => {
+            rect.right = rect.left;
+        },
+        else => {},
+    }
+
+    return rect;
+}
+
 pub fn init() !void {
     gpa = std.heap.GeneralPurposeAllocator(.{}){};
     allocator = gpa.allocator();
