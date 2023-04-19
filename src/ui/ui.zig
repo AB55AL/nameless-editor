@@ -66,7 +66,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     {
         var from = buffer_window.first_visiable_row;
         var to = buffer_window.lastVisibleRow();
-        var iter = LineIterator.init(buffer, from, to);
+        var iter = LineIterator.initLines(buffer, from, to);
 
         while (iter.next()) |string| {
             imgui.textUnformatted(string);

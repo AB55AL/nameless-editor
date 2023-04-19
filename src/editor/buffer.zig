@@ -304,7 +304,7 @@ pub fn validateRange(buffer: *Buffer, start: u64, end: u64) !void {
 pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
     assert(row <= buffer.lineCount());
     var count: u64 = 0;
-    var iter = LineIterator.init(buffer, row, row);
+    var iter = LineIterator.initLines(buffer, row, row);
     while (iter.next()) |slice|
         count += unicode.utf8CountCodepoints(slice) catch unreachable;
 
@@ -353,7 +353,7 @@ pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
     utils.assert(row <= buffer.lineCount(), "");
     utils.assert(buf.len <= buffer.lineSize(row), "");
 
-    var iter = LineIterator.init(buffer, row, row);
+    var iter = LineIterator.initLines(buffer, row, row);
     var start: u64 = 0;
     while (iter.next()) |slice| {
         std.mem.copy(u8, buf[start..], slice);
@@ -369,7 +369,7 @@ pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) 
     utils.assert(last_line <= buffer.lineCount(), "");
     utils.assert(buf.len <= buffer.lineRangeSize(first_line, last_line), "");
 
-    var iter = LineIterator.init(buffer, first_line, last_line);
+    var iter = LineIterator.initLines(buffer, first_line, last_line);
     var start: u64 = 0;
     while (iter.next()) |slice| {
         std.mem.copy(u8, buf[start..], slice);
@@ -490,13 +490,22 @@ pub const LineIterator = struct {
     end: u64,
     current_line: u64,
 
-    pub fn init(buffer: *Buffer, first_line: u64, last_line: u64) LineIterator {
+    pub fn initRC(buffer: *Buffer, start: RowCol, end: RowCol) LineIterator {
+        const range = buffer.rowColToRange(start, end);
+        return .{
+            .buffer = buffer,
+            .start = range.start,
+            .end = range.end,
+            .current_line = start.min(end).row,
+        };
+    }
+
+    pub fn initLines(buffer: *Buffer, first_line: u64, last_line: u64) LineIterator {
         utils.assert(first_line <= last_line, "first_line must be <= last_line");
         utils.assert(last_line <= buffer.lineCount(), "last_line cannot be greater than the total rows in the buffer");
 
         const start = buffer.indexOfFirstByteAtRow(first_line);
         const end = buffer.indexOfLastByteAtRow(last_line) + 1;
-        // std.debug.print("end{} {}\n", .{ end, last_line });
         return .{
             .buffer = buffer,
             .start = start,
@@ -509,7 +518,7 @@ pub const LineIterator = struct {
         if (self.start >= self.end) {
             return null;
         }
-        const current_line_end = self.buffer.indexOfLastByteAtRow(self.current_line) + 1;
+        const current_line_end = std.math.min(self.buffer.indexOfLastByteAtRow(self.current_line) + 1, self.end);
 
         const piece_info = self.buffer.lines.tree.findNode(self.start);
         const slice = piece_info.piece.content(&self.buffer.lines)[piece_info.relative_index..];
