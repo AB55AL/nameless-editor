@@ -373,7 +373,7 @@ pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
 }
 
 pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
-    const row = rc.row;
+    const row = std.math.min(buffer.lineCount(), rc.row);
     const col = rc.col;
     assert(row <= buffer.lineCount());
     assert(row > 0);
@@ -386,7 +386,7 @@ pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
         const byte = buffer.lines.byteAt(i + index);
         const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
         if (byte == '\n') {
-            i += 1;
+            if (i > 0) i += 1; // if the line has more than just one newline char increment
             break;
         } else if (byte_seq_len > 0) {
             char_count += 1;
