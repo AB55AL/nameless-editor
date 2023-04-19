@@ -120,7 +120,7 @@ pub const Selection = struct {
 };
 
 metadata: MetaData,
-index: u32,
+id: u32,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 allocator: std.mem.Allocator,
@@ -151,7 +151,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     };
 
     var buffer = Buffer{
-        .index = static.index,
+        .id = static.index,
         .metadata = metadata,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,

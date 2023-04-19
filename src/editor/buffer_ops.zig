@@ -92,7 +92,7 @@ pub fn getBufferI(index: u32) ?*Buffer {
     var buffer_node = editor.buffers.first.?;
     var buffer = &buffer_node.data;
     while (true) {
-        if (buffer.index == index) {
+        if (buffer.id == index) {
             return buffer;
         } else if (buffer_node.next) |n| {
             buffer_node = n;
@@ -256,7 +256,7 @@ pub fn windowCountWithBuffer(buffer: *Buffer) u32 {
 
     var count: u32 = 0;
     for (array) |win| {
-        if (win.data.buffer.index == buffer.index)
+        if (win.data.buffer.id == buffer.id)
             count += 1;
     }
 
