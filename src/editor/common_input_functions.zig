@@ -49,14 +49,14 @@ pub fn moveRight() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
     const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, false);
     fbw.cursor = pos.rowCol();
-    fbw.buffer.resetSelection();
+    fbw.buffer.selection.reset();
 }
 
 pub fn moveLeft() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
     const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, false);
     fbw.cursor = pos.rowCol();
-    fbw.buffer.resetSelection();
+    fbw.buffer.selection.reset();
 }
 
 pub fn moveUp() void {
@@ -64,7 +64,7 @@ pub fn moveUp() void {
 
     const pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
     fbw.cursor = pos.rowCol();
-    fbw.buffer.resetSelection();
+    fbw.buffer.selection.reset();
 }
 
 pub fn moveDown() void {
@@ -72,7 +72,7 @@ pub fn moveDown() void {
 
     const pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
     fbw.cursor = pos.rowCol();
-    fbw.buffer.resetSelection();
+    fbw.buffer.selection.reset();
 }
 
 pub fn toggleCommandLine() void {

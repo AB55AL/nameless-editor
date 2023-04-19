@@ -50,6 +50,20 @@ pub const RowCol = struct {
     row: u64 = 1,
     col: u64 = 1,
 
+    pub fn min(a: RowCol, b: RowCol) RowCol {
+        if (a.row == b.row) {
+            if (a.col <= b.col) return a else return b;
+        }
+        if (a.row < b.row) return a else return b;
+    }
+
+    pub fn max(a: RowCol, b: RowCol) RowCol {
+        if (a.row == b.row) {
+            if (a.col >= b.col) return a else return b;
+        }
+        if (a.row > b.row) return a else return b;
+    }
+
     pub fn moveRelativeColumn(rc: RowCol, buffer: *Buffer, col_offset: i64, stop_before_newline: bool) Position {
         const index = buffer.getIndex(rc);
         return buffer.moveRelativeColumn(index, col_offset, stop_before_newline);
@@ -93,18 +107,27 @@ pub const HistoryInfo = struct {
     pieces: []const PieceTable.PieceNode.Info,
 };
 
+pub const Selection = struct {
+    const Kind = enum { regular, block, line };
+    start: RowCol = .{},
+    end: RowCol = .{},
+    kind: Kind = .regular,
+
+    pub fn reset(selection: *Selection) void {
+        selection.start = .{};
+        selection.end = selection.start;
+    }
+};
+
 metadata: MetaData,
 index: u32,
-/// Represents the start index of the selection.
-selection_start: u64 = 0,
-/// The cursor index in the buffer. It also represents the end index of the selection.
-selection_end: u64 = 0,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 allocator: std.mem.Allocator,
 
 history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
+selection: Selection = .{},
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
@@ -696,27 +719,6 @@ pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) Position {
         .row = r,
         .col = col,
     };
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Selection
-////////////////////////////////////////////////////////////////////////////////
-
-pub fn setSelection(buffer: *Buffer, const_start: u64, const_end: u64) void {
-    const end = std.math.min(const_end, buffer.size());
-    buffer.selection_start = const_start;
-    buffer.selection_end = end;
-}
-
-pub fn getSelection(buffer: *Buffer) Range {
-    const start = std.math.min(buffer.selection_start, buffer.selection_end);
-    const end = std.math.max(buffer.selection_start, buffer.selection_end);
-    return .{ .start = start, .end = end };
-}
-
-pub fn resetSelection(buffer: *Buffer) void {
-    buffer.selection_start = 0;
-    buffer.selection_end = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
