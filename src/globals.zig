@@ -2,6 +2,7 @@ const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
 
+const registers = @import("editor/registers.zig");
 const buffer_ui = @import("ui/buffer.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const buffer_ops = @import("editor/buffer_ops.zig");
@@ -14,6 +15,7 @@ const BufferWindowNode = buffer_ui.BufferWindowNode;
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
+    pub var registers = std.StringHashMapUnmanaged([]const u8){};
     pub const BufferNode = std.SinglyLinkedList(Buffer).Node;
 
     /// A linked list of all the buffers in the editor
@@ -64,4 +66,6 @@ pub fn deinitGlobals() void {
     editor.command_line_buffer.deinitAndDestroy();
 
     ui.visiable_buffers_tree.deinitTree(internal.allocator, null);
+
+    registers.deinit();
 }
