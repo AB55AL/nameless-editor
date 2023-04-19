@@ -45,36 +45,6 @@ pub fn deleteForward() void {
     };
 }
 
-pub fn moveRight() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, false);
-    fbw.cursor = pos.rowCol();
-    fbw.buffer.selection.reset();
-}
-
-pub fn moveLeft() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, false);
-    fbw.cursor = pos.rowCol();
-    fbw.buffer.selection.reset();
-}
-
-pub fn moveUp() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-
-    const pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
-    fbw.cursor = pos.rowCol();
-    fbw.buffer.selection.reset();
-}
-
-pub fn moveDown() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-
-    const pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
-    fbw.cursor = pos.rowCol();
-    fbw.buffer.selection.reset();
-}
-
 pub fn toggleCommandLine() void {
     if (editor.command_line_is_open)
         editor.command_line.close()

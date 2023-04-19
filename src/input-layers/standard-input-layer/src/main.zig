@@ -214,23 +214,6 @@ fn deleteForward() void {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }
-fn moveRight() void {
-    var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeColumn(1, false, true);
-}
-fn moveLeft() void {
-    var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeColumn(-1, false, true);
-}
-fn moveUp() void {
-    var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeRow(-1, true);
-}
-fn moveDown() void {
-    var fb = core.ui.focused_buffer_window orelse return;
-    fb.moveCursorRelativeRow(1, true);
-}
-
 fn toggleCommandLine() void {
     if (editor.command_line_is_open)
         core.command_line.close()

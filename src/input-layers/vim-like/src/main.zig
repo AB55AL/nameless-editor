@@ -88,10 +88,10 @@ pub fn setDefaultMappnigsNormalMode() void {
     map(.normal, &.{a(.control, .i)}, vim_like.setInsertMode);
     map(.normal, &.{a(.none, .v)}, vim_like.setVisualMode);
 
-    map(.normal, &.{a(.none, .h)}, cif.moveLeft);
-    map(.normal, &.{a(.none, .j)}, cif.moveDown);
-    map(.normal, &.{a(.none, .k)}, cif.moveUp);
-    map(.normal, &.{a(.none, .l)}, cif.moveRight);
+    map(.normal, &.{a(.none, .h)}, vim_like.moveLeft);
+    map(.normal, &.{a(.none, .j)}, vim_like.moveDown);
+    map(.normal, &.{a(.none, .k)}, vim_like.moveUp);
+    map(.normal, &.{a(.none, .l)}, vim_like.moveRight);
 
     map(.normal, &.{a(.none, .w)}, vim_like.moveForward);
     map(.normal, &.{a(.none, .b)}, vim_like.moveBackwards);
@@ -118,10 +118,10 @@ fn setDefaultMappnigsInsertMode() void {
     map(.insert, &.{f(.none, .backspace)}, cif.deleteBackward);
     map(.insert, &.{f(.none, .delete)}, cif.deleteForward);
 
-    map(.insert, &.{f(.none, .right)}, cif.moveRight);
-    map(.insert, &.{f(.none, .left)}, cif.moveLeft);
-    map(.insert, &.{f(.none, .up)}, cif.moveUp);
-    map(.insert, &.{f(.none, .down)}, cif.moveDown);
+    map(.insert, &.{f(.none, .right)}, vim_like.moveRight);
+    map(.insert, &.{f(.none, .left)}, vim_like.moveLeft);
+    map(.insert, &.{f(.none, .up)}, vim_like.moveUp);
+    map(.insert, &.{f(.none, .down)}, vim_like.moveDown);
 
     map(.insert, &.{a(.control, .v)}, vim_like.paste);
 }

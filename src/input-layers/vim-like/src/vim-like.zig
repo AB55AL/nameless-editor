@@ -129,3 +129,24 @@ pub fn paste() void {
     //     print("input_layer.paste()\n\t{}\n", .{err});
     // };
 }
+
+pub fn moveRight() void {
+    var fbw = &(core.focusedBW() orelse return).data;
+    var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, true);
+    fbw.cursor = pos.rowCol();
+}
+pub fn moveLeft() void {
+    var fbw = &(core.focusedBW() orelse return).data;
+    var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, true);
+    fbw.cursor = pos.rowCol();
+}
+pub fn moveUp() void {
+    var fbw = &(core.focusedBW() orelse return).data;
+    var pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
+    fbw.cursor = pos.rowCol();
+}
+pub fn moveDown() void {
+    var fbw = &(core.focusedBW() orelse return).data;
+    var pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
+    fbw.cursor = pos.rowCol();
+}
