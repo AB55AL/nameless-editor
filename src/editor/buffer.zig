@@ -482,6 +482,18 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
     return .{ .row = row, .col = col };
 }
 
+pub fn rowColToRange(buffer: *Buffer, const_start: RowCol, const_end: RowCol) Range {
+    const start = const_start.min(const_end);
+    const end = const_start.max(const_end);
+
+    const start_index = buffer.getIndex(start);
+    var end_index = buffer.getIndex(end);
+    // offset end_index so that it includes the whole utf8 sequence
+    end_index += (buffer.codePointSliceAt(end_index) catch unreachable).len;
+
+    return .{ .start = start_index, .end = end_index };
+}
+
 pub const LineIterator = struct {
     const Self = @This();
 
