@@ -113,9 +113,26 @@ pub const Selection = struct {
     end: RowCol = .{},
     kind: Kind = .regular,
 
+    pub fn set(selection: *Selection, start: RowCol, end: RowCol) void {
+        const s = start.min(end);
+        const e = start.max(end);
+        selection.start = s;
+        selection.end = e;
+    }
+
+    pub fn selected(selection: Selection) bool {
+        return !std.meta.eql(selection.start, selection.end);
+    }
+
     pub fn reset(selection: *Selection) void {
         selection.start = .{};
         selection.end = selection.start;
+    }
+
+    pub fn selectedRowsCount(selection: Selection) u64 {
+        const s = selection.start.min(selection.end);
+        const e = selection.start.max(selection.end);
+        return e.row - s.row + 1;
     }
 };
 
@@ -313,7 +330,6 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
 
 pub fn insureLastByteIsNewline(buffer: *Buffer) !void {
     if (buffer.size() == 0 or buffer.lines.byteAt(buffer.size() - 1) != '\n') {
-        // std.debug.print("INSERTED NL\t", .{});
         try buffer.lines.insert(buffer.allocator, buffer.size(), "\n");
     }
 }
