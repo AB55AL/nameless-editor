@@ -429,24 +429,26 @@ pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
     assert(col > 0);
     var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
-    var char_count: u64 = 0;
-    var i: u64 = 0;
-    while (char_count < col - 1) {
-        const byte = buffer.lines.byteAt(i + index);
-        const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
-        if (byte == '\n') {
-            if (i > 0) i += 1; // if the line has more than just one newline char increment
-            break;
-        } else if (byte_seq_len > 0) {
-            char_count += 1;
-            i += byte_seq_len;
-        } else { // Continuation byte
-            i += 1;
+    if (rc.col == RowCol.last_col) {
+        return buffer.indexOfLastByteAtRow(row);
+    } else {
+        var i: u64 = 0;
+        var char_count: u64 = 0;
+        while (char_count < col - 1) {
+            const byte = buffer.lines.byteAt(i + index);
+            const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+            if (byte == '\n') {
+                if (i > 0) i += 1; // if the line has more than just one newline char increment
+                break;
+            } else if (byte_seq_len > 0) {
+                char_count += 1;
+                i += byte_seq_len;
+            } else { // Continuation byte
+                i += 1;
+            }
         }
+        return index + i;
     }
-
-    var result = index + i;
-    return result;
 }
 
 pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
