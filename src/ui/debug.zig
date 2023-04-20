@@ -57,10 +57,12 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
 pub fn inspectBuffers(arena: std.mem.Allocator) void {
     const static = struct {
         var selected: i32 = 0;
+        var buf = [_:0]u8{0} ** 1000;
+        var big_buf: [10_000]u8 = undefined;
     };
 
     if (editor.buffers.first != null) {
-        {
+        { // get the buffers
             var width: f32 = 250;
             _ = imgui.beginChild("Buffers", .{ .w = width, .flags = .{
                 .horizontal_scrollbar = true,
@@ -155,6 +157,27 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
                     if (string[string.len - 1] != '\n') imgui.sameLine(.{ .spacing = 0 });
                 }
             }
+        }
+
+        search: {
+            if (imgui.beginTabItem("search", .{})) {
+                defer imgui.endTabItem();
+
+                _ = imgui.inputText("Search", .{ .buf = &static.buf });
+                const len = std.mem.len(@as([*:0]u8, &static.buf));
+
+                var indices = buffer.search(arena, static.buf[0..len], 1, buffer.lineCount()) catch break :search;
+
+                if (indices != null) {
+                    for (indices.?) |index| {
+                        const rc = buffer.getRowAndCol(index);
+                        var line = buffer.getLineBuf(&static.big_buf, rc.row);
+                        imgui.text("RC {} {} I {}:{s}\n", .{ rc.row, rc.col, index, line });
+                    }
+                }
+            }
+
+            break :search;
         }
     }
 }
