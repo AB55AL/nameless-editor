@@ -46,6 +46,11 @@ pub const Position = struct {
     }
 };
 
+pub const RowColRange = struct {
+    start: RowCol,
+    end: RowCol,
+};
+
 pub const RowCol = struct {
     row: u64 = 1,
     col: u64 = 1,
@@ -109,30 +114,22 @@ pub const HistoryInfo = struct {
 
 pub const Selection = struct {
     const Kind = enum { regular, block, line };
-    start: RowCol = .{},
-    end: RowCol = .{},
+    anchor: RowCol = .{ .row = 0, .col = 0 }, // 0,0 means no selection
     kind: Kind = .regular,
 
-    pub fn set(selection: *Selection, start: RowCol, end: RowCol) void {
-        const s = start.min(end);
-        const e = start.max(end);
-        selection.start = s;
-        selection.end = e;
+    pub fn get(selection: Selection, cursor: RowCol) RowColRange {
+        return .{
+            .start = selection.anchor.min(cursor),
+            .end = selection.anchor.max(cursor),
+        };
     }
 
     pub fn selected(selection: Selection) bool {
-        return !std.meta.eql(selection.start, selection.end);
+        return !std.meta.eql(selection.anchor, .{ .row = 0, .col = 0 });
     }
 
     pub fn reset(selection: *Selection) void {
-        selection.start = .{};
-        selection.end = selection.start;
-    }
-
-    pub fn selectedRowsCount(selection: Selection) u64 {
-        const s = selection.start.min(selection.end);
-        const e = selection.start.max(selection.end);
-        return e.row - s.row + 1;
+        selection.anchor = .{ .row = 0, .col = 0 };
     }
 };
 
