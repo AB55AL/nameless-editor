@@ -17,7 +17,7 @@ const LineIterator = core.Buffer.LineIterator;
 pub fn buffers(allocator: std.mem.Allocator) !void {
     _ = imgui.begin("buffers", .{ .flags = .{
         .no_nav_focus = true,
-        .no_resize = true,
+        .no_resize = false,
         .no_scroll_with_mouse = true,
         .no_scrollbar = true,
     } });
@@ -40,6 +40,11 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 
 pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) void {
     var buffer_window = &buffer_window_node.data;
+    var dl = imgui.getWindowDrawList();
+    dl.pushClipRect(.{
+        .pmin = .{ buffer_window.rect.x, buffer_window.rect.y },
+        .pmax = .{ buffer_window.rect.x + width, buffer_window.rect.y + height },
+    });
 
     var id_buf: [100:0]u8 = undefined;
     var id = std.fmt.bufPrint(&id_buf, "buffer_window ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
@@ -61,9 +66,79 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     buffer_window.resetBufferWindowRowsToBufferCursor();
 
     var buffer = buffer_window.buffer;
+
     const cursor_index = buffer.getIndex(buffer_window.cursor);
 
-    {
+    // render selection
+    const selection = buffer.selection.get(buffer_window.cursor);
+    if (buffer.selection.selected() and utils.inRange(selection.start.row, buffer_window.first_visiable_row, buffer_window.lastVisibleRow()) and !std.meta.eql(buffer.selection.anchor, buffer_window.cursor)) {
+        const start = selection.start;
+        const end = selection.end;
+
+        const max_visible_lines: u64 = 1080;
+        const selected_rows = std.math.min(max_visible_lines, (selection.end.row - selection.start.row + 1));
+        var selection_rows_width: [max_visible_lines]f32 = .{0} ** max_visible_lines;
+        var selection_rows_offset: [max_visible_lines]f32 = .{0} ** max_visible_lines;
+
+        switch (buffer.selection.kind) { // get selection_rows_width
+            .line, .block => {
+                for (start.row..end.row + 1, 0..) |row, i| {
+                    if (buffer.selection.kind == .block and buffer.countCodePointsAtRow(row) < start.col) continue;
+                    selection_rows_width[i] += textLineSize(buffer, row, start.col, end.col)[0];
+                }
+            },
+            .regular => {
+                if (selected_rows == 1) {
+                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, end.col)[0];
+                } else if (selected_rows == 2) {
+                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, Buffer.RowCol.last_col)[0];
+                    selection_rows_width[1] = textLineSize(buffer, end.row, 1, end.col)[0];
+                } else {
+                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, Buffer.RowCol.last_col)[0];
+                    for (start.row + 1..end.row, 1..) |row, i| selection_rows_width[i] += textLineSize(buffer, row, 1, Buffer.RowCol.last_col)[0];
+                    selection_rows_width[selected_rows - 1] = textLineSize(buffer, end.row, 1, end.col)[0];
+                }
+            },
+        }
+
+        switch (buffer.selection.kind) { // get selection_rows_offset
+            .line => {}, // selection_rows_offset should be zero and is zero by default
+            .regular => {
+                if (start.col > 1) {
+                    selection_rows_offset[0] = textLineSize(buffer, start.row, 1, start.col)[0];
+                    // The rest should be zero and are zero by default
+                }
+            },
+            .block => {
+                if (start.col > 1) {
+                    for (start.row..end.row + 1, 0..) |row, i| {
+                        selection_rows_offset[i] = textLineSize(buffer, row, 1, start.col)[0];
+                    }
+                }
+            },
+        }
+
+        // now render the selection
+        const relative_row = buffer_window.relativeBufferRowFromAbsolute(start.row);
+        for (selection_rows_width[0..selected_rows], 0..selected_rows) |w, j| {
+            if (buffer.selection.kind == .block and w == 0) {
+                continue;
+            }
+
+            const pos = imgui.getWindowPos();
+            const padding = imgui.getStyle().window_padding;
+            const y = @intToFloat(f32, j + relative_row) * line_h + padding[1] + pos[1];
+            const x = padding[0] + selection_rows_offset[j] + pos[0];
+
+            dl.addRectFilled(.{
+                .pmin = .{ x, y },
+                .pmax = .{ x + w, y + line_h },
+                .col = getCursorRect(.{ 0, 0 }, .{ 0, 0 }).col,
+            });
+        }
+    }
+
+    { // render text
         var from = buffer_window.first_visiable_row;
         var to = buffer_window.lastVisibleRow();
         var iter = LineIterator.initLines(buffer, from, to);
@@ -74,10 +149,8 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
     }
 
-    { // render cursor
-
+    if (buffer_window == &core.focusedBW().?.data) { // render cursor
         const cursor_row = buffer_window.cursor.row;
-        var dl = imgui.getWindowDrawList();
 
         var padding = imgui.getStyle().window_padding;
         var win_pos = imgui.getWindowPos();
@@ -104,12 +177,12 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
             var s = imgui.calcTextSize(slice, .{});
             max[0] += s[0];
-            max[1] += s[1];
+            max[1] += line_h;
         }
 
         var rect = getCursorRect(min, max);
 
-        dl.addRect(.{
+        dl.addRectFilled(.{
             .pmin = rect.leftTop(),
             .pmax = rect.rightBottom(),
             .col = rect.col,
@@ -122,7 +195,6 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
                 .round_corners_bottom_right = rect.flags.round_corners_bottom_right,
                 .round_corners_none = rect.flags.round_corners_none,
             },
-            .thickness = rect.rounding,
         });
     }
 
@@ -146,6 +218,27 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     }
 }
 
+pub fn textLineSize(buffer: *Buffer, row: u64, col_start: u64, col_end: u64) [2]f32 {
+    const start = buffer.getIndex(.{ .row = row, .col = col_start });
+    const end = buffer.getIndex(.{ .row = row, .col = col_end });
+
+    var iter = BufferIterator.init(buffer, start, end);
+    var size: [2]f32 = .{ 0, 0 };
+    while (iter.next()) |string| {
+        const s = imgui.calcTextSize(string, .{});
+        size[0] += s[0];
+        size[1] += s[1];
+
+        if (string[string.len - 1] == '\n') {
+            const nls = imgui.calcTextSize("m", .{});
+            size[0] += nls[0];
+            size[1] += nls[1];
+        }
+    }
+
+    return size;
+}
+
 pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
     var rect = if (@hasDecl(input_layer, "cursorRect"))
         input_layer.cursorRect(min[0], min[1], max[0], max[1])
@@ -156,6 +249,9 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
             .right = max[0],
             .bottom = max[1],
         };
+
+    if (rect.right - rect.left == 0) rect.right += 1;
+    if (rect.bottom - rect.top == 0) rect.bottom += 1;
 
     return rect;
 }
