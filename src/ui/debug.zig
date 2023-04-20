@@ -63,19 +63,15 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         _ = imgui.beginTabBar("buffer fields", .{});
         defer imgui.endTabBar();
 
-        metadata: {
-            if (static.selected <= 0) break :metadata;
-
-            {
-                if (imgui.beginTabItem("metadata", .{})) {
-                    defer imgui.endTabItem();
-                    imgui.text("id: {}", .{buffer.id});
-                    imgui.text("File path: {s}", .{buffer.metadata.file_path});
-                    imgui.text("File type: {s}", .{buffer.metadata.file_type});
-                    imgui.text("Dirty: {}", .{buffer.metadata.dirty});
-                    imgui.text("Dirty history: {}", .{buffer.metadata.history_dirty});
-                    imgui.text("Last mod time: {}", .{buffer.metadata.file_last_mod_time});
-                }
+        { // metadata
+            if (imgui.beginTabItem("metadata", .{})) {
+                defer imgui.endTabItem();
+                imgui.text("id: {}", .{buffer.id});
+                imgui.text("File path: {s}", .{buffer.metadata.file_path});
+                imgui.text("File type: {s}", .{buffer.metadata.file_type});
+                imgui.text("Dirty: {}", .{buffer.metadata.dirty});
+                imgui.text("Dirty history: {}", .{buffer.metadata.history_dirty});
+                imgui.text("Last mod time: {}", .{buffer.metadata.file_last_mod_time});
             }
         }
 
