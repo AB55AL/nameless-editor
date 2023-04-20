@@ -45,6 +45,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
                 if (clicked) {
                     core.command_line.open();
                     var cli = &(core.focusedBW().?.data);
+                    cli.buffer.clear() catch break :open_cli;
                     cli.buffer.insertAt(0, " ") catch break :open_cli;
                     cli.buffer.insertAt(0, com) catch break :open_cli;
                     cli.cursor.col = Buffer.RowCol.last_col;

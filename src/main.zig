@@ -98,7 +98,7 @@ pub fn main() !void {
             const pos = imgui.getWindowPos();
             globals.ui.command_line_buffer_window.data.rect.x = pos[0];
             globals.ui.command_line_buffer_window.data.rect.y = pos[1];
-            _ = ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
+            buffers_focused = ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
         }
 
         imgui.backend.draw(window_size.width, window_size.height);
