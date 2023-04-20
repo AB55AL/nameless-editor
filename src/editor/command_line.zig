@@ -11,8 +11,8 @@ const buffer_ops = @import("../editor/buffer_ops.zig");
 const buffer_ui = @import("../ui/buffer.zig");
 const notify = @import("../ui/notify.zig");
 
-const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
-const CommandType = struct {
+pub const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
+pub const CommandType = struct {
     function: FuncType,
     description: []const u8,
 };
@@ -21,8 +21,6 @@ const globals = @import("../globals.zig");
 const ui = globals.ui;
 const editor = globals.editor;
 const internal = globals.internal;
-
-var command_function_lut: std.StringHashMap(FuncType) = undefined;
 
 const ParseError = error{
     DoubleQuoteInvalidPosition,
@@ -61,12 +59,12 @@ const Types = enum {
 };
 
 pub fn init() !void {
-    command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
+    editor.command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
     try default_commands.setDefaultCommands();
 }
 
 pub fn deinit() void {
-    command_function_lut.deinit();
+    editor.command_function_lut.deinit();
 }
 
 pub fn open() void {
@@ -105,7 +103,7 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype, comptime desc
 
     comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
 
-    try command_function_lut.put(command, .{
+    try editor.command_function_lut.put(command, .{
         .function = beholdMyFunctionInator(fn_ptr).funcy,
         .description = description,
     });
@@ -136,7 +134,7 @@ fn runCommand(command_string: []const u8) void {
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
-    const com = command_function_lut.get(command);
+    const com = editor.command_function_lut.get(command);
 
     if (com) |c| {
         c.function(args) catch |err| {

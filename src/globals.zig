@@ -12,10 +12,12 @@ const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
 const BufferWindowTree = buffer_ui.BufferWindowTree;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
+const command_line = @import("editor/command_line.zig");
 
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
+    pub var command_function_lut: std.StringHashMap(command_line.CommandType) = undefined;
     pub var registers = std.StringHashMapUnmanaged([]const u8){};
     pub const BufferNode = std.SinglyLinkedList(Buffer).Node;
 
