@@ -27,10 +27,15 @@ pub fn setDefaultCommands() !void {
     try add("forceSaveAndQuit", forceSaveAndQuitFocused);
 
     try add("im.demo", imDemo);
+    try add("ui.ins", bufferInspector);
 }
 
-fn imDemo() void {
-    globals.ui.imgui_demo = true;
+fn imDemo(value: bool) void {
+    globals.ui.imgui_demo = value;
+}
+
+fn bufferInspector(value: bool) void {
+    globals.ui.buffer_inspector = value;
 }
 
 fn open(file_path: []const u8) void {

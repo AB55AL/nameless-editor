@@ -1,6 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 const ArrayList = std.ArrayList;
+const builtin = @import("builtin");
 
 const registers = @import("editor/registers.zig");
 const buffer_ui = @import("ui/buffer.zig");
@@ -39,8 +40,9 @@ pub const ui = struct {
 
     pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
 
-    pub var imgui_demo = false;
     pub var gui_full_size = true;
+    pub var imgui_demo = builtin.mode == .Debug;
+    pub var buffer_inspector = builtin.mode == .Debug;
 };
 
 pub const internal = struct {
