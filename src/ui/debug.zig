@@ -53,6 +53,28 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
             }
         }
     }
+
+    if (imgui.beginTabItem("Registers", .{})) {
+        defer imgui.endTabItem();
+
+        imgui.beginTable("Registers", .{ .column = 2, .flags = .{ .row_bg = true } });
+        defer imgui.endTable();
+
+        imgui.tableSetupColumn("Register", .{ .flags = .{ .width_stretch = true } });
+        imgui.tableSetupColumn("Value", .{ .flags = .{ .width_stretch = true } });
+        imgui.tableHeadersRow();
+
+        var iter = editor.registers.iterator();
+        while (iter.next()) |kv| {
+            imgui.tableNextRow(.{});
+            const reg = kv.key_ptr.*;
+            const val = kv.value_ptr.*;
+            _ = imgui.tableSetColumnIndex(0);
+            imgui.textUnformatted(reg);
+            _ = imgui.tableSetColumnIndex(1);
+            imgui.textUnformatted(val);
+        }
+    }
 }
 
 pub fn inspectBuffers(arena: std.mem.Allocator) void {
