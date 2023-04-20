@@ -11,6 +11,7 @@ const globals = core.globals;
 
 const ui = @import("ui/ui.zig");
 const ui_glfw = @import("ui/glfw.zig");
+const ui_debug = @import("ui/debug.zig");
 
 const input_layer = @import("input_layer");
 const imgui = @import("imgui");
@@ -54,6 +55,10 @@ pub fn main() !void {
     defer imgui.backend.deinit();
 
     while (!window.shouldClose()) {
+        var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena_instance.deinit();
+        const arena = arena_instance.allocator();
+
         globals.input.key_queue.resize(0) catch unreachable;
         globals.input.char_queue.resize(0) catch unreachable;
         glfw.pollEvents();
@@ -62,6 +67,7 @@ pub fn main() !void {
         imgui.backend.newFrame();
 
         if (globals.ui.imgui_demo) imgui.showDemoWindow(&globals.ui.imgui_demo);
+        ui_debug.inspectBuffers(arena);
 
         const window_size = window.getSize();
         if (globals.ui.gui_full_size) {
