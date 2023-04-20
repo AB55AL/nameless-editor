@@ -86,20 +86,13 @@ pub fn createPathLessBuffer() !*Buffer {
 /// Given an *index* searches the editor.buffers array for a buffer
 /// matching either.
 /// Returns null if the buffer isn't found.
-pub fn getBufferI(index: u32) ?*Buffer {
-    if (editor.buffers.first == null) return null;
-
-    var buffer_node = editor.buffers.first.?;
-    var buffer = &buffer_node.data;
-    while (true) {
-        if (buffer.id == index) {
-            return buffer;
-        } else if (buffer_node.next) |n| {
-            buffer_node = n;
-        } else {
-            return null;
-        }
+pub fn getBufferI(id: u32) ?*Buffer {
+    var buffer_node = editor.buffers.first;
+    while (buffer_node) |bf| {
+        if (bf.data.id == id) return &bf.data;
+        buffer_node = bf.next;
     }
+    return null;
 }
 
 fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
