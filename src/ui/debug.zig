@@ -4,19 +4,10 @@ const imgui = @import("imgui");
 
 const core = @import("core");
 
+const ui = @import("ui.zig");
 const Buffer = core.Buffer;
 const globals = core.globals;
 const editor = globals.editor;
-
-pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
-    const static = struct {
-        var buf: [10_000:0]u8 = undefined;
-    };
-    var slice = std.fmt.bufPrintZ(&static.buf, fmt, args) catch unreachable;
-    static.buf[slice.len] = 0;
-
-    return &static.buf;
-}
 
 pub fn inspectBuffers(arena: std.mem.Allocator) void {
     const static = struct {
@@ -44,9 +35,9 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
                     // shorten /home/user to ~/
                     const home = std.os.getenv("HOME");
                     if (home) |h|
-                        break :blk tmpString("{s}{s}", .{ "~/", m.file_path[h.len + 1 ..] })
+                        break :blk ui.tmpString("{s}{s}", .{ "~/", m.file_path[h.len + 1 ..] })
                     else
-                        break :blk tmpString("{s}", .{m.file_path});
+                        break :blk ui.tmpString("{s}", .{m.file_path});
                 };
 
                 if (imgui.selectable(string, .{ .flags = .{} })) static.selected = @intCast(i32, b.id);

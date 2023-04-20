@@ -14,6 +14,16 @@ const Buffer = core.Buffer;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
+pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
+    const static = struct {
+        var buf: [10_000:0]u8 = undefined;
+    };
+    var slice = std.fmt.bufPrintZ(&static.buf, fmt, args) catch unreachable;
+    static.buf[slice.len] = 0;
+
+    return &static.buf;
+}
+
 pub fn buffers(allocator: std.mem.Allocator) !void {
     _ = imgui.begin("buffers", .{ .flags = .{
         .no_nav_focus = true,
@@ -46,11 +56,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         .pmax = .{ buffer_window.rect.x + width, buffer_window.rect.y + height },
     });
 
-    var id_buf: [100:0]u8 = undefined;
-    var id = std.fmt.bufPrint(&id_buf, "buffer_window ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
-    id_buf[id.len] = 0;
-
-    _ = imgui.beginChild(&id_buf, .{
+    _ = imgui.beginChild(tmpString("buffer_window ({x})", .{@ptrToInt(buffer_window)}), .{
         .w = width,
         .h = height,
         .border = true,
@@ -205,10 +211,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         pos[0] -= imgui.getStyle().window_padding[0];
         imgui.setCursorPos(pos);
 
-        id = std.fmt.bufPrint(&id_buf, "##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}) catch unreachable;
-        id_buf[id.len] = 0;
-
-        const clicked = imgui.invisibleButton(&id_buf, .{
+        const clicked = imgui.invisibleButton(tmpString("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
             .w = width,
             .h = height,
         });
