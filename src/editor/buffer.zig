@@ -377,6 +377,41 @@ pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
     return slice;
 }
 
+/// Searches the buffer for *string* and returns a slice of indices of all occurrences
+/// within the given range
+pub fn search(buffer: *Buffer, allocator: std.mem.Allocator, string: []const u8, start_row: u64, end_row: u64) !?[]u64 {
+    if (string.len == 0) return null;
+
+    const largest_line_size = blk: {
+        var s: u64 = 0;
+        for (start_row..end_row + 1) |row| s = max(s, buffer.lineSize(row));
+        break :blk s;
+    };
+
+    var line_buf = try buffer.allocator.alloc(u8, largest_line_size);
+    defer buffer.allocator.free(line_buf);
+
+    var indices = std.ArrayListUnmanaged(u64){};
+    errdefer indices.deinit(allocator);
+
+    for (start_row..end_row + 1) |row| {
+        const full_line = buffer.getLineBuf(line_buf, row);
+        var slicer: u64 = 0;
+        while (slicer < full_line.len) { // get all matches of string in the same line
+            var line = full_line[slicer..];
+            if (line.len < string.len) break;
+
+            var index = std.mem.indexOf(u8, line, string);
+            if (index) |i| {
+                try indices.append(allocator, slicer + i + buffer.indexOfFirstByteAtRow(row));
+                slicer += string.len + i;
+            } else break;
+        }
+    }
+
+    return if (indices.items.len == 0) null else indices.items;
+}
+
 pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
     utils.assert(row <= buffer.lineCount(), "");
     utils.assert(buf.len >= buffer.lineSize(row), "");
