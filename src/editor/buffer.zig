@@ -379,7 +379,7 @@ pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
 
 pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
     utils.assert(row <= buffer.lineCount(), "");
-    utils.assert(buf.len <= buffer.lineSize(row), "");
+    utils.assert(buf.len >= buffer.lineSize(row), "");
 
     var iter = LineIterator.initLines(buffer, row, row);
     var start: u64 = 0;
