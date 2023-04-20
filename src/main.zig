@@ -68,9 +68,9 @@ pub fn main() !void {
 
         if (globals.internal.extra_frames != 0) glfw.pollEvents() else glfw.waitEvents();
 
-        input_layer.handleInput();
-
         imgui.backend.newFrame();
+
+        input_layer.handleInput();
 
         if (globals.ui.imgui_demo) {
             imgui.showDemoWindow(&globals.ui.imgui_demo);
