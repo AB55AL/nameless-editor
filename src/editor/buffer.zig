@@ -71,9 +71,9 @@ pub const RowCol = struct {
         if (a.row > b.row) return a else return b;
     }
 
-    pub fn moveRelativeColumn(rc: RowCol, buffer: *Buffer, col_offset: i64, stop_before_newline: bool) Position {
+    pub fn moveRelativeColumn(rc: RowCol, buffer: *Buffer, col_offset: i64, stop_at_newline: bool) Position {
         const index = buffer.getIndex(rc);
-        return buffer.moveRelativeColumn(index, col_offset, stop_before_newline);
+        return buffer.moveRelativeColumn(index, col_offset, stop_at_newline);
     }
 
     pub fn moveRelativeRow(rc: RowCol, buffer: *Buffer, row_offset: i64) Position {
@@ -725,7 +725,7 @@ pub fn lineCount(buffer: *Buffer) u64 {
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_before_newline: bool) Position {
+pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_at_newline: bool) Position {
     if (col_offset == 0 or (index == 0 and col_offset <= 0)) {
         const rc = buffer.getRowAndCol(index);
         return .{ .index = index, .row = rc.row, .col = rc.col };
@@ -737,7 +737,7 @@ pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_bef
         while (characters != col_offset) {
             const byte = buffer.lines.byteAt(i);
             if (byte == '\n') {
-                if (!stop_before_newline) i += 1;
+                if (!stop_at_newline) i += 1;
                 break;
             }
 
@@ -755,7 +755,7 @@ pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_bef
         while (characters != -col_offset) {
             const byte = buffer.lines.byteAt(if (i == 0) 0 else i - 1);
             if (byte == '\n') {
-                i -= 1;
+                if (!stop_at_newline) i -= 1;
                 break;
             }
             switch (utf8.byteType(byte)) {
