@@ -382,13 +382,13 @@ pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
     utils.assert(buf.len >= buffer.lineSize(row), "");
 
     var iter = LineIterator.initLines(buffer, row, row);
-    var start: u64 = 0;
+    var i: u64 = 0;
     while (iter.next()) |slice| {
-        std.mem.copy(u8, buf[start..], slice);
-        start += slice.len;
+        std.mem.copy(u8, buf[i..], slice);
+        i += slice.len;
     }
 
-    return buf;
+    return buf[0..i];
 }
 
 pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) []u8 {
@@ -398,13 +398,13 @@ pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) 
     utils.assert(buf.len <= buffer.lineRangeSize(first_line, last_line), "");
 
     var iter = LineIterator.initLines(buffer, first_line, last_line);
-    var start: u64 = 0;
+    var i: u64 = 0;
     while (iter.next()) |slice| {
-        std.mem.copy(u8, buf[start..], slice);
-        start += slice.len;
+        std.mem.copy(u8, buf[i..], slice);
+        i += slice.len;
     }
 
-    return buf;
+    return buf[0..i];
 }
 
 pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
