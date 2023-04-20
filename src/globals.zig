@@ -38,6 +38,9 @@ pub const ui = struct {
     pub var command_line_buffer_window: BufferWindowNode = undefined;
 
     pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
+
+    pub var imgui_demo = false;
+    pub var gui_full_size = true;
 };
 
 pub const internal = struct {

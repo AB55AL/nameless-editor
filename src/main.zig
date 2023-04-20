@@ -53,7 +53,6 @@ pub fn main() !void {
     imgui.backend.init(window.handle, true, "#version 330");
     defer imgui.backend.deinit();
 
-    var show_demo_window = true;
     while (!window.shouldClose()) {
         globals.input.key_queue.resize(0) catch unreachable;
         globals.input.char_queue.resize(0) catch unreachable;
@@ -62,10 +61,13 @@ pub fn main() !void {
 
         imgui.backend.newFrame();
 
-        imgui.showDemoWindow(&show_demo_window);
+        imgui.showDemoWindow(&globals.ui.imgui_demo);
 
         const window_size = window.getSize();
-        imgui.setNextWindowSize(.{ .w = @intToFloat(f32, window_size.width), .h = @intToFloat(f32, window_size.height) });
+        if (globals.ui.gui_full_size) {
+            imgui.setNextWindowSize(.{ .w = @intToFloat(f32, window_size.width), .h = @intToFloat(f32, window_size.height) });
+            globals.ui.gui_full_size = false;
+        }
         imgui.setNextWindowPos(.{ .x = 0, .y = 0 });
         try ui.buffers(allocator);
 
