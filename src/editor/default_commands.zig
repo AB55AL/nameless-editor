@@ -25,6 +25,12 @@ pub fn setDefaultCommands() !void {
     try add("forceKill", forceKillFocused);
     try add("sq", saveAndQuitFocused);
     try add("forceSaveAndQuit", forceSaveAndQuitFocused);
+
+    try add("im.demo", imDemo);
+}
+
+fn imDemo() void {
+    globals.ui.imgui_demo = true;
 }
 
 fn open(file_path: []const u8) void {

@@ -61,7 +61,7 @@ pub fn main() !void {
 
         imgui.backend.newFrame();
 
-        imgui.showDemoWindow(&globals.ui.imgui_demo);
+        if (globals.ui.imgui_demo) imgui.showDemoWindow(&globals.ui.imgui_demo);
 
         const window_size = window.getSize();
         if (globals.ui.gui_full_size) {
