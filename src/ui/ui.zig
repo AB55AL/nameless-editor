@@ -28,31 +28,37 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     return &static.buf;
 }
 
-pub fn buffers(allocator: std.mem.Allocator) !void {
-    _ = imgui.begin("buffers", .{ .flags = .{
+pub fn buffers(allocator: std.mem.Allocator) !bool {
+    defer imgui.end();
+    if (!imgui.begin("buffers", .{ .flags = .{
         .no_nav_focus = true,
         .no_resize = false,
         .no_scroll_with_mouse = true,
         .no_scrollbar = true,
-    } });
-    defer imgui.end();
+    } })) return false;
 
     var bw_tree = core.globals.ui.visiable_buffers_tree.root orelse {
         core.command_line.open();
-        return;
+        return false;
     };
+
+    var window_focused = false;
 
     var size = imgui.getWindowSize();
     var rect = core.BufferWindow.Rect{ .w = size[0], .h = size[1] };
     var windows = try core.BufferWindow.getAndSetWindows(bw_tree, allocator, rect);
     defer allocator.free(windows);
     for (windows) |bw| {
+        imgui.pushItemWidth(500);
         imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
-        bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
+        const buffer_focused = bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
+        window_focused = window_focused or buffer_focused;
     }
+
+    return imgui.isWindowFocused(.{}) or window_focused;
 }
 
-pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) void {
+pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) bool {
     const static = struct {
         pub var buf: [max_visible_bytes]u8 = undefined;
     };
@@ -71,6 +77,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         .flags = .{ .no_scroll_with_mouse = true, .no_scrollbar = true },
     });
     defer imgui.endChild();
+
     const begin_cursor_pos = imgui.getCursorPos();
 
     if (new_line) imgui.newLine();
@@ -218,10 +225,13 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             .w = width,
             .h = height,
         });
+        const focused = imgui.isItemFocused();
 
-        if (clicked) {
+        if (clicked or focused) {
             if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
         }
+
+        return focused or clicked;
     }
 }
 

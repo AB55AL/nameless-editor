@@ -54,6 +54,7 @@ pub fn main() !void {
     imgui.backend.init(window.handle, true, "#version 330");
     defer imgui.backend.deinit();
 
+    var buffers_focused = true;
     while (!window.shouldClose()) {
         defer {
             if (globals.internal.extra_frames > 0) globals.internal.extra_frames -= 1;
@@ -70,7 +71,8 @@ pub fn main() !void {
 
         imgui.backend.newFrame();
 
-        input_layer.handleInput();
+        // only handle buffer input when buffers are focused
+        if (buffers_focused) input_layer.handleInput();
 
         if (globals.ui.imgui_demo) {
             imgui.showDemoWindow(&globals.ui.imgui_demo);
@@ -84,7 +86,7 @@ pub fn main() !void {
             globals.ui.gui_full_size = false;
         }
         imgui.setNextWindowPos(.{ .x = 0, .y = 0 });
-        try ui.buffers(allocator);
+        buffers_focused = try ui.buffers(allocator);
 
         if (globals.editor.command_line_is_open) {
             _ = imgui.begin("command line", .{
@@ -96,7 +98,7 @@ pub fn main() !void {
             const pos = imgui.getWindowPos();
             globals.ui.command_line_buffer_window.data.rect.x = pos[0];
             globals.ui.command_line_buffer_window.data.rect.y = pos[1];
-            ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
+            _ = ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
         }
 
         imgui.backend.draw(window_size.width, window_size.height);
