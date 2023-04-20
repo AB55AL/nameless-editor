@@ -14,6 +14,10 @@ const Buffer = core.Buffer;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
+const max_visible_rows: u64 = 4000;
+const max_visible_cols: u64 = 4000;
+const max_visible_bytes = max_visible_cols * 4; // multiply by 4 because a UTF-8 sequence can be 4 bytes long
+
 pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     const static = struct {
         var buf: [10_000:0]u8 = undefined;
@@ -49,6 +53,10 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 }
 
 pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) void {
+    const static = struct {
+        pub var buf: [max_visible_bytes]u8 = undefined;
+    };
+
     var buffer_window = &buffer_window_node.data;
     var dl = imgui.getWindowDrawList();
     dl.pushClipRect(.{
@@ -81,10 +89,9 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         const start = selection.start;
         const end = selection.end;
 
-        const max_visible_lines: u64 = 1080;
-        const selected_rows = std.math.min(max_visible_lines, (selection.end.row - selection.start.row + 1));
-        var selection_rows_width: [max_visible_lines]f32 = .{0} ** max_visible_lines;
-        var selection_rows_offset: [max_visible_lines]f32 = .{0} ** max_visible_lines;
+        const selected_rows = std.math.min(max_visible_rows, (selection.end.row - selection.start.row + 1));
+        var selection_rows_width: [max_visible_rows]f32 = .{0} ** max_visible_rows;
+        var selection_rows_offset: [max_visible_rows]f32 = .{0} ** max_visible_rows;
 
         switch (buffer.selection.kind) { // get selection_rows_width
             .line, .block => {
@@ -146,13 +153,11 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     }
 
     { // render text
-        var from = buffer_window.first_visiable_row;
-        var to = buffer_window.lastVisibleRow();
-        var iter = LineIterator.initLines(buffer, from, to);
-
-        while (iter.next()) |string| {
-            imgui.textUnformatted(string);
-            if (string[string.len - 1] != '\n') imgui.sameLine(.{ .spacing = 0 });
+        const start = buffer_window.first_visiable_row;
+        const end = buffer_window.lastVisibleRow() + 1;
+        for (start..end) |row| {
+            const line = getVisibleLine(buffer, &static.buf, row);
+            imgui.textUnformatted(line);
         }
     }
 
@@ -161,20 +166,18 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
         var padding = imgui.getStyle().window_padding;
         var win_pos = imgui.getWindowPos();
+
         var min: [2]f32 = .{ 0, 0 };
         min[0] = win_pos[0] + padding[0];
+
         var relative_row = @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row));
         if (!new_line) relative_row -= 1;
+
         min[1] = (line_h * relative_row) + win_pos[1] + padding[1];
 
         { // get the x position of the cursor
-            var from = buffer.indexOfFirstByteAtRow(cursor_row);
-            var to = cursor_index;
-            var iter = BufferIterator.init(buffer, from, to);
-            while (iter.next()) |string| {
-                var s = imgui.calcTextSize(string, .{});
-                min[0] += s[0];
-            }
+            const s = textLineSize(buffer, cursor_row, 1, buffer_window.cursor.col);
+            min[0] += s[0];
         }
 
         var max = min;
@@ -220,6 +223,21 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
         }
     }
+}
+
+pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
+    const start = buffer.getIndex(.{ .row = row, .col = 1 });
+    const end = buffer.getIndex(.{ .row = row, .col = max_visible_cols });
+    var iter = Buffer.BufferIterator.init(buffer, start, end);
+    var i: u64 = 0;
+    while (iter.next()) |string| {
+        for (string) |b| {
+            array_buf[i] = b;
+            i += 1;
+        }
+    }
+
+    return array_buf[0..i];
 }
 
 pub fn textLineSize(buffer: *Buffer, row: u64, col_start: u64, col_end: u64) [2]f32 {
