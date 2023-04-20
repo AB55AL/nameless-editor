@@ -12,22 +12,22 @@ const editor = globals.editor;
 const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
-    try add("o", open);
-    try add("oe", openEast);
-    try add("ow", openWest);
-    try add("on", openNorth);
-    try add("os", openSouth);
+    try add("o", open, "Open a buffer on the current window");
+    try add("oe", openEast, "Open a buffer east of the current window");
+    try add("ow", openWest, "Open a buffer west of the current window");
+    try add("on", openNorth, "Open a buffer north of the current window");
+    try add("os", openSouth, "Open a buffer south of the current window");
 
-    try add("save", saveFocused);
-    try add("saveAs", saveAsFocused);
-    try add("forceSave", forceSaveFocused);
-    try add("kill", killFocused);
-    try add("forceKill", forceKillFocused);
-    try add("sq", saveAndQuitFocused);
-    try add("forceSaveAndQuit", forceSaveAndQuitFocused);
+    try add("save", saveFocused, "Save the buffer");
+    try add("saveAs", saveAsFocused, "Save the buffer as");
+    try add("forceSave", forceSaveFocused, "Force the buffer to save");
+    try add("kill", killFocused, "Kill the focused buffer window");
+    try add("forceKill", forceKillFocused, "Force kill the focused buffer window");
+    try add("sq", saveAndQuitFocused, "Save and kill the focused buffer window");
+    try add("forceSaveAndQuit", forceSaveAndQuitFocused, "Force save and kill the focused buffer window");
 
-    try add("im.demo", imDemo);
-    try add("ui.ins", bufferInspector);
+    try add("im.demo", imDemo, "Show imgui demo window");
+    try add("ui.ins", bufferInspector, "Show the buffer inspector");
 }
 
 fn imDemo(value: bool) void {

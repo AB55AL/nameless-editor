@@ -12,6 +12,10 @@ const buffer_ui = @import("../ui/buffer.zig");
 const notify = @import("../ui/notify.zig");
 
 const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
+const CommandType = struct {
+    function: FuncType,
+    description: []const u8,
+};
 
 const globals = @import("../globals.zig");
 const ui = globals.ui;
@@ -57,7 +61,7 @@ const Types = enum {
 };
 
 pub fn init() !void {
-    command_function_lut = std.StringHashMap(FuncType).init(internal.allocator);
+    command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
     try default_commands.setDefaultCommands();
 }
 
@@ -92,7 +96,7 @@ pub fn run() !void {
     runCommand(command_str[0 .. len - 1]);
 }
 
-pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
+pub fn add(comptime command: []const u8, comptime fn_ptr: anytype, comptime description: []const u8) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
@@ -101,7 +105,10 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype) !void {
 
     comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
 
-    try command_function_lut.put(command, beholdMyFunctionInator(fn_ptr).funcy);
+    try command_function_lut.put(command, .{
+        .function = beholdMyFunctionInator(fn_ptr).funcy,
+        .description = description,
+    });
 }
 
 fn runCommand(command_string: []const u8) void {
@@ -129,10 +136,10 @@ fn runCommand(command_string: []const u8) void {
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
-    const function = command_function_lut.get(command);
+    const com = command_function_lut.get(command);
 
-    if (function) |f| {
-        f(args) catch |err| {
+    if (com) |c| {
+        c.function(args) catch |err| {
             if (err == CommandRunError.FunctionCommandMismatchedTypes) {
                 print("The command args do not match the function\n", .{});
                 notify.notify("Command Line Error:", "The command args do not match the function", 3);
