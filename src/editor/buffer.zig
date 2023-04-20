@@ -131,6 +131,8 @@ pub const Selection = struct {
             end.col = temp;
         }
 
+        end.col +|= 1; // end exclusive
+
         return switch (selection.kind) {
             .regular, .block => .{ .start = start, .end = end },
             .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row, .col = RowCol.last_col } },
@@ -510,14 +512,15 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
     return .{ .row = row, .col = col };
 }
 
-pub fn rowColToRange(buffer: *Buffer, const_start: RowCol, const_end: RowCol) Range {
-    const start = const_start.min(const_end);
-    const end = const_start.max(const_end);
+pub fn rowColRangeToRange(buffer: *Buffer, range: RowColRange) Range {
+    const start = range.start.min(range.end);
+    const end = range.start.max(range.end);
 
     const start_index = buffer.getIndex(start);
     var end_index = buffer.getIndex(end);
     // offset end_index so that it includes the whole utf8 sequence
-    end_index += (buffer.codePointSliceAt(end_index) catch unreachable).len;
+    // The RowColRange is already end exclusive that's why we subtract 1
+    end_index += (buffer.codePointSliceAt(end_index) catch unreachable).len - 1;
 
     return .{ .start = start_index, .end = end_index };
 }
@@ -530,13 +533,13 @@ pub const LineIterator = struct {
     end: u64,
     current_line: u64,
 
-    pub fn initRC(buffer: *Buffer, start: RowCol, end: RowCol) LineIterator {
-        const range = buffer.rowColToRange(start, end);
+    pub fn initRC(buffer: *Buffer, range: RowColRange) LineIterator {
+        const r = buffer.rowColRangeToRange(range);
         return .{
             .buffer = buffer,
-            .start = range.start,
-            .end = range.end,
-            .current_line = start.min(end).row,
+            .start = r.start,
+            .end = r.end,
+            .current_line = range.start.min(range.end).row,
         };
     }
 
