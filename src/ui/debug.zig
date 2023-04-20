@@ -9,13 +9,55 @@ const Buffer = core.Buffer;
 const globals = core.globals;
 const editor = globals.editor;
 
+pub fn inspectEditor(arena: std.mem.Allocator) void {
+    defer imgui.end();
+    if (!imgui.begin("editor inspector", .{})) return;
+
+    _ = imgui.beginTabBar("Tabs", .{});
+    defer imgui.endTabBar();
+
+    if (imgui.beginTabItem("buffer inspector", .{})) {
+        defer imgui.endTabItem();
+        inspectBuffers(arena);
+    }
+
+    if (imgui.beginTabItem("Commands", .{})) {
+        defer imgui.endTabItem();
+
+        imgui.beginTable("Commands table", .{ .column = 2, .flags = .{ .row_bg = true } });
+        defer imgui.endTable();
+
+        imgui.tableSetupColumn("Command", .{ .flags = .{ .width_stretch = true } });
+        imgui.tableSetupColumn("Description", .{ .flags = .{ .width_stretch = true } });
+        imgui.tableHeadersRow();
+
+        var iter = globals.editor.command_function_lut.iterator();
+        while (iter.next()) |kv| {
+            imgui.tableNextRow(.{});
+            const com = kv.key_ptr.*;
+            const desc = kv.value_ptr.*.description;
+            _ = imgui.tableSetColumnIndex(0);
+            var clicked = imgui.selectable(ui.tmpString("{s}", .{com}), .{});
+            _ = imgui.tableSetColumnIndex(1);
+            clicked = clicked or imgui.selectable(ui.tmpString("{s}", .{desc}), .{});
+
+            open_cli: {
+                if (clicked) {
+                    core.command_line.open();
+                    var cli = &(core.focusedBW().?.data);
+                    cli.buffer.insertAt(0, " ") catch break :open_cli;
+                    cli.buffer.insertAt(0, com) catch break :open_cli;
+                    cli.cursor.col = Buffer.RowCol.last_col;
+                }
+            }
+        }
+    }
+}
+
 pub fn inspectBuffers(arena: std.mem.Allocator) void {
     const static = struct {
         var selected: i32 = 0;
     };
-
-    defer imgui.end();
-    if (!imgui.begin("buffers inspector", .{})) return;
 
     if (editor.buffers.first != null) {
         {

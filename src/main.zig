@@ -76,7 +76,7 @@ pub fn main() !void {
             imgui.showDemoWindow(&globals.ui.imgui_demo);
             core.extraFrames(.two);
         }
-        if (globals.ui.buffer_inspector) ui_debug.inspectBuffers(arena);
+        if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
 
         const window_size = window.getSize();
         if (globals.ui.gui_full_size) {

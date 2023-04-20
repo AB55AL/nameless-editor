@@ -27,7 +27,7 @@ pub fn setDefaultCommands() !void {
     try add("forceSaveAndQuit", forceSaveAndQuitFocused, "Force save and kill the focused buffer window");
 
     try add("im.demo", imDemo, "Show imgui demo window");
-    try add("ui.ins", bufferInspector, "Show the buffer inspector");
+    try add("ui.ins", bufferInspector, "Show the editor inspector");
 }
 
 fn imDemo(value: bool) void {
@@ -35,7 +35,7 @@ fn imDemo(value: bool) void {
 }
 
 fn bufferInspector(value: bool) void {
-    globals.ui.buffer_inspector = value;
+    globals.ui.inspect_editor = value;
 }
 
 fn open(file_path: []const u8) void {

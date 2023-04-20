@@ -44,7 +44,7 @@ pub const ui = struct {
 
     pub var gui_full_size = true;
     pub var imgui_demo = builtin.mode == .Debug;
-    pub var buffer_inspector = builtin.mode == .Debug;
+    pub var inspect_editor = builtin.mode == .Debug;
 };
 
 pub const internal = struct {
