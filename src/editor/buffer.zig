@@ -52,6 +52,8 @@ pub const RowColRange = struct {
 };
 
 pub const RowCol = struct {
+    pub const last_col = std.math.maxInt(u64);
+
     row: u64 = 1,
     col: u64 = 1,
 
@@ -118,9 +120,20 @@ pub const Selection = struct {
     kind: Kind = .regular,
 
     pub fn get(selection: Selection, cursor: RowCol) RowColRange {
-        return .{
-            .start = selection.anchor.min(cursor),
-            .end = selection.anchor.max(cursor),
+        var start = selection.anchor.min(cursor);
+        var end = selection.anchor.max(cursor);
+        start.col = max(start.col, 1);
+        end.col = max(end.col, 1);
+
+        if (selection.kind == .block and end.col < start.col) {
+            const temp = start.col;
+            start.col = end.col;
+            end.col = temp;
+        }
+
+        return switch (selection.kind) {
+            .regular, .block => .{ .start = start, .end = end },
+            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row, .col = RowCol.last_col } },
         };
     }
 
