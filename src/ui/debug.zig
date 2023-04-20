@@ -14,8 +14,8 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         var selected: i32 = 0;
     };
 
-    if (!imgui.begin("buffers inspector", .{})) return;
     defer imgui.end();
+    if (!imgui.begin("buffers inspector", .{})) return;
 
     if (editor.buffers.first != null) {
         {
