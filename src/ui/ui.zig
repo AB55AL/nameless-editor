@@ -119,7 +119,8 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
 
         // now render the selection
-        const relative_row = buffer_window.relativeBufferRowFromAbsolute(start.row);
+        var relative_row = buffer_window.relativeBufferRowFromAbsolute(start.row);
+        if (!new_line) relative_row -= 1;
         for (selection_rows_width[0..selected_rows], 0..selected_rows) |w, j| {
             if (buffer.selection.kind == .block and w == 0) {
                 continue;

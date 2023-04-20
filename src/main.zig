@@ -78,6 +78,9 @@ pub fn main() !void {
             defer imgui.end();
 
             const size = imgui.getWindowSize();
+            const pos = imgui.getWindowPos();
+            globals.ui.command_line_buffer_window.data.rect.x = pos[0];
+            globals.ui.command_line_buffer_window.data.rect.y = pos[1];
             ui.bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
         }
 
