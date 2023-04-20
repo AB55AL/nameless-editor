@@ -63,12 +63,17 @@ pub fn getModeFunctions(mode: Mode, file_type: []const u8, keys: []const Key) Ma
 ////////////////////////////////////////////////////////////////////////////////
 pub fn setNormalMode() void {
     setMode(.normal);
+    resetSelection(&(core.focusedBW() orelse return).data);
 }
 pub fn setInsertMode() void {
     setMode(.insert);
+    resetSelection(&(core.focusedBW() orelse return).data);
 }
 pub fn setVisualMode() void {
     setMode(.visual);
+
+    var fbw = &(core.focusedBW() orelse return).data;
+    fbw.buffer.selection.anchor = fbw.cursor;
 }
 
 pub fn openCommandLine() void {
@@ -133,20 +138,28 @@ pub fn paste() void {
 pub fn moveRight() void {
     var fbw = &(core.focusedBW() orelse return).data;
     var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, true);
+    resetSelection(fbw);
     fbw.cursor = pos.rowCol();
 }
 pub fn moveLeft() void {
     var fbw = &(core.focusedBW() orelse return).data;
     var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, true);
+    resetSelection(fbw);
     fbw.cursor = pos.rowCol();
 }
 pub fn moveUp() void {
     var fbw = &(core.focusedBW() orelse return).data;
     var pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
+    resetSelection(fbw);
     fbw.cursor = pos.rowCol();
 }
 pub fn moveDown() void {
     var fbw = &(core.focusedBW() orelse return).data;
     var pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
+    resetSelection(fbw);
     fbw.cursor = pos.rowCol();
+}
+
+fn resetSelection(fbw: *core.BufferWindow) void {
+    if (state.mode != .visual) fbw.buffer.selection.reset();
 }

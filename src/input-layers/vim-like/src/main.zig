@@ -126,7 +126,15 @@ fn setDefaultMappnigsInsertMode() void {
     map(.insert, &.{a(.control, .v)}, vim_like.paste);
 }
 
-fn setDefaultMappnigsVisualMode() void {}
+fn setDefaultMappnigsVisualMode() void {
+    const f = input.functionKey;
+    _ = f;
+    const a = input.asciiKey;
+    map(.visual, &.{a(.none, .h)}, vim_like.moveLeft);
+    map(.visual, &.{a(.none, .j)}, vim_like.moveDown);
+    map(.visual, &.{a(.none, .k)}, vim_like.moveUp);
+    map(.visual, &.{a(.none, .l)}, vim_like.moveRight);
+}
 
 fn logKey(key: Key) void {
     const end = log_file.getEndPos() catch return;

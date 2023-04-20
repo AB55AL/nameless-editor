@@ -16,7 +16,7 @@ pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindo
         .left = left,
         .bottom = bottom,
         .right = right,
-        .col = 0xFFFFFF_FF,
+        .col = 0xAAAAAA00 + 128,
     };
 
     switch (vim_like.state.mode) {
