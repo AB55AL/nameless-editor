@@ -55,18 +55,27 @@ pub fn main() !void {
     defer imgui.backend.deinit();
 
     while (!window.shouldClose()) {
+        defer {
+            if (globals.internal.extra_frames > 0) globals.internal.extra_frames -= 1;
+
+            globals.input.key_queue.resize(0) catch unreachable;
+            globals.input.char_queue.resize(0) catch unreachable;
+        }
+
         var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
         defer arena_instance.deinit();
         const arena = arena_instance.allocator();
 
-        globals.input.key_queue.resize(0) catch unreachable;
-        globals.input.char_queue.resize(0) catch unreachable;
-        glfw.pollEvents();
+        if (globals.internal.extra_frames != 0) glfw.pollEvents() else glfw.waitEvents();
+
         input_layer.handleInput();
 
         imgui.backend.newFrame();
 
-        if (globals.ui.imgui_demo) imgui.showDemoWindow(&globals.ui.imgui_demo);
+        if (globals.ui.imgui_demo) {
+            imgui.showDemoWindow(&globals.ui.imgui_demo);
+            core.extraFrames(.two);
+        }
         if (globals.ui.buffer_inspector) ui_debug.inspectBuffers(arena);
 
         const window_size = window.getSize();
