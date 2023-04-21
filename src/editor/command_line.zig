@@ -73,13 +73,14 @@ pub fn open() void {
     ui.focused_buffer_window = &ui.command_line_buffer_window;
 }
 
-pub fn close(pop_previous_window: bool) void {
+pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
     editor.command_line_is_open = false;
     editor.command_line_buffer.clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
 
     if (pop_previous_window) ui.focused_buffer_window = buffer_ops.popPreviousFocusedBufferWindow();
+    if (focus_buffers) ui.focus_buffers = true;
 }
 
 pub fn run() !void {
@@ -90,7 +91,7 @@ pub fn run() !void {
     defer internal.allocator.free(command_line_content);
     std.mem.copy(u8, &command_str, command_line_content);
 
-    close(true);
+    close(true, true);
     runCommand(command_str[0 .. len - 1]);
 }
 

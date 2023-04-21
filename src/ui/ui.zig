@@ -10,6 +10,8 @@ const glfw = @import("glfw");
 const core = @import("core");
 const utils = core.utils;
 
+const globals = core.globals;
+
 const Buffer = core.Buffer;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
@@ -28,34 +30,70 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     return &static.buf;
 }
 
-pub fn buffers(allocator: std.mem.Allocator) !bool {
-    defer imgui.end();
-    if (!imgui.begin("buffers", .{ .flags = .{
-        .no_nav_focus = true,
-        .no_resize = false,
-        .no_scroll_with_mouse = true,
-        .no_scrollbar = true,
-    } })) return false;
+pub fn buffers(allocator: std.mem.Allocator) !void {
+    var buffers_focused = false;
+    buffers: {
+        if (globals.ui.focus_buffers) {
+            imgui.setNextWindowFocus();
+            globals.ui.focus_buffers = false;
 
-    var bw_tree = core.globals.ui.visiable_buffers_tree.root orelse {
-        core.command_line.open();
-        return false;
-    };
+            core.command_line.close(false, false);
+        }
 
-    var window_focused = false;
+        imgui.setNextWindowPos(.{ .x = 0, .y = 0 });
+        defer imgui.end();
+        if (!imgui.begin("buffers", .{ .flags = .{
+            .no_nav_focus = true,
+            .no_resize = false,
+            .no_scroll_with_mouse = true,
+            .no_scrollbar = true,
+        } })) break :buffers;
 
-    var size = imgui.getWindowSize();
-    var rect = core.BufferWindow.Rect{ .w = size[0], .h = size[1] };
-    var windows = try core.BufferWindow.getAndSetWindows(bw_tree, allocator, rect);
-    defer allocator.free(windows);
-    for (windows) |bw| {
-        imgui.pushItemWidth(500);
-        imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
-        const buffer_focused = bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
-        window_focused = window_focused or buffer_focused;
+        buffers_focused = imgui.isWindowFocused(.{});
+
+        var bw_tree = globals.ui.visiable_buffers_tree.root orelse {
+            core.command_line.open();
+            break :buffers;
+        };
+
+        var size = imgui.getWindowSize();
+        var rect = core.BufferWindow.Rect{ .w = size[0], .h = size[1] };
+        var windows = try core.BufferWindow.getAndSetWindows(bw_tree, allocator, rect);
+        defer allocator.free(windows);
+        for (windows) |bw| {
+            imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
+            imgui.setItemDefaultFocus();
+            const res = bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
+            buffers_focused = buffers_focused or res;
+        }
     }
 
-    return imgui.isWindowFocused(.{}) or window_focused;
+    if (globals.editor.command_line_is_open) {
+        const center = imgui.getMainViewport().getCenter();
+
+        var size = textLineSize(globals.editor.command_line_buffer, 1, 1, core.Buffer.RowCol.last_col);
+        if (size[0] <= 500) size[0] = 500;
+        if (size[1] <= 250) size[1] = 250;
+
+        const x = center[0] - (size[0] / 2);
+        const y = center[1] - (size[1] / 2);
+
+        imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
+        imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .appearing });
+        _ = imgui.begin("command line", .{
+            .flags = .{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true },
+        });
+        defer imgui.end();
+
+        buffers_focused = buffers_focused or imgui.isWindowFocused(.{});
+
+        globals.ui.command_line_buffer_window.data.rect.x = x;
+        globals.ui.command_line_buffer_window.data.rect.y = y;
+        const res = bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
+        buffers_focused = buffers_focused or res;
+    }
+
+    if (!buffers_focused) globals.ui.focused_buffer_window = null;
 }
 
 pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) bool {
@@ -168,7 +206,25 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
     }
 
-    if (buffer_window == &core.focusedBW().?.data) { // render cursor
+    var focused = false;
+    { // invisible button for interactions
+
+        var pos = begin_cursor_pos;
+        pos[0] -= imgui.getStyle().window_padding[0];
+        imgui.setCursorPos(pos);
+
+        var clicked = imgui.invisibleButton(tmpString("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
+            .w = width,
+            .h = height,
+        });
+
+        focused = imgui.isItemFocused();
+        if (clicked or focused) {
+            if (buffer_window_node != core.focusedBW()) core.setFocusedWindow(buffer_window_node);
+        }
+    }
+
+    if (core.focusedBW() != null and buffer_window == &core.focusedBW().?.data) { // render cursor
         const cursor_row = buffer_window.cursor.row;
 
         var padding = imgui.getStyle().window_padding;
@@ -215,24 +271,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         });
     }
 
-    { // invisible button for interactions
-
-        var pos = begin_cursor_pos;
-        pos[0] -= imgui.getStyle().window_padding[0];
-        imgui.setCursorPos(pos);
-
-        const clicked = imgui.invisibleButton(tmpString("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
-            .w = width,
-            .h = height,
-        });
-        const focused = imgui.isItemFocused();
-
-        if (clicked or focused) {
-            if (buffer_window_node != core.focusedBW().?) core.setFocusedWindow(buffer_window_node);
-        }
-
-        return focused or clicked;
-    }
+    return focused;
 }
 
 pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {

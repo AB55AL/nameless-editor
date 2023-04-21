@@ -287,7 +287,12 @@ pub fn setFocusedWindow(buffer_window: *BufferWindowNode) void {
 
     ui.focused_buffer_window = buffer_window;
 
-    if (buffer_window != &globals.ui.command_line_buffer_window) command_line.close(false);
+    if (buffer_window != &globals.ui.command_line_buffer_window) command_line.close(false, true);
+}
+
+pub fn focusBuffersUI() void {
+    ui.focus_buffers = true;
+    ui.focused_buffer_window = ui.visiable_buffers_tree.root;
 }
 
 fn deleteFromPreviousFocusedWindows(buffer_window: *BufferWindowNode) void {
