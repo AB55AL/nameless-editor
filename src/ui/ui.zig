@@ -140,7 +140,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h));
-    buffer_window.resetBufferWindowRowsToBufferCursor();
+    buffer_window.windowFollowCursor();
 
     var buffer = buffer_window.buffer;
 

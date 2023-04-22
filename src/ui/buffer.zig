@@ -181,17 +181,17 @@ pub const BufferWindow = struct {
             buffer_win.first_visiable_row,
         );
 
-        buffer_win.resetBufferCursorToBufferWindow();
+        buffer_win.cursorFollowWindow();
     }
 
     pub fn scrollUp(buffer_win: *BufferWindow, offset: u64) void {
         buffer_win.first_visiable_row -|= offset;
         buffer_win.first_visiable_row = std.math.max(1, buffer_win.first_visiable_row);
 
-        buffer_win.resetBufferCursorToBufferWindow();
+        buffer_win.cursorFollowWindow();
     }
 
-    pub fn resetBufferCursorToBufferWindow(buffer_win: *BufferWindow) void {
+    pub fn cursorFollowWindow(buffer_win: *BufferWindow) void {
         var cursor = buffer_win.cursor;
 
         if (!utils.inRange(cursor.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
@@ -201,7 +201,7 @@ pub const BufferWindow = struct {
         }
     }
 
-    pub fn resetBufferWindowRowsToBufferCursor(buffer_win: *BufferWindow) void {
+    pub fn windowFollowCursor(buffer_win: *BufferWindow) void {
         const cursor_row = buffer_win.cursor.row;
         if (cursor_row <= buffer_win.first_visiable_row)
             buffer_win.first_visiable_row = cursor_row
