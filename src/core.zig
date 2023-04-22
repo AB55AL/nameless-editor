@@ -15,14 +15,8 @@ pub const motions = @import("extras/motions.zig");
 pub const utils = @import("utils.zig");
 pub const utf8 = @import("utf8.zig");
 
-pub fn extraFrames(extra: enum { one, two, inf }) void {
-    switch (extra) {
-        .one => if (globals.internal.extra_frames <= 0) {
-            globals.internal.extra_frames = 1;
-        },
-        .two => globals.internal.extra_frames = 2,
-        .inf => globals.internal.extra_frames = -1,
-    }
+pub fn extraFrame() void {
+    globals.internal.extra_frame = true;
 }
 
 pub fn addUserUI(func: globals.UserUIFunc) void {

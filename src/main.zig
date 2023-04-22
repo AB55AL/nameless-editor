@@ -55,8 +55,6 @@ pub fn main() !void {
 
     while (!window.shouldClose()) {
         defer {
-            if (globals.internal.extra_frames > 0) globals.internal.extra_frames -= 1;
-
             globals.input.key_queue.resize(0) catch unreachable;
             globals.input.char_queue.resize(0) catch unreachable;
         }
@@ -65,7 +63,10 @@ pub fn main() !void {
         defer arena_instance.deinit();
         const arena = arena_instance.allocator();
 
-        if (globals.internal.extra_frames != 0) glfw.pollEvents() else glfw.waitEvents();
+        if (globals.internal.extra_frame) {
+            glfw.pollEvents();
+            globals.internal.extra_frame = false;
+        } else glfw.waitEvents();
 
         imgui.backend.newFrame();
 
@@ -83,7 +84,7 @@ pub fn main() !void {
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
         if (globals.ui.imgui_demo) {
             imgui.showDemoWindow(&globals.ui.imgui_demo);
-            core.extraFrames(.two);
+            core.extraFrame();
         }
         if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
 

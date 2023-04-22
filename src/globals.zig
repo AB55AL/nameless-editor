@@ -56,7 +56,7 @@ pub const ui = struct {
 pub const internal = struct {
     /// Global allocator
     pub var allocator: std.mem.Allocator = undefined;
-    pub var extra_frames: i32 = 2;
+    pub var extra_frame = true;
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
