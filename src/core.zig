@@ -24,3 +24,11 @@ pub fn extraFrames(extra: enum { one, two, inf }) void {
         .inf => globals.internal.extra_frames = -1,
     }
 }
+
+pub fn addUserUI(func: globals.UserUIFunc) void {
+    _ = ui.user_ui.getOrPut(func) catch return;
+}
+
+pub fn removeUserUI(func: globals.UserUIFunc) void {
+    _ = ui.user_ui.remove(func);
+}

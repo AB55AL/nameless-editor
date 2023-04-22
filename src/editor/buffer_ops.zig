@@ -11,7 +11,7 @@ const globals = @import("../core.zig").globals;
 
 const command_line = @import("command_line.zig");
 
-const buffer_ui = @import("../ui/buffer.zig");
+const buffer_ui = @import("../ui/buffer_window.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
 const BufferWindowNode = buffer_ui.BufferWindowNode;

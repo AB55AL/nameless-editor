@@ -2,6 +2,8 @@ const std = @import("std");
 const fs = std.fs;
 const print = std.debug.print;
 
+const imgui = @import("imgui");
+
 const input_layer_main = @import("main.zig");
 const vim_like = @import("vim-like.zig");
 const core = @import("core");
@@ -29,7 +31,33 @@ pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindo
     return rect;
 }
 
+fn doUI(gpa: std.mem.Allocator, arena: std.mem.Allocator) void {
+    _ = arena;
+    _ = gpa;
+
+    defer imgui.end();
+    _ = imgui.begin("input layer UI", .{});
+
+    if (imgui.button("Remove ?", .{})) {
+        core.removeUserUI(doUI);
+    }
+
+    // for (0..3) |m| {
+    //     const mode = @intToEnum(vim_like.Mode, m);
+    //     var mappings = vim_like.getMapping(mode);
+    //     var ft = mappings.ft_mappings.get("").?;
+    //     var iter = ft.iterator();
+    //     while (iter.next()) |kv| {
+    //         std.debug.print("ptr {*} ||||||||| {any}\n", .{ kv.key_ptr, kv.key_ptr.* });
+    //         std.debug.print("ptr {*} ||||||||| {}\n", .{ kv.value_ptr, kv.value_ptr.* });
+    //         std.debug.print("\n", .{});
+    //     }
+    // }
+}
+
 pub fn init() !void {
+    core.addUserUI(doUI);
+
     input_layer_main.gpa = std.heap.GeneralPurposeAllocator(.{}){};
     input_layer_main.allocator = input_layer_main.gpa.allocator();
     input_layer_main.arena = std.heap.ArenaAllocator.init(input_layer_main.allocator);

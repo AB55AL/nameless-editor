@@ -87,6 +87,10 @@ pub fn main() !void {
         }
         if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
 
+        var iter = globals.ui.user_ui.keyIterator();
+        while (iter.next()) |f|
+            (f.*)(allocator, arena);
+
         imgui.backend.draw(window_size.width, window_size.height);
 
         window.swapBuffers();

@@ -14,6 +14,9 @@ const BufferWindowTree = buffer_ui.BufferWindowTree;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
 const command_line = @import("editor/command_line.zig");
 
+pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
+const UserUIFuncSet = std.AutoHashMap(UserUIFunc, void);
+
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
@@ -42,6 +45,8 @@ pub const ui = struct {
 
     pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
 
+    pub var user_ui: UserUIFuncSet = undefined;
+
     pub var gui_full_size = true;
     pub var imgui_demo = builtin.mode == .Debug;
     pub var inspect_editor = builtin.mode == .Debug;
@@ -60,6 +65,8 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
     editor.command_line_buffer = try allocator.create(Buffer);
     editor.command_line_buffer.* = try buffer_ops.createLocalBuffer("");
 
+    ui.user_ui = UserUIFuncSet.init(allocator);
+
     ui.command_line_buffer_window = .{ .data = .{
         .buffer = editor.command_line_buffer,
         .first_visiable_row = 1,
@@ -75,6 +82,7 @@ pub fn deinitGlobals() void {
     editor.command_line_buffer.deinitAndDestroy();
 
     ui.visiable_buffers_tree.deinitTree(internal.allocator, null);
+    ui.user_ui.deinit();
 
     registers.deinit();
 }
