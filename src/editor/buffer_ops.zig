@@ -221,19 +221,19 @@ pub fn focusedBW() ?*BufferWindowNode {
     return globals.ui.focused_buffer_window;
 }
 
-pub fn windowCountWithBuffer(buffer: *Buffer) u32 {
-    var root = ui.visiable_buffers_tree.root orelse return 0;
-    // TODO: Don't allocate
-    var array = root.treeToArray(internal.allocator) catch unreachable;
-    defer internal.allocator.free(array);
+pub fn windowCountWithBuffer(buffer: *Buffer) u64 {
+    const Context = struct {
+        count: u64 = 0,
+        buf_id: u64,
+        pub fn do(self: *@This(), node: *BufferWindowNode) bool {
+            if (node.data.buffer.id == self.buf_id) self.count += 1;
+            return true;
+        }
+    };
 
-    var count: u32 = 0;
-    for (array) |win| {
-        if (win.data.buffer.id == buffer.id)
-            count += 1;
-    }
-
-    return count;
+    var ctx = Context{ .buf_id = buffer.id };
+    ui.visiable_buffers_tree.levelOrderTraverse(&ctx);
+    return ctx.count;
 }
 
 pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {

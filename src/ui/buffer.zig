@@ -72,8 +72,9 @@ pub const BufferWindow = struct {
     rect: Rect = .{}, // Reset every frame
     visible_lines: u64 = 0, // Set every frame
 
-    pub fn getAndSetWindows(root: *BufferWindowNode, allocator: std.mem.Allocator, area: Rect) ![]*BufferWindowNode {
-        var tree_array = try root.treeToArray(allocator);
+    pub fn getAndSetWindows(tree: *BufferWindowTree, allocator: std.mem.Allocator, area: Rect) ![]*BufferWindowNode {
+        var root = tree.root orelse return &.{};
+        var tree_array = try tree.treeToArray(allocator);
 
         root.data.rect = area;
         for (tree_array) |node| {

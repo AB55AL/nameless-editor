@@ -57,14 +57,14 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 
         buffers_focused = imgui.isWindowFocused(.{});
 
-        var bw_tree = globals.ui.visiable_buffers_tree.root orelse {
+        if (globals.ui.visiable_buffers_tree.root == null) {
             core.command_line.open();
             break :buffers;
-        };
+        }
 
         var size = imgui.getWindowSize();
         var rect = core.BufferWindow.Rect{ .w = size[0], .h = size[1] };
-        var windows = try core.BufferWindow.getAndSetWindows(bw_tree, allocator, rect);
+        var windows = try core.BufferWindow.getAndSetWindows(&globals.ui.visiable_buffers_tree, allocator, rect);
         defer allocator.free(windows);
         for (windows) |bw| {
             imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });

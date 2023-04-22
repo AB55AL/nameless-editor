@@ -134,32 +134,6 @@ pub fn NaryTree(comptime T: type) type {
                 return res;
             }
 
-            pub fn treeToArray(root: *Node, allocator: std.mem.Allocator) ![]*Node {
-                var array_list = ArrayList(*Node).init(allocator);
-                defer array_list.deinit();
-
-                const depth = root.treeDepth(0);
-                var level: u32 = 0;
-                while (level <= depth) : (level += 1) {
-                    try treeToArrayHelper(root, level, &array_list);
-                }
-
-                return try array_list.toOwnedSlice();
-            }
-
-            fn treeToArrayHelper(node: *Node, level: u32, array_list: *ArrayList(*Node)) std.mem.Allocator.Error!void {
-                if (level == 0) {
-                    var current_node: ?*Node = node;
-                    while (current_node) |n| {
-                        try array_list.append(n);
-                        current_node = n.next_sibling;
-                    }
-                } else {
-                    if (node.first_child) |fc| try treeToArrayHelper(fc, level - 1, array_list);
-                    if (node.next_sibling) |ns| try treeToArrayHelper(ns, level, array_list);
-                }
-            }
-
             fn concat(new_parent: *Node, first_list_head: *Node, second_list_head: *Node) void {
                 std.debug.assert(second_list_head.previousSibling() == null);
                 std.debug.assert(first_list_head.previousSibling() == null);
@@ -217,6 +191,52 @@ pub fn NaryTree(comptime T: type) type {
             if (tree.root) |root| root.deinitTree(allocator, freeData);
             tree.root = null;
         }
+
+        pub fn treeToArray(tree: *Tree, allocator: std.mem.Allocator) ![]*Node {
+            const Contex = struct {
+                array_list: *ArrayList(*Node),
+
+                pub fn do(self: *@This(), node: *Node) bool {
+                    self.array_list.append(node) catch {
+                        self.array_list.clearAndFree();
+                        return false;
+                    };
+
+                    return true;
+                }
+            };
+
+            var array_list = ArrayList(*Node).init(allocator);
+            defer array_list.deinit();
+            var ctx = Contex{ .array_list = &array_list };
+            tree.levelOrderTraverse(&ctx);
+
+            return try array_list.toOwnedSlice();
+        }
+
+        pub fn levelOrderTraverse(tree: *Tree, context: anytype) void {
+            const traverse = struct {
+                fn recurse(node: *Node, current_level: u64, ctx: anytype) bool {
+                    if (current_level == 0) {
+                        var current_node: ?*Node = node;
+                        while (current_node) |n| {
+                            if (!ctx.do(n)) return false;
+                            current_node = n.next_sibling;
+                        }
+                    } else {
+                        if (node.first_child) |fc| return recurse(fc, current_level - 1, ctx);
+                        if (node.next_sibling) |ns| return recurse(ns, current_level, ctx);
+                    }
+
+                    return true;
+                }
+            }.recurse;
+
+            var root = tree.root orelse return;
+            const depth = root.treeDepth(0);
+            for (0..depth + 1) |level|
+                if (!traverse(root, level, context)) break;
+        }
     };
 }
 
@@ -266,7 +286,7 @@ test "nary" {
     n3_0.addAfterSibling(n3_1);
     n3_1.addAfterSibling(n3_2);
 
-    var nodes = try tree.root.?.treeToArray(allocator);
+    var nodes = try tree.treeToArray(allocator);
     defer allocator.free(nodes);
 
     tree.removePromoteLast(n3_1);

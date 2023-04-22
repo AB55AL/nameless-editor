@@ -151,7 +151,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
                 }
 
                 var buffer_window = blk: {
-                    var array = (globals.ui.visiable_buffers_tree.root orelse break :selection).treeToArray(arena) catch break :selection;
+                    var array = globals.ui.visiable_buffers_tree.treeToArray(arena) catch break :selection;
                     for (array) |bw| if (bw.data.buffer.id == static.selected) break :blk &bw.data;
                     break :selection;
                 };
