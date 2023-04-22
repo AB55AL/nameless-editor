@@ -53,10 +53,14 @@ pub fn main() !void {
     imgui.backend.init(window.handle, true, "#version 330");
     defer imgui.backend.deinit();
 
+    var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
         defer {
             globals.input.key_queue.resize(0) catch unreachable;
             globals.input.char_queue.resize(0) catch unreachable;
+
+            core.clearDoneNotifications(&globals.ui.notifications, timer.read());
+            timer.reset();
         }
 
         var arena_instance = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -80,6 +84,7 @@ pub fn main() !void {
         }
 
         try ui.buffers(allocator);
+        ui.notifications();
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
         if (globals.ui.imgui_demo) {

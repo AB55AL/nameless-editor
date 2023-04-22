@@ -26,12 +26,14 @@ var focused_cursor_pos: ?BufferWindow.CursorRect = null;
 
 pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     const static = struct {
-        var buf: [10_000:0]u8 = undefined;
+        var buf: [max_visible_bytes + 1:0]u8 = undefined;
     };
-    var slice = std.fmt.bufPrintZ(&static.buf, fmt, args) catch unreachable;
-    static.buf[slice.len] = 0;
+    var slice = std.fmt.bufPrintZ(&static.buf, fmt, args) catch {
+        static.buf[static.buf.len - 1] = 0;
+        return static.buf[0 .. static.buf.len - 1 :0];
+    };
 
-    return &static.buf;
+    return slice;
 }
 
 pub fn buffers(allocator: std.mem.Allocator) !void {
@@ -345,6 +347,42 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
     if (rect.bottom - rect.top == 0) rect.bottom += 1;
 
     return rect;
+}
+
+pub fn notifications() void {
+    if (core.ui.notifications.slice().len == 0) return;
+    core.extraFrame();
+
+    var width: f32 = 0;
+
+    var notifys = core.ui.notifications.slice();
+    for (notifys) |n| {
+        const title_size = imgui.calcTextSize(n.title, .{});
+        const message_size = imgui.calcTextSize(n.message, .{});
+        width = std.math.max3(width, title_size[0], message_size[0]);
+    }
+
+    const s = imgui.getStyle();
+    const padding = s.window_padding[0] + s.frame_padding[0] + s.cell_padding[0];
+    const window_size = imgui.getMainViewport().getSize();
+    const x = window_size[0] - width - padding;
+
+    imgui.setNextWindowPos(.{ .x = x, .y = 0 });
+
+    _ = imgui.begin("Notifications", .{
+        .flags = .{ .no_title_bar = true, .no_resize = true, .no_move = true, .no_scrollbar = true, .no_scroll_with_mouse = true, .no_collapse = true, .always_auto_resize = false, .no_background = true, .no_saved_settings = true, .no_mouse_inputs = false, .menu_bar = false, .horizontal_scrollbar = false, .no_focus_on_appearing = false, .no_bring_to_front_on_focus = false, .always_vertical_scrollbar = false, .always_horizontal_scrollbar = false, .always_use_window_padding = false, .no_nav_inputs = false, .no_nav_focus = false, .unsaved_document = false },
+    });
+    defer imgui.end();
+
+    for (notifys) |*n| {
+        if (n.remaining_time <= 0) continue;
+
+        var text = tmpString("{d:<.0} x{:>}", .{ n.remaining_time, n.duplicates });
+        imgui.textUnformatted(text);
+
+        text = tmpString("{s}\n{s}", .{ n.title, n.message });
+        if (imgui.button(text, .{})) n.remaining_time = 0;
+    }
 }
 
 pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {
