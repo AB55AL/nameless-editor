@@ -56,8 +56,6 @@ fn doUI(gpa: std.mem.Allocator, arena: std.mem.Allocator) void {
 }
 
 pub fn init() !void {
-    core.addUserUI(doUI);
-
     input_layer_main.gpa = std.heap.GeneralPurposeAllocator(.{}){};
     input_layer_main.allocator = input_layer_main.gpa.allocator();
     input_layer_main.arena = std.heap.ArenaAllocator.init(input_layer_main.allocator);
