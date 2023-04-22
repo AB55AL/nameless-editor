@@ -71,20 +71,8 @@ pub fn createLocalBuffer(file_path: []const u8) !Buffer {
     return buffer;
 }
 
-pub fn createPathLessBuffer() !*Buffer {
-    var buffer = try internal.allocator.create(Buffer);
-    buffer.* = try Buffer.init(globals.internal.allocator, "", "");
-
-    // Prepend to linked list
-    buffer.next_buffer = editor.first_buffer;
-    editor.first_buffer = buffer;
-    editor.valid_buffers_count += 1;
-
-    return buffer;
-}
-
-/// Given an *index* searches the editor.buffers array for a buffer
-/// matching either.
+/// Given an *id* searches the editor.buffers array for a buffer
+/// matching the *id*.
 /// Returns null if the buffer isn't found.
 pub fn getBufferI(id: u32) ?*Buffer {
     var buffer_node = editor.buffers.first;
@@ -93,19 +81,6 @@ pub fn getBufferI(id: u32) ?*Buffer {
         buffer_node = bf.next;
     }
     return null;
-}
-
-fn getOrCreateBuffer(index: ?u32, file_path: []const u8) !*Buffer {
-    var buffer: *Buffer = undefined;
-    if (index) |i|
-        buffer = getBufferI(i) orelse
-            try getBufferFP(file_path) orelse
-            try createBuffer(file_path)
-    else
-        buffer = (try getBufferFP(file_path)) orelse
-            try createBuffer(file_path);
-
-    return buffer;
 }
 
 /// Given an *file_path* searches the valid buffer list for a buffer
@@ -119,17 +94,17 @@ pub fn getBufferFP(file_path: []const u8) !?*Buffer {
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
     while (true) {
-        if (eql(u8, full_fp, buffer.metadata.file_path)) {
+        if (eql(u8, full_fp, buffer.metadata.file_path))
             return buffer;
-        }
 
         buffer_node = buffer_node.next orelse return null;
     }
     return null;
 }
 
-pub fn openBufferI(index: u32, dir: ?Dir) !*Buffer {
-    var buffer: *Buffer = try getOrCreateBuffer(index, "");
+pub fn openBufferI(id: u32, dir: ?Dir) !?*Buffer {
+    var buffer: *Buffer = try getBufferI(id) orelse return null;
+
     if (ui.focused_buffer_window) |fbw|
         pushAsPreviousBufferWindow(fbw);
 
@@ -138,7 +113,7 @@ pub fn openBufferI(index: u32, dir: ?Dir) !*Buffer {
 }
 
 pub fn openBufferFP(file_path: []const u8, dir: ?Dir) !*Buffer {
-    var buffer: *Buffer = try getOrCreateBuffer(null, file_path);
+    var buffer: *Buffer = try getBufferFP(file_path) orelse try createBuffer(file_path);
     if (ui.focused_buffer_window) |fbw|
         pushAsPreviousBufferWindow(fbw);
 
@@ -202,7 +177,12 @@ pub fn forceKillBufferWindow(buffer_window: *BufferWindowNode) !void {
         lc.data.dir = buffer_window.data.dir;
 
     ui.visiable_buffers_tree.removePromoteLast(buffer_window);
-    deleteFromPreviousFocusedWindows(buffer_window);
+
+    // delete all occurrences of the buffer window pointer
+    for (ui.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
+        if (bw == buffer_window)
+            _ = ui.previous_focused_buffer_wins.orderedRemove(i);
+    }
     internal.allocator.destroy(buffer_window);
 }
 
@@ -293,12 +273,4 @@ pub fn setFocusedWindow(buffer_window: *BufferWindowNode) void {
 pub fn focusBuffersUI() void {
     ui.focus_buffers = true;
     ui.focused_buffer_window = ui.visiable_buffers_tree.root;
-}
-
-fn deleteFromPreviousFocusedWindows(buffer_window: *BufferWindowNode) void {
-    for (ui.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
-        if (bw == buffer_window) {
-            _ = ui.previous_focused_buffer_wins.orderedRemove(i);
-        }
-    }
 }
