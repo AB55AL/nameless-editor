@@ -185,11 +185,7 @@ pub const BufferWindow = struct {
     }
 
     pub fn scrollUp(buffer_win: *BufferWindow, offset: u64) void {
-        if (buffer_win.first_visiable_row <= offset)
-            buffer_win.first_visiable_row = 1
-        else
-            buffer_win.first_visiable_row -= offset;
-
+        buffer_win.first_visiable_row -|= offset;
         buffer_win.first_visiable_row = std.math.max(1, buffer_win.first_visiable_row);
 
         buffer_win.resetBufferCursorToBufferWindow();
@@ -199,20 +195,17 @@ pub const BufferWindow = struct {
         var cursor = buffer_win.cursor;
 
         if (!utils.inRange(cursor.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
-            var pos = if (cursor.row > buffer_win.lastVisibleRow())
-                buffer_win.buffer.moveAbsolute(buffer_win.lastVisibleRow(), cursor.col)
-            else
-                buffer_win.buffer.moveAbsolute(buffer_win.first_visiable_row, cursor.col);
-
+            const row = if (cursor.row > buffer_win.lastVisibleRow()) buffer_win.lastVisibleRow() else buffer_win.first_visiable_row;
+            const pos = buffer_win.buffer.moveAbsolute(row, cursor.col);
             buffer_win.cursor = pos.rowCol();
         }
     }
 
     pub fn resetBufferWindowRowsToBufferCursor(buffer_win: *BufferWindow) void {
-        var cursor_row = buffer_win.cursor.row;
-
-        if (!utils.inRange(cursor_row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
-            buffer_win.first_visiable_row = cursor_row;
-        }
+        const cursor_row = buffer_win.cursor.row;
+        if (cursor_row <= buffer_win.first_visiable_row)
+            buffer_win.first_visiable_row = cursor_row
+        else if (cursor_row > buffer_win.lastVisibleRow())
+            buffer_win.first_visiable_row += cursor_row - buffer_win.lastVisibleRow();
     }
 };
