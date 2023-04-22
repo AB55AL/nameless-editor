@@ -4,14 +4,14 @@ const ArrayList = std.ArrayList;
 const builtin = @import("builtin");
 
 const registers = @import("editor/registers.zig");
-const buffer_ui = @import("ui/buffer.zig");
-const BufferWindow = buffer_ui.BufferWindow;
+const buffer_window = @import("ui/buffer_window.zig");
+const BufferWindow = buffer_window.BufferWindow;
 const buffer_ops = @import("editor/buffer_ops.zig");
 const Buffer = @import("editor/buffer.zig");
 const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
-const BufferWindowTree = buffer_ui.BufferWindowTree;
-const BufferWindowNode = buffer_ui.BufferWindowNode;
+const BufferWindowTree = buffer_window.BufferWindowTree;
+const BufferWindowNode = buffer_window.BufferWindowNode;
 const command_line = @import("editor/command_line.zig");
 
 pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;

@@ -5,7 +5,7 @@ pub const common_input_functions = @import("editor/common_input_functions.zig");
 pub const registers = @import("editor/registers.zig");
 pub usingnamespace @import("editor/buffer_ops.zig");
 pub usingnamespace @import("ui/notify.zig");
-pub usingnamespace @import("ui/buffer.zig");
+pub usingnamespace @import("ui/buffer_window.zig");
 
 pub const globals = @import("globals.zig");
 pub const editor = globals.editor;

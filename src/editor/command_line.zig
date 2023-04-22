@@ -8,7 +8,7 @@ const mecha = @import("mecha");
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
-const buffer_ui = @import("../ui/buffer.zig");
+const buffer_window = @import("../ui/buffer_window.zig");
 const notify = @import("../ui/notify.zig");
 
 pub const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
