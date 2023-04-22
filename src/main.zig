@@ -46,7 +46,6 @@ pub fn main() !void {
     imgui.init(allocator);
     defer imgui.deinit();
 
-    imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
 
     _ = imgui.io.addFontFromFileWithConfig("assets/Fira Code Light Nerd Font Complete Mono.otf", 22, null, null);
     // _ = imgui.io.addFontFromFileWithConfig("assets/Amiri-Regular.ttf", 30, null, &[_]u16{ 0x20, 0xFFFF, 0 });
@@ -72,12 +71,7 @@ pub fn main() !void {
 
         input_layer.handleInput();
 
-        if (globals.ui.imgui_demo) {
-            imgui.showDemoWindow(&globals.ui.imgui_demo);
-            core.extraFrames(.two);
-        }
-        if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
-
+        imgui.io.setConfigFlags(.{ .nav_enable_keyboard = false });
         const window_size = window.getSize();
         if (globals.ui.gui_full_size) {
             imgui.setNextWindowSize(.{ .w = @intToFloat(f32, window_size.width), .h = @intToFloat(f32, window_size.height) });
@@ -85,6 +79,13 @@ pub fn main() !void {
         }
 
         try ui.buffers(allocator);
+
+        imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
+        if (globals.ui.imgui_demo) {
+            imgui.showDemoWindow(&globals.ui.imgui_demo);
+            core.extraFrames(.two);
+        }
+        if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
 
         imgui.backend.draw(window_size.width, window_size.height);
 
