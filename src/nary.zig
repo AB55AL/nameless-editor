@@ -224,8 +224,10 @@ pub fn NaryTree(comptime T: type) type {
                             current_node = n.next_sibling;
                         }
                     } else {
-                        if (node.first_child) |fc| return recurse(fc, current_level - 1, ctx);
-                        if (node.next_sibling) |ns| return recurse(ns, current_level, ctx);
+                        var res = true;
+                        if (node.first_child) |fc| res = recurse(fc, current_level - 1, ctx);
+                        if (node.next_sibling) |ns| res = recurse(ns, current_level, ctx);
+                        if (!res) return false;
                     }
 
                     return true;
