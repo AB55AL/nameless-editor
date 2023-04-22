@@ -13,12 +13,16 @@ const utils = core.utils;
 const globals = core.globals;
 
 const Buffer = core.Buffer;
+const BufferWindow = core.BufferWindow;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
 const max_visible_rows: u64 = 4000;
 const max_visible_cols: u64 = 4000;
 const max_visible_bytes = max_visible_cols * 4; // multiply by 4 because a UTF-8 sequence can be 4 bytes long
+
+// Only for the focused buffer
+var focused_cursor_pos: ?BufferWindow.CursorRect = null;
 
 pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     const static = struct {
@@ -32,6 +36,8 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
 
 pub fn buffers(allocator: std.mem.Allocator) !void {
     var buffers_focused = false;
+    if (!globals.editor.command_line_is_open) focused_cursor_pos = null;
+
     buffers: {
         if (globals.ui.focus_buffers) {
             imgui.setNextWindowFocus();
@@ -62,7 +68,11 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
         defer allocator.free(windows);
         for (windows) |bw| {
             imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
-            imgui.setItemDefaultFocus();
+
+            const padding = imgui.getStyle().window_padding;
+            bw.data.rect.x -= padding[0];
+            bw.data.rect.y -= padding[1];
+
             const res = bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
             buffers_focused = buffers_focused or res;
         }
@@ -71,24 +81,32 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     if (globals.editor.command_line_is_open) {
         const center = imgui.getMainViewport().getCenter();
 
-        var size = textLineSize(globals.editor.command_line_buffer, 1, 1, core.Buffer.RowCol.last_col);
-        if (size[0] <= 500) size[0] = 500;
-        if (size[1] <= 250) size[1] = 250;
+        const m_size = imgui.calcTextSize("m", .{})[0];
+        var size = [2]f32{ 0, 0 };
+        size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, globals.editor.command_line_buffer.size() + 2));
+        size[1] = imgui.getTextLineHeightWithSpacing() * 2;
 
-        const x = center[0] - (size[0] / 2);
-        const y = center[1] - (size[1] / 2);
+        const x = if (focused_cursor_pos) |pos| pos.right else center[0] - (size[0] / 2);
+        const y = if (focused_cursor_pos) |pos| pos.top else center[1] - (size[1] / 2);
 
         imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
-        imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .appearing });
+        imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
         _ = imgui.begin("command line", .{
-            .flags = .{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true },
+            .flags = .{
+                .no_nav_focus = true,
+                .no_scroll_with_mouse = true,
+                .no_scrollbar = true,
+                .no_title_bar = true,
+                .no_resize = true,
+            },
         });
         defer imgui.end();
 
         buffers_focused = buffers_focused or imgui.isWindowFocused(.{});
 
-        globals.ui.command_line_buffer_window.data.rect.x = x;
-        globals.ui.command_line_buffer_window.data.rect.y = y;
+        const padding = imgui.getStyle().window_padding;
+        globals.ui.command_line_buffer_window.data.rect.x = x - padding[0];
+        globals.ui.command_line_buffer_window.data.rect.y = y - padding[1];
         const res = bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
         buffers_focused = buffers_focused or res;
     }
@@ -255,6 +273,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
 
         var rect = getCursorRect(min, max);
+        focused_cursor_pos = rect;
 
         dl.addRectFilled(.{
             .pmin = rect.leftTop(),
