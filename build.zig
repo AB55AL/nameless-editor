@@ -68,6 +68,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
     const tests = bob.addTest(.{
         .name = "buffer test",
         .root_source_file = .{ .path = comptime thisDir() ++ "/tests/buffer.zig" },
+        .optimize = optimize,
     });
     tests.main_pkg_path = comptime thisDir();
 
