@@ -130,11 +130,12 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
     // render selection
     const selection = buffer.selection.get(buffer_window.cursor);
-    if (buffer.selection.selected() and utils.inRange(selection.start.row, buffer_window.first_visiable_row, buffer_window.lastVisibleRow()) and !std.meta.eql(buffer.selection.anchor, buffer_window.cursor)) {
-        const start = selection.start;
-        const end = selection.end;
+    if (buffer.selection.selected() and !std.meta.eql(buffer.selection.anchor, buffer_window.cursor)) {
+        // bound the selection rows between visible rows
+        const start = selection.start.max(.{ .row = buffer_window.first_visiable_row, .col = 1 });
+        const end = selection.end.min(.{ .row = buffer_window.lastVisibleRow(), .col = selection.end.col });
 
-        const selected_rows = std.math.min(max_visible_rows, (selection.end.row - selection.start.row + 1));
+        const selected_rows = std.math.min(max_visible_rows, (end.row - start.row + 1));
         var selection_rows_width: [max_visible_rows]f32 = .{0} ** max_visible_rows;
         var selection_rows_offset: [max_visible_rows]f32 = .{0} ** max_visible_rows;
 
