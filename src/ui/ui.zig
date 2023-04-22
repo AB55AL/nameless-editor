@@ -14,6 +14,7 @@ const globals = core.globals;
 
 const Buffer = core.Buffer;
 const BufferWindow = core.BufferWindow;
+const BufferWindowNode = core.BufferWindowNode;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
@@ -130,7 +131,12 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         .w = width,
         .h = height,
         .border = true,
-        .flags = .{ .no_scroll_with_mouse = true, .no_scrollbar = true },
+        .flags = .{
+            .no_scroll_with_mouse = true,
+            .no_scrollbar = true,
+            .horizontal_scrollbar = !isCliWindow(buffer_window_node),
+            .always_horizontal_scrollbar = !isCliWindow(buffer_window_node),
+        },
     });
     defer imgui.endChild();
 
@@ -345,6 +351,10 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
     if (rect.bottom - rect.top == 0) rect.bottom += 1;
 
     return rect;
+}
+
+fn isCliWindow(buffer_window_node: *BufferWindowNode) bool {
+    return buffer_window_node == &core.ui.command_line_buffer_window;
 }
 
 pub fn imguiKeyToEditor(key: imgui.Key) core.input.KeyUnion {
