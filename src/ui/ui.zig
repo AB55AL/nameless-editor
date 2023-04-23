@@ -151,6 +151,10 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     const start_row = buffer_window.first_visiable_row;
     const end_row = buffer_window.lastVisibleRow();
     for (start_row..end_row + 1, 1..) |row, on_screen_row| {
+        // render text
+        const line = getVisibleLine(buffer, &static.buf, row);
+        imgui.textUnformatted(line);
+
         const pos = imgui.getWindowPos();
         const padding = imgui.getStyle().window_padding;
         const abs_x = padding[0] + pos[0];
@@ -173,8 +177,8 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
                 .regular => if (row < selection.end.row) Buffer.RowCol.last_col else selection.end.col,
             };
 
-            const size = textLineSize(buffer, row, start_col, end_col);
-            const x_offset = if (start_col == 1) 0 else textLineSize(buffer, row, 1, start_col)[0];
+            const size = textLineSize(buffer, line, row, start_col, end_col);
+            const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 1, start_col)[0];
 
             const x = abs_x + x_offset;
             dl.addRectFilled(.{
@@ -186,7 +190,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
         // render cursor
         if (row == buffer_window.cursor.row and buffer_window_node == core.focusedBW()) {
-            const offset = textLineSize(buffer, row, 1, buffer_window.cursor.col);
+            const offset = textLineSize(buffer, line, row, 1, buffer_window.cursor.col);
             const size = blk: {
                 var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
                 if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
@@ -215,10 +219,6 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
                 },
             });
         }
-
-        // render text
-        const line = getVisibleLine(buffer, &static.buf, row);
-        imgui.textUnformatted(line);
     }
 
     { // invisible button for interactions
@@ -256,22 +256,20 @@ pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
     return array_buf[0..i];
 }
 
-pub fn textLineSize(buffer: *Buffer, row: u64, col_start: u64, col_end: u64) [2]f32 {
-    const start = buffer.getIndex(.{ .row = row, .col = col_start });
-    const end = buffer.getIndex(.{ .row = row, .col = col_end });
+pub fn textLineSize(buffer: *Buffer, line: []const u8, row: u64, col_start: u64, col_end: u64) [2]f32 {
+    const line_start = buffer.indexOfFirstByteAtRow(row);
+    const start = buffer.getIndex(.{ .row = row, .col = col_start }) - line_start;
+    const end = buffer.getIndex(.{ .row = row, .col = col_end }) - line_start;
 
-    var iter = BufferIterator.init(buffer, start, end);
+    const s = imgui.calcTextSize(line[start..end], .{});
     var size: [2]f32 = .{ 0, 0 };
-    while (iter.next()) |string| {
-        const s = imgui.calcTextSize(string, .{});
-        size[0] += s[0];
-        size[1] += s[1];
+    size[0] += s[0];
+    size[1] += s[1];
 
-        if (string[string.len - 1] == '\n') {
-            const nls = imgui.calcTextSize("m", .{});
-            size[0] += nls[0];
-            size[1] += nls[1];
-        }
+    if (line[0] == '\n') {
+        const nls = imgui.calcTextSize("m", .{});
+        size[0] += nls[0];
+        size[1] += nls[1];
     }
 
     return size;
