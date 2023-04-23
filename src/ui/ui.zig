@@ -346,7 +346,6 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
 
 pub fn notifications() void {
     if (core.ui.notifications.slice().len == 0) return;
-    core.extraFrame();
 
     var width: f32 = 0;
 
