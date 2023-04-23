@@ -394,6 +394,7 @@ pub const SplayTree = struct {
             }
         }
 
+        tree.splay(node);
         return .{
             .piece = node,
             .relative_index = i,
@@ -429,6 +430,7 @@ pub const SplayTree = struct {
 
         if (node.newlines_count > 0) abs_nl_index += node.relativeNewlineIndex(pt, i);
 
+        tree.splay(node);
         return .{
             .piece = node,
             .newline_index = abs_nl_index,
