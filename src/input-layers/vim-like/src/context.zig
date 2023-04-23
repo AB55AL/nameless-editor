@@ -120,6 +120,17 @@ pub fn map(mode: vim_like.Mode, keys: []const Key, function: core.input.MappingS
     };
 }
 
+pub fn mapAll(keys: []const Key, function: core.input.MappingSystem.FunctionType) void {
+    for (0..@enumToInt(vim_like.Mode.LEN)) |mode|
+        map(@intToEnum(vim_like.Mode, mode), keys, function);
+}
+
+pub fn mapSome(modes: []const vim_like.Mode, keys: []const Key, function: core.input.MappingSystem.FunctionType) void {
+    for (modes) |mode| {
+        map(mode, keys, function);
+    }
+}
+
 pub fn fileTypeMap(mode: vim_like.Mode, file_type: []const u8, key: Key, function: core.input.MappingSystem.FunctionType) void {
     vim_like.putMapping(mode, file_type, key, function) catch |err| {
         print("input_layer.map()\n\t{}\n", .{err});

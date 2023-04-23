@@ -18,6 +18,8 @@ const Key = input.Key;
 const vim_like = @import("vim-like.zig");
 const context = @import("context.zig");
 const map = context.map;
+const mapAll = context.mapAll;
+const mapSome = context.mapSome;
 
 pub var gpa: std.heap.GeneralPurposeAllocator(.{}) = undefined;
 pub var allocator: std.mem.Allocator = undefined;
@@ -47,19 +49,17 @@ pub fn characterInput(utf8_seq: []const u8) void {
     const index = buffer.getIndex(fbw.cursor);
 
     buffer.insertAt(index, utf8_seq) catch |err| {
-        print("input_layer.characterInputCallback()\n\t{}\n", .{err});
+        const err_msg = switch (err) {
+            error.ModifyingReadOnlyBuffer => "ModifyingReadOnlyBuffer",
+            error.InvalidInsertionPoint => "InvalidInsertionPoint",
+            error.OutOfMemory => "OutOfMemory",
+        };
+        core.notify("Error:", err_msg, 3);
+
+        return;
     };
 
     fbw.cursor = fbw.buffer.getRowAndCol(index + utf8_seq.len);
-
-    if (core.editor.command_line_is_open and core.editor.command_line_buffer.lines.byteAt(0) == ':') {
-        buffer.clear() catch unreachable;
-        return;
-    }
-
-    // var focused_buffer_window = core.ui.focused_buffer_window orelse return;
-    // focused_buffer_window.setWindowCursorToBuffer();
-    // focused_buffer_window.buffer.resetSelection();
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
@@ -70,6 +70,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
 
 pub fn setDefaultMappnigs() void {
     const f = input.functionKey;
+    const a = input.asciiKey;
     map(.normal, &.{f(.none, .escape)}, vim_like.setNormalMode);
     map(.insert, &.{f(.none, .escape)}, vim_like.setNormalMode);
     map(.visual, &.{f(.none, .escape)}, vim_like.setNormalMode);
@@ -77,37 +78,28 @@ pub fn setDefaultMappnigs() void {
     setDefaultMappnigsNormalMode();
     setDefaultMappnigsInsertMode();
     setDefaultMappnigsVisualMode();
+
+    mapAll(&.{f(.none, .f1)}, core.focusBuffersUI);
+
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .h)}, vim_like.moveLeft);
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .j)}, vim_like.moveDown);
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .k)}, vim_like.moveUp);
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .l)}, vim_like.moveRight);
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .w)}, vim_like.moveForward);
+    mapSome(&.{ .normal, .visual }, &.{a(.none, .b)}, vim_like.moveBackwards);
+
+    mapAll(&.{f(.none, .page_up)}, scrollUp);
+    mapAll(&.{f(.none, .page_down)}, scrollDown);
 }
 
 pub fn setDefaultMappnigsNormalMode() void {
     const f = input.functionKey;
+    _ = f;
     const a = input.asciiKey;
     map(.normal, &.{a(.shift, .semicolon)}, vim_like.openCommandLine);
 
     map(.normal, &.{a(.none, .i)}, vim_like.setInsertMode);
-    map(.normal, &.{a(.control, .i)}, vim_like.setInsertMode);
     map(.normal, &.{a(.none, .v)}, vim_like.setVisualMode);
-
-    map(.normal, &.{a(.none, .h)}, vim_like.moveLeft);
-    map(.normal, &.{a(.none, .j)}, vim_like.moveDown);
-    map(.normal, &.{a(.none, .k)}, vim_like.moveUp);
-    map(.normal, &.{a(.none, .l)}, vim_like.moveRight);
-
-    map(.normal, &.{a(.none, .w)}, vim_like.moveForward);
-    map(.normal, &.{a(.none, .b)}, vim_like.moveBackwards);
-
-    map(.normal, &.{f(.none, .page_up)}, scrollUp);
-    map(.normal, &.{f(.none, .page_down)}, scrollDown);
-}
-
-fn scrollUp() void {
-    var fbw = core.focusedBW() orelse return;
-    fbw.data.scrollUp(1);
-}
-
-fn scrollDown() void {
-    var fbw = core.focusedBW() orelse return;
-    fbw.data.scrollDown(1);
 }
 
 fn setDefaultMappnigsInsertMode() void {
@@ -118,22 +110,14 @@ fn setDefaultMappnigsInsertMode() void {
     map(.insert, &.{f(.none, .backspace)}, cif.deleteBackward);
     map(.insert, &.{f(.none, .delete)}, cif.deleteForward);
 
-    map(.insert, &.{f(.none, .right)}, vim_like.moveRight);
-    map(.insert, &.{f(.none, .left)}, vim_like.moveLeft);
-    map(.insert, &.{f(.none, .up)}, vim_like.moveUp);
-    map(.insert, &.{f(.none, .down)}, vim_like.moveDown);
-
     map(.insert, &.{a(.control, .v)}, vim_like.paste);
 }
 
 fn setDefaultMappnigsVisualMode() void {
     const f = input.functionKey;
-    _ = f;
     const a = input.asciiKey;
-    map(.visual, &.{a(.none, .h)}, vim_like.moveLeft);
-    map(.visual, &.{a(.none, .j)}, vim_like.moveDown);
-    map(.visual, &.{a(.none, .k)}, vim_like.moveUp);
-    map(.visual, &.{a(.none, .l)}, vim_like.moveRight);
+    _ = f;
+    _ = a;
 }
 
 fn logKey(key: Key) void {
@@ -143,4 +127,14 @@ fn logKey(key: Key) void {
 
     _ = log_file.pwrite(key_str, end) catch |err| print("err={}", .{err});
     _ = log_file.pwrite("\n", end + key_str.len) catch |err| print("err={}", .{err});
+}
+
+fn scrollUp() void {
+    var fbw = core.focusedBW() orelse return;
+    fbw.data.scrollUp(1);
+}
+
+fn scrollDown() void {
+    var fbw = core.focusedBW() orelse return;
+    fbw.data.scrollDown(1);
 }
