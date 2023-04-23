@@ -137,27 +137,26 @@ pub fn paste() void {
 
 pub fn moveRight() void {
     var fbw = &(core.focusedBW() orelse return).data;
-    var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, 1, true);
+    fbw.cursor = fbw.buffer.moveRelativeColumn(fbw.cursor, 1);
     resetSelection(fbw);
-    fbw.cursor = pos.rowCol();
 }
+
 pub fn moveLeft() void {
     var fbw = &(core.focusedBW() orelse return).data;
-    var pos = fbw.cursor.moveRelativeColumn(fbw.buffer, -1, true);
+    fbw.cursor = fbw.buffer.moveRelativeColumn(fbw.cursor, -1);
     resetSelection(fbw);
-    fbw.cursor = pos.rowCol();
 }
+
 pub fn moveUp() void {
     var fbw = &(core.focusedBW() orelse return).data;
-    var pos = fbw.cursor.moveRelativeRow(fbw.buffer, -1);
+    fbw.cursor = fbw.buffer.moveRelativeRow(fbw.cursor, -1);
     resetSelection(fbw);
-    fbw.cursor = pos.rowCol();
 }
+
 pub fn moveDown() void {
     var fbw = &(core.focusedBW() orelse return).data;
-    var pos = fbw.cursor.moveRelativeRow(fbw.buffer, 1);
+    fbw.cursor = fbw.buffer.moveRelativeRow(fbw.cursor, 1);
     resetSelection(fbw);
-    fbw.cursor = pos.rowCol();
 }
 
 fn resetSelection(fbw: *core.BufferWindow) void {

@@ -70,16 +70,6 @@ pub const RowCol = struct {
         }
         if (a.row > b.row) return a else return b;
     }
-
-    pub fn moveRelativeColumn(rc: RowCol, buffer: *Buffer, col_offset: i64, stop_at_newline: bool) Position {
-        const index = buffer.getIndex(rc);
-        return buffer.moveRelativeColumn(index, col_offset, stop_at_newline);
-    }
-
-    pub fn moveRelativeRow(rc: RowCol, buffer: *Buffer, row_offset: i64) Position {
-        const index = buffer.getIndex(rc);
-        return buffer.moveRelativeRow(index, row_offset);
-    }
 };
 
 pub const MetaData = struct {
@@ -734,86 +724,29 @@ pub fn lineCount(buffer: *Buffer) u64 {
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, index: u64, col_offset: i64, stop_at_newline: bool) Position {
-    if (col_offset == 0 or (index == 0 and col_offset <= 0)) {
-        const rc = buffer.getRowAndCol(index);
-        return .{ .index = index, .row = rc.row, .col = rc.col };
-    }
+pub fn moveRelativeColumn(buffer: *Buffer, rc: RowCol, col_offset: i64) RowCol {
+    if (col_offset == 0) return rc;
 
-    var i = index;
+    const abs_offset = std.math.absCast(col_offset);
     if (col_offset > 0) {
-        var characters: u64 = 0;
-        while (characters != col_offset) {
-            const byte = buffer.lines.byteAt(i);
-            if (byte == '\n') {
-                if (!stop_at_newline) i += 1;
-                break;
-            }
-
-            const len = unicode.utf8ByteSequenceLength(byte) catch 0;
-            if (len > 0) {
-                i += len;
-                characters += 1;
-            } else { // Continuation byte
-                i += 1;
-            }
-        }
-    } else if (col_offset < 0) {
-        var characters: u64 = 0;
-        var cont_bytes: u8 = 0;
-        while (characters != -col_offset) {
-            const byte = buffer.lines.byteAt(if (i == 0) 0 else i - 1);
-            if (byte == '\n') {
-                if (!stop_at_newline) i -= 1;
-                break;
-            }
-            switch (utf8.byteType(byte)) {
-                .start_byte => {
-                    cont_bytes = 0;
-                    characters += 1;
-                    i -= 1;
-                },
-                .continue_byte => {
-                    cont_bytes += 1;
-                    i -= 1;
-                },
-            }
-
-            if (cont_bytes > 3) unreachable;
-        }
+        const row_size = buffer.countCodePointsAtRow(rc.row);
+        return .{ .row = rc.row, .col = min(row_size, rc.col +| abs_offset) };
+    } else {
+        return .{ .row = rc.row, .col = max(1, rc.col -| abs_offset) };
     }
-
-    const rc = buffer.getRowAndCol(i);
-    return .{
-        .index = i,
-        .row = rc.row,
-        .col = rc.col,
-    };
 }
 
-pub fn moveRelativeRow(buffer: *Buffer, index: u64, row_offset: i64) Position {
-    if (buffer.size() == 0 or row_offset == 0) {
-        const rc = buffer.getRowAndCol(index);
-        return .{ .index = index, .row = rc.row, .col = rc.col };
-    }
+pub fn moveRelativeRow(buffer: *Buffer, rc: RowCol, row_offset: i64) RowCol {
+    if (row_offset == 0) return rc;
 
-    const cursor = buffer.getRowAndCol(index);
+    const abs_offset = std.math.absCast(row_offset);
+    var row = if (row_offset > 0) rc.row +| abs_offset else rc.row -| abs_offset;
+    row = min(buffer.lineCount(), max(1, row));
 
-    var new_row = @intCast(i64, cursor.row) + row_offset;
-    if (row_offset < 0) new_row = max(1, new_row) else new_row = min(new_row, buffer.lineCount());
-
-    const i = buffer.indexOfFirstByteAtRow(@intCast(u64, new_row));
-
-    const old_col = cursor.col;
-    return moveRelativeColumn(buffer, i, @intCast(i64, old_col - 1), true);
-}
-
-pub fn moveAbsolute(buffer: *Buffer, row: u64, col: u64) Position {
-    const r = std.math.min(buffer.lineCount(), row);
+    const row_size = buffer.countCodePointsAtRow(row);
     return .{
-        .index = buffer.getIndex(.{ .row = r, .col = col }),
-        .row = r,
-        .col = col,
+        .row = row,
+        .col = min(rc.col, row_size),
     };
 }
 

@@ -216,8 +216,7 @@ pub const BufferWindow = struct {
 
         if (!utils.inRange(cursor.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
             const row = if (cursor.row > buffer_win.lastVisibleRow()) buffer_win.lastVisibleRow() else buffer_win.first_visiable_row;
-            const pos = buffer_win.buffer.moveAbsolute(row, cursor.col);
-            buffer_win.cursor = pos.rowCol();
+            buffer_win.cursor = .{ .row = row, .col = cursor.col };
         }
     }
 
