@@ -10,6 +10,13 @@ pub fn assert(ok: bool, comptime message: []const u8) void {
     }
 }
 
+pub fn passert(ok: bool, comptime fmt: []const u8, args: anytype) void {
+    if (!ok) {
+        print(fmt ++ "\n", args);
+        unreachable;
+    }
+}
+
 /// Takes three numbers and returns true if the first number is in the range
 /// of the second and third numbers
 pub fn inRange(a: anytype, b: @TypeOf(a), c: @TypeOf(a)) bool {
