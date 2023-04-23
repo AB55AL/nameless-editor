@@ -21,9 +21,6 @@ const max_visible_rows: u64 = 4000;
 const max_visible_cols: u64 = 4000;
 const max_visible_bytes = max_visible_cols * 4; // multiply by 4 because a UTF-8 sequence can be 4 bytes long
 
-// Only for the focused buffer
-var focused_cursor_pos: ?BufferWindow.CursorRect = null;
-
 pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     const static = struct {
         var buf: [max_visible_bytes + 1:0]u8 = undefined;
@@ -38,7 +35,7 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
 
 pub fn buffers(allocator: std.mem.Allocator) !void {
     var buffers_focused = false;
-    if (!globals.editor.command_line_is_open) focused_cursor_pos = null;
+    if (!globals.editor.command_line_is_open) globals.ui.focused_cursor_rect = null;
 
     buffers: {
         if (globals.ui.focus_buffers) {
@@ -88,8 +85,8 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
         size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, globals.editor.command_line_buffer.size() + 2));
         size[1] = imgui.getTextLineHeightWithSpacing() * 2;
 
-        const x = if (focused_cursor_pos) |pos| pos.rect.right() else center[0] - (size[0] / 2);
-        const y = if (focused_cursor_pos) |pos| pos.rect.top() else center[1] - (size[1] / 2);
+        const x = if (core.focusedCursorRect()) |rect| rect.right() else center[0] - (size[0] / 2);
+        const y = if (core.focusedCursorRect()) |rect| rect.top() else center[1] - (size[1] / 2);
 
         imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
         imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
@@ -275,7 +272,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
 
         var crect = getCursorRect(min, max);
-        focused_cursor_pos = crect;
+        globals.ui.focused_cursor_rect = crect.rect;
 
         dl.addRectFilled(.{
             .pmin = crect.rect.leftTop(),

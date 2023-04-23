@@ -276,3 +276,7 @@ pub fn focusBuffersUI() void {
     ui.focus_buffers = true;
     ui.focused_buffer_window = ui.visiable_buffers_tree.root;
 }
+
+pub fn focusedCursorRect() ?buffer_ui.Rect {
+    return ui.focused_cursor_rect;
+}
