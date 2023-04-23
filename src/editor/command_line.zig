@@ -30,6 +30,8 @@ const ParseError = error{
 
 const CommandRunError = error{
     FunctionCommandMismatchedTypes,
+    ExtraArgs,
+    MissingArgs,
 };
 
 const PossibleValues = union(enum) {
@@ -139,10 +141,13 @@ fn call(command: []const u8, args: []PossibleValues) void {
 
     if (com) |c| {
         c.function(args) catch |err| {
-            if (err == CommandRunError.FunctionCommandMismatchedTypes) {
-                print("The command args do not match the function\n", .{});
-                notify.notify("Command Line Error:", "The command args do not match the function", 3);
-            }
+            const err_msg = switch (err) {
+                CommandRunError.FunctionCommandMismatchedTypes => "The command argument type does not match the function",
+                CommandRunError.ExtraArgs => "Extra arguments\n",
+                CommandRunError.MissingArgs => "Missing arguments\n",
+            };
+
+            notify.notify("Command Line Error:", err_msg, 3);
         };
     } else {
         notify.notify("Command Line Error:", "The command doesn't exist", 3);
@@ -186,9 +191,9 @@ fn beholdMyFunctionInator(comptime function: anytype) type {
 
                 @call(.never_inline, function, args_tuple);
             } else if (args.len < fn_info.params.len) {
-                std.debug.print("Missing arguments\n", .{});
+                return CommandRunError.MissingArgs;
             } else if (args.len > fn_info.params.len) {
-                std.debug.print("Extra arguments\n", .{});
+                return CommandRunError.ExtraArgs;
             }
         }
     };
