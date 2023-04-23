@@ -14,6 +14,7 @@ const globals = core.globals;
 
 const Buffer = core.Buffer;
 const BufferWindow = core.BufferWindow;
+const BufferWindowNode = core.BufferWindowNode;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
 
@@ -111,6 +112,8 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
     }
 
     if (!buffers_focused) globals.ui.focused_buffer_window = null;
+    if (buffers_focused and core.focusedBW() == null)
+        globals.ui.focused_buffer_window = globals.ui.visiable_buffers_tree.root;
 }
 
 pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) bool {
@@ -145,86 +148,79 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
     const cursor_index = buffer.getIndex(buffer_window.cursor);
 
-    // render selection
-    const selection = buffer.selection.get(buffer_window.cursor);
-    if (buffer.selection.selected() and !std.meta.eql(buffer.selection.anchor, buffer_window.cursor)) {
-        // bound the selection rows between visible rows
-        const start = selection.start.max(.{ .row = buffer_window.first_visiable_row, .col = 1 });
-        const end = selection.end.min(.{ .row = buffer_window.lastVisibleRow(), .col = selection.end.col });
+    const start_row = buffer_window.first_visiable_row;
+    const end_row = buffer_window.lastVisibleRow();
+    for (start_row..end_row + 1, 1..) |row, on_screen_row| {
+        const pos = imgui.getWindowPos();
+        const padding = imgui.getStyle().window_padding;
+        const abs_x = padding[0] + pos[0];
+        var abs_y = @intToFloat(f32, on_screen_row) * line_h + padding[1] + pos[1];
+        if (!new_line) abs_y -= line_h;
 
-        const selected_rows = std.math.min(max_visible_rows, (end.row - start.row + 1));
-        var selection_rows_width: [max_visible_rows]f32 = .{0} ** max_visible_rows;
-        var selection_rows_offset: [max_visible_rows]f32 = .{0} ** max_visible_rows;
+        // render selection
+        const selection = buffer.selection.get(buffer_window.cursor);
+        if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
+            row >= selection.start.row and row <= selection.end.row)
+        {
+            const start_col = switch (buffer.selection.kind) {
+                .line => 1,
+                .block => selection.start.col,
+                .regular => if (row > selection.start.row) 1 else selection.start.col,
+            };
+            const end_col = switch (buffer.selection.kind) {
+                .line => Buffer.RowCol.last_col,
+                .block => selection.end.col,
+                .regular => if (row < selection.end.row) Buffer.RowCol.last_col else selection.end.col,
+            };
 
-        switch (buffer.selection.kind) { // get selection_rows_width
-            .line, .block => {
-                for (start.row..end.row + 1, 0..) |row, i| {
-                    if (buffer.selection.kind == .block and buffer.countCodePointsAtRow(row) < start.col) continue;
-                    selection_rows_width[i] += textLineSize(buffer, row, start.col, end.col)[0];
-                }
-            },
-            .regular => {
-                if (selected_rows == 1) {
-                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, end.col)[0];
-                } else if (selected_rows == 2) {
-                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, Buffer.RowCol.last_col)[0];
-                    selection_rows_width[1] = textLineSize(buffer, end.row, 1, end.col)[0];
-                } else {
-                    selection_rows_width[0] = textLineSize(buffer, start.row, start.col, Buffer.RowCol.last_col)[0];
-                    for (start.row + 1..end.row, 1..) |row, i| selection_rows_width[i] += textLineSize(buffer, row, 1, Buffer.RowCol.last_col)[0];
-                    selection_rows_width[selected_rows - 1] = textLineSize(buffer, end.row, 1, end.col)[0];
-                }
-            },
-        }
+            const size = textLineSize(buffer, row, start_col, end_col);
+            const x_offset = if (start_col == 1) 0 else textLineSize(buffer, row, 1, start_col)[0];
 
-        switch (buffer.selection.kind) { // get selection_rows_offset
-            .line => {}, // selection_rows_offset should be zero and is zero by default
-            .regular => {
-                if (start.col > 1) {
-                    selection_rows_offset[0] = textLineSize(buffer, start.row, 1, start.col)[0];
-                    // The rest should be zero and are zero by default
-                }
-            },
-            .block => {
-                if (start.col > 1) {
-                    for (start.row..end.row + 1, 0..) |row, i| {
-                        selection_rows_offset[i] = textLineSize(buffer, row, 1, start.col)[0];
-                    }
-                }
-            },
-        }
-
-        // now render the selection
-        var relative_row = buffer_window.relativeBufferRowFromAbsolute(start.row);
-        if (!new_line) relative_row -= 1;
-        for (selection_rows_width[0..selected_rows], 0..selected_rows) |w, j| {
-            if (buffer.selection.kind == .block and w == 0) {
-                continue;
-            }
-
-            const pos = imgui.getWindowPos();
-            const padding = imgui.getStyle().window_padding;
-            const y = @intToFloat(f32, j + relative_row) * line_h + padding[1] + pos[1];
-            const x = padding[0] + selection_rows_offset[j] + pos[0];
-
+            const x = abs_x + x_offset;
             dl.addRectFilled(.{
-                .pmin = .{ x, y },
-                .pmax = .{ x + w, y + line_h },
+                .pmin = .{ x, abs_y },
+                .pmax = .{ x + size[0], abs_y + line_h },
                 .col = getCursorRect(.{ 0, 0 }, .{ 0, 0 }).col,
             });
         }
-    }
 
-    { // render text
-        const start = buffer_window.first_visiable_row;
-        const end = buffer_window.lastVisibleRow() + 1;
-        for (start..end) |row| {
-            const line = getVisibleLine(buffer, &static.buf, row);
-            imgui.textUnformatted(line);
+        // render cursor
+        if (row == buffer_window.cursor.row and buffer_window_node == core.focusedBW()) {
+            const offset = textLineSize(buffer, row, 1, buffer_window.cursor.col);
+            const size = blk: {
+                var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
+                if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
+                break :blk imgui.calcTextSize(slice, .{});
+            };
+
+            const x = abs_x + offset[0];
+            const min = [2]f32{ x, abs_y };
+            const max = [2]f32{ x + size[0], abs_y + size[1] };
+
+            const crect = getCursorRect(min, max);
+            globals.ui.focused_cursor_rect = crect.rect;
+
+            dl.addRectFilled(.{
+                .pmin = crect.rect.leftTop(),
+                .pmax = crect.rect.rightBottom(),
+                .col = crect.col,
+                .rounding = crect.rounding,
+                .flags = .{
+                    .closed = crect.flags.closed,
+                    .round_corners_top_left = crect.flags.round_corners_top_left,
+                    .round_corners_top_right = crect.flags.round_corners_top_right,
+                    .round_corners_bottom_left = crect.flags.round_corners_bottom_left,
+                    .round_corners_bottom_right = crect.flags.round_corners_bottom_right,
+                    .round_corners_none = crect.flags.round_corners_none,
+                },
+            });
         }
+
+        // render text
+        const line = getVisibleLine(buffer, &static.buf, row);
+        imgui.textUnformatted(line);
     }
 
-    var focused = false;
     { // invisible button for interactions
 
         var pos = begin_cursor_pos;
@@ -236,61 +232,13 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             .h = height,
         });
 
-        focused = imgui.isItemFocused();
+        var focused = imgui.isItemFocused();
         if (clicked or focused) {
             if (buffer_window_node != core.focusedBW()) core.setFocusedWindow(buffer_window_node);
         }
+
+        return focused;
     }
-
-    if (core.focusedBW() != null and buffer_window == &core.focusedBW().?.data) { // render cursor
-        const cursor_row = buffer_window.cursor.row;
-
-        var padding = imgui.getStyle().window_padding;
-        var win_pos = imgui.getWindowPos();
-
-        var min: [2]f32 = .{ 0, 0 };
-        min[0] = win_pos[0] + padding[0];
-
-        var relative_row = @intToFloat(f32, buffer_window.relativeBufferRowFromAbsolute(cursor_row));
-        if (!new_line) relative_row -= 1;
-
-        min[1] = (line_h * relative_row) + win_pos[1] + padding[1];
-
-        { // get the x position of the cursor
-            const s = textLineSize(buffer, cursor_row, 1, buffer_window.cursor.col);
-            min[0] += s[0];
-        }
-
-        var max = min;
-
-        { // get width and height
-            var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
-            if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
-            var s = imgui.calcTextSize(slice, .{});
-            max[0] += s[0];
-            max[1] += line_h;
-        }
-
-        var crect = getCursorRect(min, max);
-        globals.ui.focused_cursor_rect = crect.rect;
-
-        dl.addRectFilled(.{
-            .pmin = crect.rect.leftTop(),
-            .pmax = crect.rect.rightBottom(),
-            .col = crect.col,
-            .rounding = crect.rounding,
-            .flags = .{
-                .closed = crect.flags.closed,
-                .round_corners_top_left = crect.flags.round_corners_top_left,
-                .round_corners_top_right = crect.flags.round_corners_top_right,
-                .round_corners_bottom_left = crect.flags.round_corners_bottom_left,
-                .round_corners_bottom_right = crect.flags.round_corners_bottom_right,
-                .round_corners_none = crect.flags.round_corners_none,
-            },
-        });
-    }
-
-    return focused;
 }
 
 pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
