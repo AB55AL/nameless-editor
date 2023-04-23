@@ -195,7 +195,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
             const x = abs_x + offset[0];
             const min = [2]f32{ x, abs_y };
-            const max = [2]f32{ x + size[0], abs_y + size[1] };
+            const max = [2]f32{ x + size[0], abs_y + line_h };
 
             const crect = getCursorRect(min, max);
             globals.ui.focused_cursor_rect = crect.rect;
@@ -242,8 +242,8 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 }
 
 pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
-    const start = buffer.getIndex(.{ .row = row, .col = 1 });
-    const end = buffer.getIndex(.{ .row = row, .col = max_visible_cols });
+    const start = buffer.indexOfFirstByteAtRow(row);
+    const end = start + std.math.min(max_visible_bytes, buffer.lineSize(row));
     var iter = Buffer.BufferIterator.init(buffer, start, end);
     var i: u64 = 0;
     while (iter.next()) |string| {
