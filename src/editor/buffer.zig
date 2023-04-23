@@ -88,6 +88,7 @@ pub const MetaData = struct {
     file_last_mod_time: i128,
     dirty: bool = false,
     history_dirty: bool = false,
+    read_only: bool = false,
 
     pub fn setFileType(metadata: *MetaData, allocator: std.mem.Allocator, new_ft: []const u8) !void {
         var file_type = try allocator.alloc(u8, new_ft.len);
@@ -213,6 +214,8 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 }
 
 pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
+    if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
     try buffer.validateInsertionPoint(index);
     try buffer.lines.insert(buffer.allocator, index, string);
     buffer.metadata.setDirty();
@@ -221,6 +224,8 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
 
 /// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
+    if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
     const s = min(start, end);
     const e = max(start, end);
 
@@ -232,6 +237,8 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
+    if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
     var root = PieceTable.PieceNode.deinitTree(buffer.lines.tree.root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
     buffer.lines.tree = .{};
@@ -242,6 +249,8 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
 }
 
 pub fn clear(buffer: *Buffer) !void {
+    if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
     var root = PieceTable.PieceNode.deinitTree(buffer.lines.tree.root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
 

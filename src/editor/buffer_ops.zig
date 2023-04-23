@@ -58,12 +58,14 @@ pub fn createLocalBuffer(file_path: []const u8) !Buffer {
         const file = try fs.cwd().openFile(full_file_path, .{});
         defer file.close();
         const metadata = try file.metadata();
+        const perms = metadata.permissions();
         try file.seekTo(0);
         var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
         defer internal.allocator.free(buf);
 
         buffer = try Buffer.init(internal.allocator, full_file_path, buf);
         buffer.metadata.file_last_mod_time = metadata.modified();
+        buffer.metadata.read_only = perms.readOnly();
     } else {
         buffer = try Buffer.init(internal.allocator, "", "");
     }
