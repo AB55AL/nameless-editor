@@ -12,23 +12,20 @@ const editor = core.editor;
 const input = core.input;
 const Key = input.Key;
 
-pub fn cursorRect(left: f32, top: f32, right: f32, bottom: f32) core.BufferWindow.CursorRect {
-    var rect: core.BufferWindow.CursorRect = .{
-        .top = top,
-        .left = left,
-        .bottom = bottom,
-        .right = right,
-        .col = 0xAAAAAA00 + 128,
-    };
+pub fn cursorRect(const_rect: core.Rect) core.BufferWindow.CursorRect {
+    var rect = const_rect;
 
     switch (vim_like.state.mode) {
         .insert => {
-            rect.right = rect.left;
+            rect.w = 1;
         },
         else => {},
     }
 
-    return rect;
+    return .{
+        .rect = rect,
+        .col = 0xAAAAAA00 + 128,
+    };
 }
 
 fn doUI(gpa: std.mem.Allocator, arena: std.mem.Allocator) void {

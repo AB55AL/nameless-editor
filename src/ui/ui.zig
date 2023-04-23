@@ -65,7 +65,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
         }
 
         var size = imgui.getWindowSize();
-        var rect = core.BufferWindow.Rect{ .w = size[0], .h = size[1] };
+        var rect = core.Rect{ .w = size[0], .h = size[1] };
         var windows = try core.BufferWindow.getAndSetWindows(&globals.ui.visiable_buffers_tree, allocator, rect);
         defer allocator.free(windows);
         for (windows) |bw| {
@@ -88,8 +88,8 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
         size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, globals.editor.command_line_buffer.size() + 2));
         size[1] = imgui.getTextLineHeightWithSpacing() * 2;
 
-        const x = if (focused_cursor_pos) |pos| pos.right else center[0] - (size[0] / 2);
-        const y = if (focused_cursor_pos) |pos| pos.top else center[1] - (size[1] / 2);
+        const x = if (focused_cursor_pos) |pos| pos.rect.right() else center[0] - (size[0] / 2);
+        const y = if (focused_cursor_pos) |pos| pos.rect.top() else center[1] - (size[1] / 2);
 
         imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
         imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
@@ -274,21 +274,21 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
             max[1] += line_h;
         }
 
-        var rect = getCursorRect(min, max);
-        focused_cursor_pos = rect;
+        var crect = getCursorRect(min, max);
+        focused_cursor_pos = crect;
 
         dl.addRectFilled(.{
-            .pmin = rect.leftTop(),
-            .pmax = rect.rightBottom(),
-            .col = rect.col,
-            .rounding = rect.rounding,
+            .pmin = crect.rect.leftTop(),
+            .pmax = crect.rect.rightBottom(),
+            .col = crect.col,
+            .rounding = crect.rounding,
             .flags = .{
-                .closed = rect.flags.closed,
-                .round_corners_top_left = rect.flags.round_corners_top_left,
-                .round_corners_top_right = rect.flags.round_corners_top_right,
-                .round_corners_bottom_left = rect.flags.round_corners_bottom_left,
-                .round_corners_bottom_right = rect.flags.round_corners_bottom_right,
-                .round_corners_none = rect.flags.round_corners_none,
+                .closed = crect.flags.closed,
+                .round_corners_top_left = crect.flags.round_corners_top_left,
+                .round_corners_top_right = crect.flags.round_corners_top_right,
+                .round_corners_bottom_left = crect.flags.round_corners_bottom_left,
+                .round_corners_bottom_right = crect.flags.round_corners_bottom_right,
+                .round_corners_none = crect.flags.round_corners_none,
             },
         });
     }
@@ -333,20 +333,15 @@ pub fn textLineSize(buffer: *Buffer, row: u64, col_start: u64, col_end: u64) [2]
 }
 
 pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
-    var rect = if (@hasDecl(input_layer, "cursorRect"))
-        input_layer.cursorRect(min[0], min[1], max[0], max[1])
+    var crect = if (@hasDecl(input_layer, "cursorRect"))
+        input_layer.cursorRect(core.Rect.fromMinMax(min, max))
     else
-        core.BufferWindow.CursorRect{
-            .left = min[0],
-            .top = min[1],
-            .right = max[0],
-            .bottom = max[1],
-        };
+        core.BufferWindow.CursorRect{ .rect = core.Rect.fromMinMax(min, max) };
 
-    if (rect.right - rect.left == 0) rect.right += 1;
-    if (rect.bottom - rect.top == 0) rect.bottom += 1;
+    if (crect.rect.w == 0) crect.rect.w = 1;
+    if (crect.rect.h == 0) crect.rect.h = 1;
 
-    return rect;
+    return crect;
 }
 
 pub fn notifications() void {

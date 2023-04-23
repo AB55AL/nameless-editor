@@ -15,12 +15,51 @@ const NaryTree = @import("../nary.zig").NaryTree;
 pub const BufferWindowTree = NaryTree(BufferWindow);
 pub const BufferWindowNode = BufferWindowTree.Node;
 
+pub const Rect = struct {
+    x: f32 = 0,
+    y: f32 = 0,
+    w: f32 = 0,
+    h: f32 = 0,
+
+    pub fn left(rect: Rect) f32 {
+        return rect.x;
+    }
+    pub fn top(rect: Rect) f32 {
+        return rect.y;
+    }
+    pub fn right(rect: Rect) f32 {
+        return rect.x + rect.w;
+    }
+    pub fn bottom(rect: Rect) f32 {
+        return rect.y + rect.h;
+    }
+
+    pub fn leftTop(rect: Rect) [2]f32 {
+        return .{ rect.x, rect.y };
+    }
+
+    pub fn rightBottom(rect: Rect) [2]f32 {
+        return .{ rect.x + rect.w, rect.y + rect.h };
+    }
+
+    pub fn fromMinMax(min: [2]f32, max: [2]f32) Rect {
+        return .{
+            .x = min[0],
+            .y = min[1],
+            .w = max[0] - min[0],
+            .h = max[1] - min[1],
+        };
+    }
+};
+
+pub const Size = struct {
+    w: f32 = 0,
+    h: f32 = 0,
+};
+
 pub const BufferWindow = struct {
     pub const CursorRect = struct {
-        left: f32,
-        top: f32,
-        right: f32,
-        bottom: f32,
+        rect: Rect,
 
         col: u32 = 0xFFFFFFFF,
         rounding: f32 = 0.0,
@@ -33,26 +72,6 @@ pub const BufferWindow = struct {
             round_corners_none: bool = false,
         } = .{},
         thickness: f32 = 1.0,
-
-        pub fn leftTop(rect: CursorRect) [2]f32 {
-            return .{ rect.left, rect.top };
-        }
-
-        pub fn rightBottom(rect: CursorRect) [2]f32 {
-            return .{ rect.right, rect.bottom };
-        }
-    };
-
-    pub const Rect = struct {
-        x: f32 = 0,
-        y: f32 = 0,
-        w: f32 = 0,
-        h: f32 = 0,
-    };
-
-    pub const Size = struct {
-        w: f32 = 0,
-        h: f32 = 0,
     };
 
     pub const Dir = enum {
