@@ -4,7 +4,7 @@ const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const untils = @import("../utils.zig");
 
-const Events = @This();
+const Hooks = @This();
 
 // Make sure Sets and Kind have identical member names
 comptime {
@@ -12,7 +12,7 @@ comptime {
     const sets_fields_names = std.meta.fieldNames(Sets);
 
     if (kind_fields_names.len != sets_fields_names.len)
-        @compileError("Events.Kind and Events.Sets must have identical member names and count");
+        @compileError("Hooks.Kind and Hooks.Sets must have identical member names and count");
 
     outer_loop: for (kind_fields_names) |kind_name| {
         for (sets_fields_names) |set_name| {
@@ -20,7 +20,7 @@ comptime {
                 continue :outer_loop;
         }
 
-        @compileError("Events.Kind." ++ kind_name ++ " Doesn't exist in Sets.");
+        @compileError("Hooks.Kind." ++ kind_name ++ " Doesn't exist in Sets.");
     }
 }
 
@@ -51,25 +51,25 @@ pub const Kind = enum {
 sets: Sets = .{},
 allocator: std.mem.Allocator,
 
-pub fn init(allocator: std.mem.Allocator) Events {
+pub fn init(allocator: std.mem.Allocator) Hooks {
     return .{ .allocator = allocator };
 }
 
-pub fn deinit(events: *Events) void {
-    const sets_fields = @typeInfo(Events.Sets).Struct.fields;
+pub fn deinit(hooks: *Hooks) void {
+    const sets_fields = @typeInfo(Hooks.Sets).Struct.fields;
     inline for (sets_fields) |field|
-        @field(events.sets, field.name).deinit(events.allocator);
+        @field(hooks.sets, field.name).deinit(hooks.allocator);
 }
 
-pub fn attach(events: *Events, comptime kind: Kind, function: anytype) void {
-    _ = (@field(events.sets, kind.fieldName())).getOrPut(events.allocator, function) catch return;
+pub fn attach(hooks: *Hooks, comptime kind: Kind, function: anytype) void {
+    _ = (@field(hooks.sets, kind.fieldName())).getOrPut(hooks.allocator, function) catch return;
 }
 
-pub fn detach(events: *Events, comptime kind: Kind, function: anytype) void {
-    _ = @field(events.sets, kind.fieldName()).swapRemove(function);
+pub fn detach(hooks: *Hooks, comptime kind: Kind, function: anytype) void {
+    _ = @field(hooks.sets, kind.fieldName()).swapRemove(function);
 }
 
-pub fn dispatch(events: *Events, comptime kind: Kind, args: anytype) void {
-    var iter = @field(events.sets, kind.fieldName()).iterator();
+pub fn dispatch(hooks: *Hooks, comptime kind: Kind, args: anytype) void {
+    var iter = @field(hooks.sets, kind.fieldName()).iterator();
     while (iter.next()) |kv| @call(.never_inline, (kv.key_ptr.*), args);
 }
