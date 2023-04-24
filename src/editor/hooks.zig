@@ -4,72 +4,96 @@ const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const untils = @import("../utils.zig");
 
-const Hooks = @This();
+pub fn GenerateHooks(comptime KindEnum: type, comptime FunctionsStruct: type) type {
+    const funcs = std.meta.fields(FunctionsStruct);
+    const enums = std.meta.fields(KindEnum);
 
-// Make sure Sets and Kind have identical member names
-comptime {
-    const kind_fields_names = std.meta.fieldNames(Kind);
-    const sets_fields_names = std.meta.fieldNames(Sets);
+    if (funcs.len != enums.len) @compileError("FunctionsStruct And Enums must be of the same length");
 
-    if (kind_fields_names.len != sets_fields_names.len)
-        @compileError("Hooks.Kind and Hooks.Sets must have identical member names and count");
-
-    outer_loop: for (kind_fields_names) |kind_name| {
-        for (sets_fields_names) |set_name| {
-            if (std.mem.eql(u8, kind_name, set_name))
+    outer_loop: for (enums) |e| {
+        for (funcs) |f| {
+            if (std.mem.eql(u8, e.name, f.name))
                 continue :outer_loop;
         }
 
-        @compileError("Hooks.Kind." ++ kind_name ++ " Doesn't exist in Sets.");
+        @compileError("enum '" ++ e.name ++ "' Doesn't exist in " ++ @typeName(FunctionsStruct));
     }
-}
 
-pub const Sets = struct {
+    for (funcs) |f| {
+        if (@typeInfo(f.type) != .Fn) @compileError("FunctionsStruct must have only function types");
+        if (std.ascii.isDigit(f.name[0])) @compileError("Every member in FunctionsStruct must have a name that doesn't start with a digit");
+    }
+
     const Set = std.AutoArrayHashMapUnmanaged;
-    after_insert: Set(*const Kind.AfterInsert, void) = .{},
-    after_delete: Set(*const Kind.AfterDelete, void) = .{},
-};
+    const GeneratedSets = blk: {
+        const StructField = std.builtin.Type.StructField;
+        var fields: []const StructField = &[_]StructField{};
 
-pub const Kind = enum {
-    after_insert,
-    after_delete,
-
-    pub fn fieldName(kind: Kind) []const u8 {
-        const fields = @typeInfo(Kind).Enum.fields;
-        inline for (fields) |field| {
-            if (field.value == @enumToInt(kind))
-                return field.name;
+        for (std.meta.fields(KindEnum), 0..) |field, index| {
+            const FnType = *const funcs[index].type;
+            const Data = Set(FnType, void);
+            fields = fields ++ &[_]StructField{.{
+                .name = field.name,
+                .type = Data,
+                .default_value = @ptrCast(*const anyopaque, &Data{}),
+                .is_comptime = false,
+                .alignment = @alignOf(Data),
+            }};
         }
 
-        unreachable;
-    }
+        break :blk @Type(.{ .Struct = .{
+            .layout = .Auto,
+            .fields = fields,
+            .decls = &.{},
+            .is_tuple = false,
+        } });
+    };
 
-    pub const AfterInsert = fn (before: Buffer.Change, after: Buffer.Change) void;
-    pub const AfterDelete = fn (before: Buffer.Change, after: Buffer.Change) void;
+    return struct {
+        const Self = @This();
+
+        sets: GeneratedSets = .{},
+        allocator: std.mem.Allocator,
+
+        pub fn init(allocator: std.mem.Allocator) Self {
+            return .{ .allocator = allocator };
+        }
+
+        pub fn deinit(self: *Self) void {
+            const sets_fields = @typeInfo(GeneratedSets).Struct.fields;
+            inline for (sets_fields) |field|
+                @field(self.sets, field.name).deinit(self.allocator);
+        }
+
+        pub fn attach(self: *Self, comptime kind: KindEnum, function: anytype) void {
+            _ = (@field(self.sets, fieldName(kind))).getOrPut(self.allocator, function) catch return;
+        }
+
+        pub fn detach(self: *Self, comptime kind: KindEnum, function: anytype) void {
+            _ = @field(self.sets, fieldName(kind)).swapRemove(function);
+        }
+
+        pub fn dispatch(self: *Self, comptime kind: KindEnum, args: anytype) void {
+            var iter = @field(self.sets, fieldName(kind)).iterator();
+            while (iter.next()) |kv| @call(.never_inline, (kv.key_ptr.*), args);
+        }
+
+        fn fieldName(comptime kind: KindEnum) []const u8 {
+            const fields = std.meta.fields(KindEnum);
+            inline for (fields) |field|
+                if (field.value == @enumToInt(kind)) return field.name;
+
+            unreachable;
+        }
+    };
+}
+
+pub const EditorHooks = GenerateHooks(Kind, Functions);
+const Functions = struct {
+    after_insert: fn (before: Buffer.Change, after: Buffer.Change) void,
+    after_delete: fn (before: Buffer.Change, after: Buffer.Change) void,
 };
-
-sets: Sets = .{},
-allocator: std.mem.Allocator,
-
-pub fn init(allocator: std.mem.Allocator) Hooks {
-    return .{ .allocator = allocator };
-}
-
-pub fn deinit(hooks: *Hooks) void {
-    const sets_fields = @typeInfo(Hooks.Sets).Struct.fields;
-    inline for (sets_fields) |field|
-        @field(hooks.sets, field.name).deinit(hooks.allocator);
-}
-
-pub fn attach(hooks: *Hooks, comptime kind: Kind, function: anytype) void {
-    _ = (@field(hooks.sets, kind.fieldName())).getOrPut(hooks.allocator, function) catch return;
-}
-
-pub fn detach(hooks: *Hooks, comptime kind: Kind, function: anytype) void {
-    _ = @field(hooks.sets, kind.fieldName()).swapRemove(function);
-}
-
-pub fn dispatch(hooks: *Hooks, comptime kind: Kind, args: anytype) void {
-    var iter = @field(hooks.sets, kind.fieldName()).iterator();
-    while (iter.next()) |kv| @call(.never_inline, (kv.key_ptr.*), args);
-}
+const Kind = enum {
+    after_insert,
+    after_delete,
+};

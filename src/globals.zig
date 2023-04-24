@@ -13,7 +13,7 @@ const utils = @import("utils.zig");
 const BufferWindowTree = buffer_window.BufferWindowTree;
 const BufferWindowNode = buffer_window.BufferWindowNode;
 const command_line = @import("editor/command_line.zig");
-const Hooks = @import("editor/hooks.zig");
+const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 
 pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
 const UserUIFuncSet = std.AutoHashMap(UserUIFunc, void);
@@ -31,7 +31,7 @@ pub const editor = struct {
     pub var command_line_buffer: *Buffer = undefined;
     pub var command_line_is_open: bool = false;
 
-    pub var hooks: Hooks = undefined;
+    pub var hooks: EditorHooks = undefined;
 };
 
 pub const input = struct {
@@ -78,7 +78,7 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
         .first_visiable_row = 1,
     } };
 
-    editor.hooks = Hooks.init(allocator);
+    editor.hooks = EditorHooks.init(allocator);
 }
 
 pub fn deinitGlobals() void {
