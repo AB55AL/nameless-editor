@@ -73,10 +73,7 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
 
     ui.user_ui = UserUIFuncSet.init(allocator);
 
-    ui.command_line_buffer_window = .{ .data = .{
-        .buffer = editor.command_line_buffer,
-        .first_visiable_row = 1,
-    } };
+    ui.command_line_buffer_window = .{ .data = BufferWindow.init(editor.command_line_buffer, 1, .north, 0, @ptrToInt(&ui.command_line_buffer_window)) catch unreachable };
 
     editor.hooks = EditorHooks.init(allocator);
 }

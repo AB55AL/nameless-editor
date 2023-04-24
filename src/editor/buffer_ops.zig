@@ -245,12 +245,9 @@ pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {
     }
 
     var new_node = try globals.internal.allocator.create(BufferWindowNode);
-    new_node.* = .{ .data = .{
-        .buffer = buffer,
-        .first_visiable_row = 1,
-        .dir = dir orelse .north,
-        .percent_of_parent = 0.5,
-    } };
+    new_node.* = .{
+        .data = try BufferWindow.init(buffer, 1, dir orelse .north, 0.5, @ptrToInt(new_node)),
+    };
 
     if (ui.focused_buffer_window) |fbw| {
         fbw.appendChild(new_node);

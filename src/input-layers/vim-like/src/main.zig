@@ -46,7 +46,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
 
     var fbw = &(core.focusedBW() orelse return).data;
     var buffer = fbw.buffer;
-    const index = buffer.getIndex(fbw.cursor);
+    const index = buffer.getIndex(fbw.cursor());
 
     buffer.insertAt(index, utf8_seq) catch |err| {
         const err_msg = switch (err) {
@@ -59,7 +59,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
         return;
     };
 
-    fbw.cursor = fbw.buffer.getRowAndCol(index + utf8_seq.len);
+    fbw.setCursor(fbw.buffer.getRowAndCol(index + utf8_seq.len));
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";

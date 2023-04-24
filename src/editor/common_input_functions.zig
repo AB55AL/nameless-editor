@@ -26,7 +26,7 @@ pub fn cycleWindows() void {
 
 pub fn deleteBackward() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const index = fbw.buffer.getIndex(fbw.cursor);
+    const index = fbw.buffer.getIndex(fbw.cursor());
     const old_size = fbw.buffer.size();
 
     fbw.buffer.deleteBefore(index) catch |err| {
@@ -34,12 +34,12 @@ pub fn deleteBackward() void {
     };
 
     const deleted_bytes = old_size - fbw.buffer.size();
-    fbw.cursor = fbw.buffer.getRowAndCol(index - deleted_bytes);
+    fbw.setCursor(fbw.buffer.getRowAndCol(index - deleted_bytes));
 }
 
 pub fn deleteForward() void {
     var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const index = fbw.buffer.getIndex(fbw.cursor);
+    const index = fbw.buffer.getIndex(fbw.cursor());
     fbw.buffer.deleteAfterCursor(index) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
