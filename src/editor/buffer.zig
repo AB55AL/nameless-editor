@@ -19,10 +19,19 @@ const HistoryTree = NaryTree(HistoryInfo);
 const Buffer = @This();
 
 pub const Change = struct {
-    change_rc: RowCol,
     size: u64,
     line_count: u64,
-    kind: enum { insert, delete },
+
+    pub fn updateRowCol(change_point: RowCol, kind: enum { insert, delete }, before: Change, after: Change, to_update: RowCol) RowCol {
+        const rc = change_point;
+        if (rc.row > to_update.row) return to_update; // no need to update
+
+        const line_count_diff = utils.diff(before.line_count, after.line_count);
+        var new_row = if (kind == .insert) to_update.row + line_count_diff else utils.diff(to_update.row, line_count_diff);
+        new_row = min(after.line_count, max(1, new_row));
+
+        return .{ .row = new_row, .col = to_update.col };
+    }
 };
 
 pub const Range = struct {
@@ -155,6 +164,8 @@ allocator: std.mem.Allocator,
 history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
 selection: Selection = .{},
+/// RowCol values stored here will be updated on every change of the buffer
+marks: std.AutoArrayHashMap(u64, RowCol),
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     const static = struct {
@@ -182,6 +193,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,
+        .marks = std.AutoArrayHashMap(u64, RowCol).init(allocator),
     };
 
     try buffer.insureLastByteIsNewline();
@@ -193,6 +205,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 /// Deinits the members of the buffer but does not destroy the buffer.
 pub fn deinitNoDestroy(buffer: *Buffer) void {
     buffer.lines.deinit(buffer.allocator);
+    buffer.marks.deinit();
     buffer.allocator.free(buffer.metadata.file_path);
     buffer.allocator.free(buffer.metadata.file_type);
 
@@ -213,15 +226,26 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
+    const change_point = buffer.getRowAndCol(index);
+    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+
     try buffer.validateInsertionPoint(index);
     try buffer.lines.insert(buffer.allocator, index, string);
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
+
+    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+
+    var iter = buffer.marks.iterator();
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .insert, before, after, kv.value_ptr.*);
 }
 
 /// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
+    const change_point = buffer.getRowAndCol(start);
+    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     const s = min(start, end);
     const e = max(start, end);
@@ -231,10 +255,18 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
 
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
+
+    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+
+    var iter = buffer.marks.iterator();
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .delete, before, after, kv.value_ptr.*);
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
+
+    const change_point = RowCol{ .row = 1, .col = 1 };
+    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var root = PieceTable.PieceNode.deinitTree(buffer.lines.tree.root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
@@ -243,6 +275,11 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.lines.insert(buffer.allocator, 0, string);
     try buffer.insureLastByteIsNewline();
     buffer.metadata.setDirty();
+
+    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+
+    var iter = buffer.marks.iterator();
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .delete, before, after, kv.value_ptr.*);
 }
 
 pub fn clear(buffer: *Buffer) !void {
@@ -254,6 +291,9 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.lines.tree = .{};
     try buffer.insureLastByteIsNewline();
     buffer.metadata.setDirty();
+
+    var iter = buffer.marks.iterator();
+    while (iter.next()) |kv| kv.value_ptr.* = .{};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
