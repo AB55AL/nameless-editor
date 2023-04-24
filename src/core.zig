@@ -3,6 +3,7 @@ pub const command_line = @import("editor/command_line.zig");
 pub const input = @import("editor/input.zig");
 pub const common_input_functions = @import("editor/common_input_functions.zig");
 pub const registers = @import("editor/registers.zig");
+pub const Events = @import("editor/events.zig");
 pub usingnamespace @import("editor/buffer_ops.zig");
 pub usingnamespace @import("ui/notify.zig");
 pub usingnamespace @import("ui/buffer_window.zig");

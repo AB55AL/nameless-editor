@@ -18,6 +18,13 @@ const HistoryTree = NaryTree(HistoryInfo);
 
 const Buffer = @This();
 
+pub const Change = struct {
+    change_rc: RowCol,
+    size: u64,
+    line_count: u64,
+    kind: enum { insert, delete },
+};
+
 pub const Range = struct {
     start: u64,
     end: u64,
