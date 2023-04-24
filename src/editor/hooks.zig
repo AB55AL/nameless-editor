@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayListUnmanaged = std.ArrayListUnmanaged;
 
 const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
@@ -24,14 +25,13 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime FunctionsStruct: type) ty
         if (std.ascii.isDigit(f.name[0])) @compileError("Every member in FunctionsStruct must have a name that doesn't start with a digit");
     }
 
-    const Set = std.AutoArrayHashMapUnmanaged;
     const GeneratedSets = blk: {
         const StructField = std.builtin.Type.StructField;
         var fields: []const StructField = &[_]StructField{};
 
         for (std.meta.fields(KindEnum), 0..) |field, index| {
             const FnType = *const funcs[index].type;
-            const Data = Set(FnType, void);
+            const Data = ArrayListUnmanaged(FnType);
             fields = fields ++ &[_]StructField{.{
                 .name = field.name,
                 .type = Data,
@@ -60,13 +60,13 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime FunctionsStruct: type) ty
         }
 
         pub fn deinit(self: *Self) void {
-            const sets_fields = @typeInfo(GeneratedSets).Struct.fields;
-            inline for (sets_fields) |field|
+            inline for (std.meta.fields(GeneratedSets)) |field|
                 @field(self.sets, field.name).deinit(self.allocator);
         }
 
         pub fn attach(self: *Self, comptime kind: KindEnum, function: anytype) void {
-            _ = (@field(self.sets, fieldName(kind))).getOrPut(self.allocator, function) catch return;
+            if (self.exists(kind, function)) return;
+            @field(self.sets, fieldName(kind)).append(self.allocator, function) catch return;
         }
 
         pub fn detach(self: *Self, comptime kind: KindEnum, function: anytype) void {
@@ -74,8 +74,15 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime FunctionsStruct: type) ty
         }
 
         pub fn dispatch(self: *Self, comptime kind: KindEnum, args: anytype) void {
-            var iter = @field(self.sets, fieldName(kind)).iterator();
-            while (iter.next()) |kv| @call(.never_inline, (kv.key_ptr.*), args);
+            for ((@field(self.sets, fieldName(kind))).items) |func|
+                @call(.never_inline, func, args);
+        }
+
+        fn exists(self: *Self, comptime kind: KindEnum, function: anytype) bool {
+            for ((@field(self.sets, fieldName(kind))).items) |func|
+                if (func == function) return true;
+
+            return false;
         }
 
         fn fieldName(comptime kind: KindEnum) []const u8 {
