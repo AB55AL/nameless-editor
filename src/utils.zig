@@ -35,3 +35,7 @@ pub fn atLeastOneIsEqual(comptime T: type, slice: []const T, value: T) bool {
     for (slice) |v| if (v == value) return true;
     return false;
 }
+
+pub fn diff(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
+    return if (a >= b) a - b else b - a;
+}
