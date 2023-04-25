@@ -228,6 +228,10 @@ pub fn cliBW() *BufferWindowNode {
     return &globals.editor.command_line_buffer_window;
 }
 
+pub fn cliOpen() bool {
+    return globals.editor.command_line_is_open;
+}
+
 pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
     if (buffer_win == cliBW()) return;
 

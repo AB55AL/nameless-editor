@@ -87,7 +87,7 @@ pub fn closeCommandLine() void {
 }
 
 pub fn enterKey() void {
-    if (editor.command_line_is_open) {
+    if (core.cliOpen()) {
         core.command_line.run() catch |err| {
             print("Couldn't run command. err={}\n", .{err});
         };

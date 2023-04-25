@@ -46,7 +46,7 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) []u8 {
 
 pub fn buffers(arena: std.mem.Allocator) !void {
     var buffers_focused = false;
-    if (!globals.editor.command_line_is_open) globals.ui.focused_cursor_rect = null;
+    if (!core.cliOpen()) globals.ui.focused_cursor_rect = null;
 
     { // Remove all buffer windows that have invalid buffers
 
@@ -97,7 +97,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
         }
     }
 
-    if (globals.editor.command_line_is_open) {
+    if (core.cliOpen()) {
         const center = imgui.getMainViewport().getCenter();
 
         const m_size = imgui.calcTextSize("m", .{})[0];

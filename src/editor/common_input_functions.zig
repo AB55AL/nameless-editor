@@ -46,7 +46,7 @@ pub fn deleteForward() void {
 }
 
 pub fn toggleCommandLine() void {
-    if (globals.editor.command_line_is_open)
+    if (editor.cliOpen())
         editor.command_line.close()
     else
         editor.command_line.open();
