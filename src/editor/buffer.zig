@@ -22,15 +22,18 @@ pub const Change = struct {
     size: u64,
     line_count: u64,
 
-    pub fn updateRowCol(change_point: RowCol, kind: enum { insert, delete }, before: Change, after: Change, to_update: RowCol) RowCol {
-        const rc = change_point;
-        if (rc.row > to_update.row) return to_update; // no need to update
+    pub fn updateRowColInsert(change_point: RowCol, before: Change, after: Change, to_update: RowCol) RowCol {
+        if (change_point.row > to_update.row) return to_update; // no need to update
+        const diff = after.line_count - before.line_count;
+        // (to_update.row + diff) can never be exceed buffer.lineCount();
+        return .{ .row = to_update.row + diff, .col = to_update.col };
+    }
 
-        const line_count_diff = utils.diff(before.line_count, after.line_count);
-        var new_row = if (kind == .insert) to_update.row + line_count_diff else utils.diff(to_update.row, line_count_diff);
-        new_row = min(after.line_count, max(1, new_row));
-
-        return .{ .row = new_row, .col = to_update.col };
+    pub fn updateRowColDelete(change_point: RowCol, before: Change, after: Change, to_update: RowCol) RowCol {
+        if (change_point.row > to_update.row) return to_update; // no need to update
+        const diff = before.line_count - after.line_count;
+        // (to_update.row - diff) can never be 0
+        return .{ .row = to_update.row - diff, .col = to_update.col };
     }
 };
 
@@ -237,7 +240,7 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .insert, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColInsert(change_point, before, after, kv.value_ptr.*);
 }
 
 /// End exclusive
@@ -259,7 +262,7 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .delete, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColDelete(change_point, before, after, kv.value_ptr.*);
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
@@ -279,7 +282,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowCol(change_point, .delete, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColDelete(change_point, before, after, kv.value_ptr.*);
 }
 
 pub fn clear(buffer: *Buffer) !void {
