@@ -5,7 +5,7 @@ const core = @import("core");
 
 const globals = core.globals;
 
-const modToEditorMod = @import("ui.zig").modToEditorMod;
+const modToEditorMod = @import("editor_ui.zig").modToEditorMod;
 
 pub fn keyCallback(window: glfw.Window, key: glfw.Key, scancode: i32, action: glfw.Action, mods: glfw.Mods) void {
     if (action == .release) return;

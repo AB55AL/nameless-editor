@@ -4,7 +4,7 @@ const imgui = @import("imgui");
 
 const core = @import("core");
 
-const ui = @import("ui.zig");
+const editor_ui = @import("editor_ui.zig");
 const Buffer = core.Buffer;
 const globals = core.globals;
 const editor = globals.editor;
@@ -37,9 +37,9 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
             const com = kv.key_ptr.*;
             const desc = kv.value_ptr.*.description;
             _ = imgui.tableSetColumnIndex(0);
-            var clicked = imgui.selectable(ui.tmpStringZ("{s}", .{com}), .{});
+            var clicked = imgui.selectable(editor_ui.tmpStringZ("{s}", .{com}), .{});
             _ = imgui.tableSetColumnIndex(1);
-            clicked = clicked or imgui.selectable(ui.tmpStringZ("{s}", .{desc}), .{});
+            clicked = clicked or imgui.selectable(editor_ui.tmpStringZ("{s}", .{desc}), .{});
 
             open_cli: {
                 if (clicked) {
@@ -103,13 +103,13 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
                 if (m.file_path.len > 0) {
                     const home = std.os.getenv("HOME");
                     if (home) |h|
-                        break :blk ui.tmpStringZ("{s}{s}", .{ "~/", m.file_path[h.len + 1 ..] })
+                        break :blk editor_ui.tmpStringZ("{s}{s}", .{ "~/", m.file_path[h.len + 1 ..] })
                     else
-                        break :blk ui.tmpStringZ("{s}", .{m.file_path});
+                        break :blk editor_ui.tmpStringZ("{s}", .{m.file_path});
                 } else if (b == core.cliBuffer())
-                    break :blk ui.tmpStringZ("CLI Buffer", .{})
+                    break :blk editor_ui.tmpStringZ("CLI Buffer", .{})
                 else
-                    break :blk ui.tmpStringZ("zero length file path", .{});
+                    break :blk editor_ui.tmpStringZ("zero length file path", .{});
             };
 
             if (imgui.selectable(string, .{ .flags = .{} })) static.selected = kv.key_ptr.*;

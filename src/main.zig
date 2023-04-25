@@ -9,7 +9,7 @@ const core = @import("core");
 const command_line = core.command_line;
 const globals = core.globals;
 
-const ui = @import("ui/ui.zig");
+const editor_ui = @import("ui/editor_ui.zig");
 const ui_glfw = @import("ui/glfw.zig");
 const ui_debug = @import("ui/debug.zig");
 
@@ -86,8 +86,8 @@ pub fn main() !void {
             globals.ui.gui_full_size = false;
         }
 
-        try ui.buffers(arena);
-        ui.notifications();
+        try editor_ui.buffers(arena);
+        editor_ui.notifications();
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
         if (globals.ui.imgui_demo) {
