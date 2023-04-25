@@ -455,27 +455,15 @@ pub fn search(buffer: *Buffer, allocator: std.mem.Allocator, string: []const u8,
     return if (indices.items.len == 0) null else indices.items;
 }
 
-pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
-    utils.assert(row <= buffer.lineCount(), "");
-    utils.assert(buf.len >= buffer.lineSize(row), "");
-
-    var iter = LineIterator.initLines(buffer, row, row);
-    var i: u64 = 0;
-    while (iter.next()) |slice| {
-        std.mem.copy(u8, buf[i..], slice);
-        i += slice.len;
-    }
-
-    return buf[0..i];
-}
-
 pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) []u8 {
     utils.assert(last_line >= first_line, "");
     utils.assert(first_line > 0, "");
     utils.assert(last_line <= buffer.lineCount(), "");
-    utils.assert(buf.len <= buffer.lineRangeSize(first_line, last_line), "");
+    utils.assert(buf.len >= buffer.lineRangeSize(first_line, last_line), "");
 
-    var iter = LineIterator.initLines(buffer, first_line, last_line);
+    const start = buffer.indexOfFirstByteAtRow(first_line);
+    const end = buffer.indexOfLastByteAtRow(last_line) + 1;
+    var iter = BufferIterator.init(buffer, start, end);
     var i: u64 = 0;
     while (iter.next()) |slice| {
         std.mem.copy(u8, buf[i..], slice);
@@ -485,20 +473,25 @@ pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) 
     return buf[0..i];
 }
 
+pub fn getLineBuf(buffer: *Buffer, buf: []u8, row: u64) []u8 {
+    return buffer.getLinesBuf(buf, row, row);
+}
+
 pub fn getLine(buffer: *Buffer, allocator: std.mem.Allocator, row: u64) ![]u8 {
     var line = try allocator.alloc(u8, buffer.lineSize(row));
-    return getLineBuf(buffer, line, row);
+    return buffer.getLineBuf(line, row);
 }
 
 pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, last_line: u64) ![]u8 {
     var lines = try allocator.alloc(u8, buffer.lineRangeSize(first_line, last_line));
-    return getLinesBuf(buffer, lines, first_line, last_line);
+    return buffer.getLinesBuf(lines, first_line, last_line);
 }
 
 /// Returns a copy of the entire buffer.
 /// Caller owns memory.
 pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
-    return buffer.getLines(allocator, 1, buffer.lineCount());
+    var lines = try allocator.alloc(u8, buffer.size());
+    return buffer.getLinesBuf(lines, 1, buffer.lineCount());
 }
 
 pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
@@ -644,10 +637,7 @@ pub const LineIterator = struct {
         const piece_info = self.buffer.lines.tree.findNode(self.start);
         const slice = piece_info.piece.content(&self.buffer.lines)[piece_info.relative_index..];
 
-        const end = if (self.start + slice.len < current_line_end)
-            slice.len
-        else
-            current_line_end -| self.start;
+        const end = min(slice.len, current_line_end -| self.start);
 
         const relevant_content = slice[0..end];
         self.start += relevant_content.len;
@@ -692,12 +682,8 @@ pub const BufferIterator = struct {
         const string = piece_info.piece.content(self.pt)[piece_info.relative_index..];
         defer self.start += string.len;
 
-        if (string.len + self.start < self.end) {
-            return string;
-        } else {
-            const end = self.end - self.start;
-            return string[0..end];
-        }
+        const end = min(string.len, self.end - self.start);
+        return string[0..end];
     }
 };
 
