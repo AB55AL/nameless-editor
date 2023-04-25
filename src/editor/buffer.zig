@@ -18,23 +18,9 @@ const HistoryTree = NaryTree(HistoryInfo);
 
 const Buffer = @This();
 
-pub const Change = struct {
+pub const Size = struct {
     size: u64,
     line_count: u64,
-
-    pub fn updateRowColInsert(change_point: RowCol, before: Change, after: Change, to_update: RowCol) RowCol {
-        if (change_point.row > to_update.row) return to_update; // no need to update
-        const diff = after.line_count - before.line_count;
-        // (to_update.row + diff) can never be exceed buffer.lineCount();
-        return .{ .row = to_update.row + diff, .col = to_update.col };
-    }
-
-    pub fn updateRowColDelete(change_point: RowCol, before: Change, after: Change, to_update: RowCol) RowCol {
-        if (change_point.row > to_update.row) return to_update; // no need to update
-        const diff = before.line_count - after.line_count;
-        // (to_update.row - diff) can never be 0
-        return .{ .row = to_update.row - diff, .col = to_update.col };
-    }
 };
 
 pub const Range = struct {
@@ -88,6 +74,20 @@ pub const RowCol = struct {
             if (a.col >= b.col) return a else return b;
         }
         if (a.row > b.row) return a else return b;
+    }
+
+    pub fn updateRowColInsert(to_update: RowCol, change_row: u64, line_count_before: u64, line_count_after: u64) RowCol {
+        if (change_row > to_update.row) return to_update; // no need to update
+        const diff = line_count_after - line_count_before;
+        // (to_update.row + diff) can never be exceed buffer.lineCount();
+        return .{ .row = to_update.row + diff, .col = to_update.col };
+    }
+
+    pub fn updateRowColDelete(to_update: RowCol, change_row: u64, line_count_before: u64, line_count_after: u64) RowCol {
+        if (change_row > to_update.row) return to_update; // no need to update
+        const diff = line_count_before - line_count_after;
+        // (to_update.row - diff) can never be 0
+        return .{ .row = to_update.row - diff, .col = to_update.col };
     }
 };
 
@@ -230,25 +230,25 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
     const change_point = buffer.getRowAndCol(index);
-    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     try buffer.validateInsertionPoint(index);
     try buffer.lines.insert(buffer.allocator, index, string);
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
 
-    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColInsert(change_point, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColInsert(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
 }
 
 /// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_point = buffer.getRowAndCol(start);
-    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const change_row = buffer.getRowAndCol(start).row;
+    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     const s = min(start, end);
     const e = max(start, end);
@@ -259,17 +259,17 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
 
-    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColDelete(change_point, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_point = RowCol{ .row = 1, .col = 1 };
-    const before = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const change_row: u64 = 1;
+    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var root = PieceTable.PieceNode.deinitTree(buffer.lines.tree.root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
@@ -279,10 +279,10 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.insureLastByteIsNewline();
     buffer.metadata.setDirty();
 
-    const after = Change{ .size = buffer.size(), .line_count = buffer.lineCount() };
+    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Change.updateRowColDelete(change_point, before, after, kv.value_ptr.*);
+    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
 }
 
 pub fn clear(buffer: *Buffer) !void {

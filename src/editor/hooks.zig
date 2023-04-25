@@ -97,8 +97,8 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime FunctionsStruct: type) ty
 
 pub const EditorHooks = GenerateHooks(Kind, Functions);
 const Functions = struct {
-    after_insert: fn (buffer: *const Buffer, before: Buffer.Change, after: Buffer.Change) void,
-    after_delete: fn (buffer: *const Buffer, before: Buffer.Change, after: Buffer.Change) void,
+    after_insert: fn (buffer: *const Buffer, before: Buffer.Size, after: Buffer.Size) void,
+    after_delete: fn (buffer: *const Buffer, before: Buffer.Size, after: Buffer.Size) void,
 };
 const Kind = enum {
     after_insert,
