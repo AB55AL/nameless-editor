@@ -21,8 +21,7 @@ pub fn setDefaultCommands() !void {
     try add("save", saveFocused, "Save the buffer");
     try add("saveAs", saveAsFocused, "Save the buffer as");
     try add("forceSave", forceSaveFocused, "Force the buffer to save");
-    try add("kill", killFocused, "Kill the focused buffer window");
-    try add("forceKill", forceKillFocused, "Force kill the focused buffer window");
+    try add("close", closeFocused, "Closes the focused buffer window");
     try add("sq", saveAndQuitFocused, "Save and kill the focused buffer window");
     try add("forceSaveAndQuit", forceSaveAndQuitFocused, "Force save and kill the focused buffer window");
 
@@ -40,38 +39,38 @@ fn bufferInspector(value: bool) void {
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, null) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .{}) catch |err| {
         print("open command: err={}\n", .{err});
     };
 }
 fn openEast(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .east) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .east }) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
 fn openWest(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .west) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .west }) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
 fn openNorth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .north) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .north }) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
 fn openSouth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .south) catch |err| {
+    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .south }) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }
 
 fn saveFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.saveBuffer(fb, false) catch |err| {
+    var buffer = buffer_ops.focusedBufferHandle() orelse return;
+    buffer_ops.saveBuffer(buffer, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -83,12 +82,13 @@ fn saveFocused() void {
 
 fn saveAsFocused(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    var fb = buffer_ops.focusedBuffer() orelse return;
+    var bh = buffer_ops.focusedBufferAndHandle() orelse return;
+    var buffer = bh.buffer;
 
     var fp: []const u8 = undefined;
     if (std.fs.path.isAbsolute(file_path)) {
         fp = file_path;
-        fb.metadata.setFilePath(fb.allocator, fp) catch |err| {
+        buffer.metadata.setFilePath(buffer.allocator, fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
@@ -106,7 +106,7 @@ fn saveAsFocused(file_path: []const u8) void {
             print("err={}\n", .{err});
             return;
         };
-        fb.metadata.setFilePath(fb.allocator, fp) catch |err| {
+        buffer.metadata.setFilePath(buffer.allocator, fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
@@ -114,7 +114,7 @@ fn saveAsFocused(file_path: []const u8) void {
         internal.allocator.free(fp);
     }
 
-    buffer_ops.saveBuffer(fb, false) catch |err| {
+    buffer_ops.saveBuffer(bh.bhandle, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -125,34 +125,22 @@ fn saveAsFocused(file_path: []const u8) void {
 }
 
 fn forceSaveFocused() void {
-    var fb = buffer_ops.focusedBuffer() orelse return;
-    buffer_ops.saveBuffer(fb, true) catch |err|
+    var bhandle = buffer_ops.focusedBufferHandle() orelse return;
+    buffer_ops.saveBuffer(bhandle, .{ .force_save = true }) catch |err|
         print("err={}\n", .{err});
 }
 
-fn killFocused() void {
-    var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.killBufferWindow(fbw) catch |err| {
-        if (err == buffer_ops.Error.KillingDirtyBuffer) {
-            print("Cannot kill dirty buffer. Save the buffer or use forceKill", .{});
-        } else {
-            print("err={}\n", .{err});
-        }
-    };
-}
-
-fn forceKillFocused() void {
-    var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.forceKillBufferWindow(fbw) catch |err|
-        print("err={}\n", .{err});
+fn closeFocused() void {
+    var bw = buffer_ops.focusedBW() orelse return;
+    buffer_ops.closeBW(bw);
 }
 
 fn saveAndQuitFocused() void {
     var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.saveAndQuitWindow(fbw, false) catch |err| {
+    buffer_ops.saveAndCloseBW(fbw, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
-            print("To force saving use forceSaveAndQuit", .{});
+            print("To force saving use forceSaveAndQuit\n", .{});
         } else {
             print("err={}\n", .{err});
         }
@@ -161,6 +149,7 @@ fn saveAndQuitFocused() void {
 
 fn forceSaveAndQuitFocused() void {
     var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.saveAndQuitWindow(fbw, true) catch |err|
+    buffer_ops.saveAndCloseBW(fbw, .{ .force_save = true }) catch |err| {
         print("err={}\n", .{err});
+    };
 }

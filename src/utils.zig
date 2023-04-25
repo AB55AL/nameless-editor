@@ -39,3 +39,7 @@ pub fn atLeastOneIsEqual(comptime T: type, slice: []const T, value: T) bool {
 pub fn diff(a: anytype, b: @TypeOf(a)) @TypeOf(a) {
     return if (a >= b) a - b else b - a;
 }
+
+pub fn bound(value: anytype, at_least: @TypeOf(value), at_most: @TypeOf(value)) @TypeOf(value) {
+    return if (value <= at_least) at_least else if (value >= at_most) at_most else value;
+}

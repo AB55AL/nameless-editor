@@ -159,7 +159,6 @@ pub const Selection = struct {
 };
 
 metadata: MetaData,
-id: u32,
 /// The data structure holding every line in the buffer
 lines: PieceTable,
 allocator: std.mem.Allocator,
@@ -171,10 +170,6 @@ selection: Selection = .{},
 marks: std.AutoArrayHashMap(u64, RowCol),
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
-    const static = struct {
-        var index: u32 = 0;
-    };
-    defer static.index += 1;
     var fp = try allocator.alloc(u8, file_path.len);
     std.mem.copy(u8, fp, file_path);
 
@@ -192,7 +187,6 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     };
 
     var buffer = Buffer{
-        .id = static.index,
         .metadata = metadata,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,

@@ -87,7 +87,7 @@ pub fn main() !void {
             globals.ui.gui_full_size = false;
         }
 
-        try ui.buffers(allocator);
+        try ui.buffers(arena);
         ui.notifications();
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });

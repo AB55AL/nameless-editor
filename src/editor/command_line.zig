@@ -71,25 +71,26 @@ pub fn deinit() void {
 
 pub fn open() void {
     editor.command_line_is_open = true;
-    if (ui.focused_buffer_window) |fbw| buffer_ops.pushAsPreviousBufferWindow(fbw);
+    if (buffer_ops.focusedBW()) |fbw| buffer_ops.pushAsPreviousBW(fbw);
     ui.focused_buffer_window = &ui.command_line_buffer_window;
 }
 
 pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
     editor.command_line_is_open = false;
-    editor.command_line_buffer.clear() catch |err| {
+    buffer_ops.cliBuffer().clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
 
-    if (pop_previous_window) ui.focused_buffer_window = buffer_ops.popPreviousFocusedBufferWindow();
+    if (pop_previous_window) ui.focused_buffer_window = buffer_ops.popPreviousBW();
     if (focus_buffers) ui.focus_buffers = true;
 }
 
 pub fn run() !void {
+    var cli_buffer = buffer_ops.cliBuffer();
     var command_str: [4096]u8 = undefined;
-    var len = editor.command_line_buffer.size();
+    var len = cli_buffer.size();
 
-    const command_line_content = try editor.command_line_buffer.getAllLines(internal.allocator);
+    const command_line_content = try cli_buffer.getAllLines(internal.allocator);
     defer internal.allocator.free(command_line_content);
     std.mem.copy(u8, &command_str, command_line_content);
 

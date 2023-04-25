@@ -22,7 +22,7 @@ const max_visible_rows: u64 = 4000;
 const max_visible_cols: u64 = 4000;
 const max_visible_bytes = max_visible_cols * 4; // multiply by 4 because a UTF-8 sequence can be 4 bytes long
 
-pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
+pub fn tmpStringZ(comptime fmt: []const u8, args: anytype) [:0]u8 {
     const static = struct {
         var buf: [max_visible_bytes + 1:0]u8 = undefined;
     };
@@ -34,9 +34,29 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) [:0]u8 {
     return slice;
 }
 
-pub fn buffers(allocator: std.mem.Allocator) !void {
+pub fn tmpString(comptime fmt: []const u8, args: anytype) []u8 {
+    const static = struct {
+        var buf: [max_visible_bytes]u8 = undefined;
+    };
+    var slice = std.fmt.bufPrint(&static.buf, fmt, args) catch
+        static.buf[0..static.buf.len];
+
+    return slice;
+}
+
+pub fn buffers(arena: std.mem.Allocator) !void {
     var buffers_focused = false;
     if (!globals.editor.command_line_is_open) globals.ui.focused_cursor_rect = null;
+
+    { // Remove all buffer windows that have invalid buffers
+
+        var wins = try globals.ui.visiable_buffers_tree.treeToArray(arena);
+        var wins_to_close = std.ArrayList(*BufferWindowNode).init(arena);
+        for (wins) |win|
+            if (win.data.bhandle.getBuffer() == null) try wins_to_close.append(win);
+
+        for (wins_to_close.items) |win| core.closeBW(win);
+    }
 
     buffers: {
         if (globals.ui.focus_buffers) {
@@ -64,8 +84,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 
         var size = imgui.getWindowSize();
         var rect = core.Rect{ .w = size[0], .h = size[1] };
-        var windows = try core.BufferWindow.getAndSetWindows(&globals.ui.visiable_buffers_tree, allocator, rect);
-        defer allocator.free(windows);
+        var windows = try core.BufferWindow.getAndSetWindows(&globals.ui.visiable_buffers_tree, arena, rect);
         for (windows) |bw| {
             imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
 
@@ -83,7 +102,7 @@ pub fn buffers(allocator: std.mem.Allocator) !void {
 
         const m_size = imgui.calcTextSize("m", .{})[0];
         var size = [2]f32{ 0, 0 };
-        size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, globals.editor.command_line_buffer.size() + 2));
+        size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, core.cliBuffer().size() + 2));
         size[1] = imgui.getTextLineHeightWithSpacing() * 2;
 
         const x = if (core.focusedCursorRect()) |rect| rect.right() else center[0] - (size[0] / 2);
@@ -122,13 +141,16 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     };
 
     var buffer_window = &buffer_window_node.data;
+    // null is unreachable because buffer windows with invalid buffers are removed in buffers()
+    var buffer = buffer_window.bhandle.getBuffer().?;
+
     var dl = imgui.getWindowDrawList();
     dl.pushClipRect(.{
         .pmin = .{ buffer_window.rect.x, buffer_window.rect.y },
         .pmax = .{ buffer_window.rect.x + width, buffer_window.rect.y + height },
     });
 
-    _ = imgui.beginChild(tmpString("buffer_window ({x})", .{@ptrToInt(buffer_window)}), .{
+    _ = imgui.beginChild(tmpStringZ("buffer_window ({x})", .{@ptrToInt(buffer_window)}), .{
         .w = width,
         .h = height,
         .border = true,
@@ -143,8 +165,6 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h)) -| 2;
     buffer_window.windowFollowCursor();
-
-    var buffer = buffer_window.buffer;
 
     const cursor_index = buffer.getIndex(buffer_window.cursor());
 
@@ -227,14 +247,14 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         pos[0] -= imgui.getStyle().window_padding[0];
         imgui.setCursorPos(pos);
 
-        var clicked = imgui.invisibleButton(tmpString("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
+        var clicked = imgui.invisibleButton(tmpStringZ("##buffer_window_button ({x})", .{@ptrToInt(buffer_window)}), .{
             .w = width,
             .h = height,
         });
 
         var focused = imgui.isItemFocused();
         if (clicked or focused) {
-            if (buffer_window_node != core.focusedBW()) core.setFocusedWindow(buffer_window_node);
+            if (buffer_window_node != core.focusedBW()) core.setFocusedBW(buffer_window_node);
         }
 
         return focused;
@@ -314,10 +334,10 @@ pub fn notifications() void {
     for (notifys) |*n| {
         if (n.remaining_time <= 0) continue;
 
-        var text = tmpString("{d:<.0} x{:>}", .{ n.remaining_time, n.duplicates });
+        var text = tmpStringZ("{d:<.0} x{:>}", .{ n.remaining_time, n.duplicates });
         imgui.textUnformatted(text);
 
-        text = tmpString("{s}\n{s}", .{ n.title, n.message });
+        text = tmpStringZ("{s}\n{s}", .{ n.title, n.message });
         if (imgui.button(text, .{})) n.remaining_time = 0;
     }
 }

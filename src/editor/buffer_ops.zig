@@ -20,33 +20,69 @@ const editor = globals.editor;
 const ui = globals.ui;
 const internal = globals.internal;
 
+////////////////////////////////////////////////////////////////////////////////
+// The File is divides into 3 sections.
+// Section 1: Error and Struct definitions
+// Section 2: Functions that do all the work
+// Section 3: Convenience functions that wrap functions in Section 2
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+// Section 1: Error and Struct definitions
+////////////////////////////////////////////////////////////////////////////////
+
 pub const Error = error{
     SavingPathlessBuffer,
     KillingDirtyBuffer,
 };
 
-/// Returns a pointer to a buffer.
-/// If a buffer with the given file_path already exists
-/// returns a pointer to that buffer otherwise
-/// creates a new buffer, adds it to the editor.buffers list and
-/// returns a pointer to it.
-pub fn createBuffer(file_path: []const u8) !*Buffer {
-    if (file_path.len > 0) {
-        var buf = try getBufferFP(file_path);
-        if (buf) |b| return b;
+pub const BufferWindowOptions = struct {
+    dir: ?BufferWindow.Dir = null,
+    first_visiable_row: u64 = 1,
+    percent: f32 = 0.5,
+};
+
+pub const SaveOptions = struct { force_save: bool = false };
+
+pub const KillOptions = struct { force_kill: bool = false };
+
+pub const BufferHandle = struct {
+    const Error = error{BufferDoesNotExists};
+    handle: u32,
+    pub fn getBuffer(self: BufferHandle) ?*Buffer {
+        return editor.buffers.getPtr(self);
     }
+};
 
-    var buffer_node = try internal.allocator.create(editor.BufferNode);
-    errdefer internal.allocator.destroy(buffer_node);
-    buffer_node.data = try createLocalBuffer(file_path);
+////////////////////////////////////////////////////////////////////////////////
+// Section 2: Functions that do all the work
+////////////////////////////////////////////////////////////////////////////////
 
-    editor.buffers.prepend(buffer_node);
+pub fn generateHandle() BufferHandle {
+    const static = struct {
+        var handle: u32 = 0;
+    };
 
-    return &buffer_node.data;
+    const h = static.handle;
+    static.handle += 1;
+    return .{ .handle = h };
 }
 
-/// Opens a file and returns a buffer.
-/// Does not add the buffer to the editor.buffers list
+/// Returns a handle to a buffer
+/// Creates a Buffer and returns a BufferHandle to it
+pub fn createBuffer(file_path: []const u8) !BufferHandle {
+    if (try getBufferFP(file_path)) |handle| return handle;
+
+    try editor.buffers.ensureUnusedCapacity(internal.allocator, 1);
+    var buffer = try createLocalBuffer(file_path);
+    const handle = generateHandle();
+    editor.buffers.putAssumeCapacity(handle, buffer);
+
+    return handle;
+}
+
+/// Opens a file and returns a Buffer.
+/// Does not add the buffer to the editor.buffers hashmap
 /// Always creates a new buffer
 pub fn createLocalBuffer(file_path: []const u8) !Buffer {
     var buffer: Buffer = undefined;
@@ -73,106 +109,59 @@ pub fn createLocalBuffer(file_path: []const u8) !Buffer {
     return buffer;
 }
 
-/// Given an *id* searches the editor.buffers array for a buffer
-/// matching the *id*.
-/// Returns null if the buffer isn't found.
-pub fn getBufferI(id: u32) ?*Buffer {
-    var buffer_node = editor.buffers.first;
-    while (buffer_node) |bf| {
-        if (bf.data.id == id) return &bf.data;
-        buffer_node = bf.next;
-    }
-    return null;
-}
-
-/// Given an *file_path* searches the valid buffer list for a buffer
-/// matching either.
-/// Returns null if the buffer isn't found.
-pub fn getBufferFP(file_path: []const u8) !?*Buffer {
-    if (editor.buffers.first == null) return null;
-
-    var buffer_node = editor.buffers.first.?;
-    var buffer = &buffer_node.data;
+/// Given a *file_path* searches the editor.buffers hashmap and returns a BufferHandle
+pub fn getBufferFP(file_path: []const u8) !?BufferHandle {
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
-    while (true) {
-        if (eql(u8, full_fp, buffer.metadata.file_path))
-            return buffer;
 
-        buffer_node = buffer_node.next orelse return null;
+    var iter = editor.buffers.iterator();
+    while (iter.next()) |kv| {
+        const buffer_fp = kv.value_ptr.metadata.file_path;
+        if (std.mem.eql(u8, full_fp, buffer_fp))
+            return kv.key_ptr.*; // handle
     }
+
     return null;
 }
 
-pub fn openBufferI(id: u32, dir: ?Dir) !?*Buffer {
-    var buffer: *Buffer = try getBufferI(id) orelse return null;
+pub fn openBufferH(bhandle: BufferHandle, bw_opts: BufferWindowOptions) !void {
+    if (bhandle.getBuffer() == null) return;
 
-    if (ui.focused_buffer_window) |fbw|
-        pushAsPreviousBufferWindow(fbw);
-
-    try newBufferWindow(buffer, dir);
-    return buffer;
+    var prev_fbw = focusedBW();
+    try newFocusedBW(bhandle, bw_opts);
+    if (prev_fbw) |fbw| pushAsPreviousBW(fbw);
 }
 
-pub fn openBufferFP(file_path: []const u8, dir: ?Dir) !*Buffer {
-    var buffer: *Buffer = try getBufferFP(file_path) orelse try createBuffer(file_path);
-    if (ui.focused_buffer_window) |fbw|
-        pushAsPreviousBufferWindow(fbw);
-
-    try newBufferWindow(buffer, dir);
-    return buffer;
+pub fn openBufferFP(file_path: []const u8, bw_opts: BufferWindowOptions) !BufferHandle {
+    const bhandle = try createBuffer(file_path);
+    var prev_fbw = focusedBW();
+    try newFocusedBW(bhandle, bw_opts);
+    if (prev_fbw) |fbw| pushAsPreviousBW(fbw);
+    return bhandle;
 }
 
-pub fn saveBuffer(buffer: *Buffer, force_write: bool) !void {
+pub fn saveBuffer(bhandle: BufferHandle, options: SaveOptions) !void {
+    var buffer = bhandle.getBuffer() orelse return;
+
     if (buffer.metadata.file_path.len == 0)
         return Error.SavingPathlessBuffer;
 
-    try file_io.writeToFile(buffer, force_write);
+    try file_io.writeToFile(buffer, options.force_save);
     buffer.metadata.dirty = false;
 }
 
-/// Deinits the buffer and closes it's window.
-/// To only deinit see `Buffer.deinitNoDestroy()` or `Buffer.deinitAndDestroy()`
-pub fn killBuffer(buffer: *Buffer) !void {
-    if (buffer.state == .invalid)
-        return Error.KillingInvalidBuffer;
+pub fn killBuffer(bhandle: BufferHandle, options: KillOptions) !void {
+    var buffer = bhandle.getBuffer() orelse return;
 
-    if (buffer.metadata.dirty)
+    if (!options.force_kill and buffer.metadata.dirty)
         return Error.KillingDirtyBuffer;
 
-    try forceKillBuffer(buffer);
+    buffer.deinitNoDestroy();
+    _ = globals.editor.buffers.remove(bhandle);
 }
 
-pub fn forceKillBuffer(buffer: *Buffer) !void {
-    var buffer_node = editor.buffers.first;
-    while (buffer_node) |bn| {
-        if (&bn.data == buffer) {
-            editor.buffers.remove(bn);
-            buffer.deinitNoDestroy();
-            internal.allocator.destroy(bn);
-            break;
-        }
-    }
-}
-
-pub fn saveAndQuit(buffer: *Buffer, force_write: bool) !void {
-    try saveBuffer(buffer, force_write);
-    try killBuffer(buffer);
-}
-
-pub fn killBufferWindow(buffer_window: *BufferWindowNode) !void {
-    if (buffer_window.data.buffer.metadata.dirty)
-        return Error.KillingDirtyBuffer;
-
-    try forceKillBufferWindow(buffer_window);
-}
-
-pub fn forceKillBufferWindow(buffer_window: *BufferWindowNode) !void {
-    if (windowCountWithBuffer(buffer_window.data.buffer) == 1) {
-        try forceKillBuffer(buffer_window.data.buffer);
-    }
-
-    ui.focused_buffer_window = popPreviousFocusedBufferWindow();
+pub fn closeBW(buffer_window: *BufferWindowNode) void {
+    ui.focused_buffer_window = popPreviousBW();
 
     // set the last child's dir so that it can take over the free space left by the parent
     if (buffer_window.lastChild()) |lc|
@@ -185,15 +174,71 @@ pub fn forceKillBufferWindow(buffer_window: *BufferWindowNode) !void {
         if (bw == buffer_window)
             _ = ui.previous_focused_buffer_wins.orderedRemove(i);
     }
+
+    buffer_window.data.deinit();
     internal.allocator.destroy(buffer_window);
 }
 
-pub fn saveAndQuitWindow(buffer_window: *BufferWindowNode, force_write: bool) !void {
-    try saveBuffer(buffer_window.data.buffer, force_write);
-    try killBufferWindow(buffer_window);
+pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
+    if (options.dir == null and focusedBW() != null) {
+        focusedBW().?.data.bhandle = bhandle;
+        return;
+    }
+
+    var new_node = try globals.internal.allocator.create(BufferWindowNode);
+    new_node.* = .{
+        .data = try BufferWindow.init(
+            bhandle,
+            options.first_visiable_row,
+            options.dir orelse .north,
+            options.percent,
+            @ptrToInt(new_node),
+        ),
+    };
+
+    if (focusedBW()) |fbw| {
+        fbw.appendChild(new_node);
+    } else if (ui.visiable_buffers_tree.root == null) {
+        ui.visiable_buffers_tree.root = new_node;
+    }
+
+    ui.focused_buffer_window = new_node;
 }
 
-pub fn popPreviousFocusedBufferWindow() ?*BufferWindowNode {
+pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
+    if (buffer_window == cliBW()) return;
+
+    if (focusedBW()) |fbw|
+        pushAsPreviousBW(fbw);
+
+    ui.focused_buffer_window = buffer_window;
+
+    if (buffer_window != cliBW()) command_line.close(false, true);
+}
+
+pub fn focusedBW() ?*BufferWindowNode {
+    return globals.ui.focused_buffer_window;
+}
+
+pub fn cliBuffer() *Buffer {
+    return cliBW().data.bhandle.getBuffer().?;
+}
+
+pub fn cliBW() *BufferWindowNode {
+    return &globals.ui.command_line_buffer_window;
+}
+
+pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
+    if (buffer_win == cliBW()) return;
+
+    var wins = &globals.ui.previous_focused_buffer_wins;
+    wins.append(buffer_win) catch {
+        _ = wins.orderedRemove(0);
+        wins.append(buffer_win) catch unreachable;
+    };
+}
+
+pub fn popPreviousBW() ?*BufferWindowNode {
     var wins = &globals.ui.previous_focused_buffer_wins;
 
     while (wins.len != 0) {
@@ -205,70 +250,6 @@ pub fn popPreviousFocusedBufferWindow() ?*BufferWindowNode {
     return null;
 }
 
-pub fn pushAsPreviousBufferWindow(buffer_win: *BufferWindowNode) void {
-    if (buffer_win == &ui.command_line_buffer_window) return;
-
-    var wins = &globals.ui.previous_focused_buffer_wins;
-    wins.append(buffer_win) catch {
-        _ = wins.orderedRemove(0);
-        wins.append(buffer_win) catch unreachable;
-    };
-}
-
-pub fn focusedBuffer() ?*Buffer {
-    return (globals.ui.focused_buffer_window orelse return null).data.buffer;
-}
-
-pub fn focusedBW() ?*BufferWindowNode {
-    return globals.ui.focused_buffer_window;
-}
-
-pub fn windowCountWithBuffer(buffer: *Buffer) u64 {
-    const Context = struct {
-        count: u64 = 0,
-        buf_id: u64,
-        pub fn do(self: *@This(), node: *BufferWindowNode) bool {
-            if (node.data.buffer.id == self.buf_id) self.count += 1;
-            return true;
-        }
-    };
-
-    var ctx = Context{ .buf_id = buffer.id };
-    ui.visiable_buffers_tree.levelOrderTraverse(&ctx);
-    return ctx.count;
-}
-
-pub fn newBufferWindow(buffer: *Buffer, dir: ?BufferWindow.Dir) !void {
-    if (dir == null and ui.focused_buffer_window != null) {
-        ui.focused_buffer_window.?.data.buffer = buffer;
-        return;
-    }
-
-    var new_node = try globals.internal.allocator.create(BufferWindowNode);
-    new_node.* = .{
-        .data = try BufferWindow.init(buffer, 1, dir orelse .north, 0.5, @ptrToInt(new_node)),
-    };
-
-    if (ui.focused_buffer_window) |fbw| {
-        fbw.appendChild(new_node);
-    } else if (ui.visiable_buffers_tree.root == null) {
-        ui.visiable_buffers_tree.root = new_node;
-    }
-
-    ui.focused_buffer_window = new_node;
-}
-
-pub fn setFocusedWindow(buffer_window: *BufferWindowNode) void {
-    if (buffer_window == &ui.command_line_buffer_window) return;
-
-    if (ui.focused_buffer_window) |fbw|
-        pushAsPreviousBufferWindow(fbw);
-
-    ui.focused_buffer_window = buffer_window;
-
-    if (buffer_window != &globals.ui.command_line_buffer_window) command_line.close(false, true);
-}
-
 pub fn focusBuffersUI() void {
     ui.focus_buffers = true;
     ui.focused_buffer_window = ui.visiable_buffers_tree.root;
@@ -276,4 +257,30 @@ pub fn focusBuffersUI() void {
 
 pub fn focusedCursorRect() ?buffer_ui.Rect {
     return ui.focused_cursor_rect;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Section 3: Convenience functions that wrap functions in Section 2
+////////////////////////////////////////////////////////////////////////////////
+pub fn focusedBuffer() ?*Buffer {
+    return (focusedBufferHandle() orelse return null).getBuffer();
+}
+
+pub fn focusedBufferAndHandle() ?struct { bhandle: BufferHandle, buffer: *Buffer } {
+    var bhandle = focusedBufferHandle() orelse return null;
+    return .{ .bhandle = bhandle, .buffer = bhandle.getBuffer() orelse return null };
+}
+
+pub fn focusedBufferAndBW() ?struct { buffer: *Buffer, bw: *BufferWindowNode } {
+    var bw = focusedBW() orelse return null;
+    return .{ .bw = bw, .buffer = bw.data.bhandle.getBuffer() orelse return null };
+}
+
+pub fn focusedBufferHandle() ?BufferHandle {
+    return (focusedBW() orelse return null).data.bhandle;
+}
+
+pub fn saveAndCloseBW(buffer_window: *BufferWindowNode, options: SaveOptions) !void {
+    try saveBuffer(buffer_window.data.bhandle, options);
+    closeBW(buffer_window);
 }

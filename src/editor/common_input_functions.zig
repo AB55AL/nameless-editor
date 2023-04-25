@@ -25,22 +25,23 @@ pub fn cycleWindows() void {
 }
 
 pub fn deleteBackward() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const index = fbw.buffer.getIndex(fbw.cursor());
-    const old_size = fbw.buffer.size();
+    var f = buffer_ops.focusedBufferAndBW() orelse return;
 
-    fbw.buffer.deleteBefore(index) catch |err| {
+    const index = f.buffer.getIndex(f.bw.data.cursor());
+    const old_size = f.buffer.size();
+
+    f.buffer.deleteBefore(index) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 
-    const deleted_bytes = old_size - fbw.buffer.size();
-    fbw.setCursor(fbw.buffer.getRowAndCol(index - deleted_bytes));
+    const deleted_bytes = old_size - f.buffer.size();
+    f.bw.data.setCursor(f.buffer.getRowAndCol(index - deleted_bytes));
 }
 
 pub fn deleteForward() void {
-    var fbw = &(buffer_ops.focusedBW() orelse return).data;
-    const index = fbw.buffer.getIndex(fbw.cursor());
-    fbw.buffer.deleteAfterCursor(index) catch |err| {
+    var f = buffer_ops.focusedBufferAndBW() orelse return;
+    const index = f.buffer.getIndex(f.bw.data.cursor());
+    f.buffer.deleteAfterCursor(index) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }

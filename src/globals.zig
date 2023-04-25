@@ -17,18 +17,16 @@ const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 
 pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
 const UserUIFuncSet = std.AutoHashMap(UserUIFunc, void);
+const BufferMap = std.AutoHashMapUnmanaged(buffer_ops.BufferHandle, Buffer);
 
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
     pub var command_function_lut: std.StringHashMap(command_line.CommandType) = undefined;
     pub var registers = std.StringHashMapUnmanaged([]const u8){};
-    pub const BufferNode = std.SinglyLinkedList(Buffer).Node;
 
-    /// A linked list of all the buffers in the editor
-    pub var buffers = std.SinglyLinkedList(Buffer){};
-    /// The buffer of the command_line
-    pub var command_line_buffer: *Buffer = undefined;
+    /// A hashmap of all the buffers in the editor
+    pub var buffers = BufferMap{};
     pub var command_line_is_open: bool = false;
 
     pub var hooks: EditorHooks = undefined;
@@ -68,23 +66,24 @@ pub const internal = struct {
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
 
-    editor.command_line_buffer = try allocator.create(Buffer);
-    editor.command_line_buffer.* = try buffer_ops.createLocalBuffer("");
-
     ui.user_ui = UserUIFuncSet.init(allocator);
 
-    ui.command_line_buffer_window = .{ .data = BufferWindow.init(editor.command_line_buffer, 1, .north, 0, @ptrToInt(&ui.command_line_buffer_window)) catch unreachable };
+    { // command line
+        const cli_bhandle = buffer_ops.generateHandle();
+        const command_line_buffer = try buffer_ops.createLocalBuffer("");
+        try editor.buffers.put(internal.allocator, cli_bhandle, command_line_buffer);
+
+        const bw = try BufferWindow.init(cli_bhandle, 1, .north, 0, @ptrToInt(&ui.command_line_buffer_window));
+        ui.command_line_buffer_window = .{ .data = bw };
+    }
 
     editor.hooks = EditorHooks.init(allocator);
 }
 
 pub fn deinitGlobals() void {
-    while (editor.buffers.popFirst()) |buffer_node| {
-        buffer_node.data.deinitNoDestroy();
-        internal.allocator.destroy(buffer_node);
-    }
-
-    editor.command_line_buffer.deinitAndDestroy();
+    var iter = editor.buffers.valueIterator();
+    while (iter.next()) |buffer| buffer.deinitNoDestroy();
+    editor.buffers.deinit(internal.allocator);
 
     ui.visiable_buffers_tree.deinitTree(internal.allocator, null);
     ui.user_ui.deinit();

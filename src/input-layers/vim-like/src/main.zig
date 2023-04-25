@@ -44,11 +44,10 @@ pub fn keyInput(key: Key) void {
 pub fn characterInput(utf8_seq: []const u8) void {
     if (vim_like.state.mode != .insert) return;
 
-    var fbw = &(core.focusedBW() orelse return).data;
-    var buffer = fbw.buffer;
-    const index = buffer.getIndex(fbw.cursor());
+    var f = core.focusedBufferAndBW() orelse return;
+    const index = f.buffer.getIndex(f.bw.data.cursor());
 
-    buffer.insertAt(index, utf8_seq) catch |err| {
+    f.buffer.insertAt(index, utf8_seq) catch |err| {
         const err_msg = switch (err) {
             error.ModifyingReadOnlyBuffer => "ModifyingReadOnlyBuffer",
             error.InvalidInsertionPoint => "InvalidInsertionPoint",
@@ -59,7 +58,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
         return;
     };
 
-    fbw.setCursor(fbw.buffer.getRowAndCol(index + utf8_seq.len));
+    f.bw.data.setCursor(f.buffer.getRowAndCol(index + utf8_seq.len));
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";
