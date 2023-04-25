@@ -6,7 +6,6 @@ const AutoHashMap = std.AutoHashMap;
 
 const input_layer_main = @import("main.zig");
 const core = @import("core");
-const editor = core.editor;
 const input = core.input;
 const Key = input.Key;
 const cif = core.common_input_functions;

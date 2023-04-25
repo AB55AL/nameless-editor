@@ -9,8 +9,6 @@ pub usingnamespace @import("ui/notify.zig");
 pub usingnamespace @import("editor/buffer_window.zig");
 
 pub const globals = @import("globals.zig");
-pub const editor = globals.editor;
-pub const ui = globals.ui;
 
 pub const motions = @import("extras/motions.zig");
 pub const utils = @import("utils.zig");
@@ -21,9 +19,9 @@ pub fn extraFrame() void {
 }
 
 pub fn addUserUI(func: globals.UserUIFunc) void {
-    _ = ui.user_ui.getOrPut(func) catch return;
+    _ = globals.ui.user_ui.getOrPut(func) catch return;
 }
 
 pub fn removeUserUI(func: globals.UserUIFunc) void {
-    _ = ui.user_ui.remove(func);
+    _ = globals.ui.user_ui.remove(func);
 }

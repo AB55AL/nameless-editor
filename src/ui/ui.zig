@@ -308,11 +308,11 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
 }
 
 pub fn notifications() void {
-    if (core.ui.notifications.slice().len == 0) return;
+    if (core.globals.ui.notifications.slice().len == 0) return;
 
     var width: f32 = 0;
 
-    var notifys = core.ui.notifications.slice();
+    var notifys = core.globals.ui.notifications.slice();
     for (notifys) |n| {
         const title_size = imgui.calcTextSize(n.title, .{});
         const message_size = imgui.calcTextSize(n.message, .{});
