@@ -8,7 +8,7 @@ const mecha = @import("mecha");
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
 const buffer_ops = @import("../editor/buffer_ops.zig");
-const buffer_window = @import("../ui/buffer_window.zig");
+const buffer_window = @import("buffer_window.zig");
 const notify = @import("../ui/notify.zig");
 
 pub const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
@@ -72,7 +72,7 @@ pub fn deinit() void {
 pub fn open() void {
     editor.command_line_is_open = true;
     if (buffer_ops.focusedBW()) |fbw| buffer_ops.pushAsPreviousBW(fbw);
-    ui.focused_buffer_window = &ui.command_line_buffer_window;
+    editor.focused_buffer_window = buffer_ops.cliBW();
 }
 
 pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
@@ -81,7 +81,7 @@ pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
 
-    if (pop_previous_window) ui.focused_buffer_window = buffer_ops.popPreviousBW();
+    if (pop_previous_window) editor.focused_buffer_window = buffer_ops.popPreviousBW();
     if (focus_buffers) ui.focus_buffers = true;
 }
 

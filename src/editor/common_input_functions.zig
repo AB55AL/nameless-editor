@@ -8,7 +8,7 @@ const input = @import("input.zig");
 const buffer_ops = @import("buffer_ops.zig");
 
 const notify = @import("../ui/notify.zig");
-const buffer_window = @import("../ui/buffer_window.zig");
+const buffer_window = @import("buffer_window.zig");
 
 pub fn scrollDown() void {
     var fb = ui.focused_buffer_window orelse return;

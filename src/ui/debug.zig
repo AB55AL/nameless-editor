@@ -159,7 +159,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             }
 
             var buffer_window = blk: {
-                var array = globals.ui.visiable_buffers_tree.treeToArray(arena) catch break :selection;
+                var array = globals.editor.visiable_buffers_tree.treeToArray(arena) catch break :selection;
                 for (array) |bw| {
                     if (bw.data.bhandle.handle == selected_bhandle.handle) break :blk &bw.data;
                 }

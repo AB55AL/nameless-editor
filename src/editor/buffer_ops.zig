@@ -11,7 +11,7 @@ const globals = @import("../core.zig").globals;
 
 const command_line = @import("command_line.zig");
 
-const buffer_ui = @import("../ui/buffer_window.zig");
+const buffer_ui = @import("buffer_window.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
@@ -161,18 +161,18 @@ pub fn killBuffer(bhandle: BufferHandle, options: KillOptions) !void {
 }
 
 pub fn closeBW(buffer_window: *BufferWindowNode) void {
-    ui.focused_buffer_window = popPreviousBW();
+    editor.focused_buffer_window = popPreviousBW();
 
     // set the last child's dir so that it can take over the free space left by the parent
     if (buffer_window.lastChild()) |lc|
         lc.data.dir = buffer_window.data.dir;
 
-    ui.visiable_buffers_tree.removePromoteLast(buffer_window);
+    editor.visiable_buffers_tree.removePromoteLast(buffer_window);
 
     // delete all occurrences of the buffer window pointer
-    for (ui.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
+    for (editor.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
         if (bw == buffer_window)
-            _ = ui.previous_focused_buffer_wins.orderedRemove(i);
+            _ = editor.previous_focused_buffer_wins.orderedRemove(i);
     }
 
     buffer_window.data.deinit();
@@ -198,11 +198,11 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
 
     if (focusedBW()) |fbw| {
         fbw.appendChild(new_node);
-    } else if (ui.visiable_buffers_tree.root == null) {
-        ui.visiable_buffers_tree.root = new_node;
+    } else if (editor.visiable_buffers_tree.root == null) {
+        editor.visiable_buffers_tree.root = new_node;
     }
 
-    ui.focused_buffer_window = new_node;
+    editor.focused_buffer_window = new_node;
 }
 
 pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
@@ -211,13 +211,13 @@ pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
     if (focusedBW()) |fbw|
         pushAsPreviousBW(fbw);
 
-    ui.focused_buffer_window = buffer_window;
+    editor.focused_buffer_window = buffer_window;
 
     if (buffer_window != cliBW()) command_line.close(false, true);
 }
 
 pub fn focusedBW() ?*BufferWindowNode {
-    return globals.ui.focused_buffer_window;
+    return globals.editor.focused_buffer_window;
 }
 
 pub fn cliBuffer() *Buffer {
@@ -225,13 +225,13 @@ pub fn cliBuffer() *Buffer {
 }
 
 pub fn cliBW() *BufferWindowNode {
-    return &globals.ui.command_line_buffer_window;
+    return &globals.editor.command_line_buffer_window;
 }
 
 pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
     if (buffer_win == cliBW()) return;
 
-    var wins = &globals.ui.previous_focused_buffer_wins;
+    var wins = &globals.editor.previous_focused_buffer_wins;
     wins.append(buffer_win) catch {
         _ = wins.orderedRemove(0);
         wins.append(buffer_win) catch unreachable;
@@ -239,11 +239,11 @@ pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
 }
 
 pub fn popPreviousBW() ?*BufferWindowNode {
-    var wins = &globals.ui.previous_focused_buffer_wins;
+    var wins = &globals.editor.previous_focused_buffer_wins;
 
     while (wins.len != 0) {
         var buffer_win = wins.popOrNull();
-        if (buffer_win != null and buffer_win.? != &ui.command_line_buffer_window)
+        if (buffer_win != null and buffer_win.? != cliBW())
             return buffer_win.?;
     }
 
@@ -252,7 +252,7 @@ pub fn popPreviousBW() ?*BufferWindowNode {
 
 pub fn focusBuffersUI() void {
     ui.focus_buffers = true;
-    ui.focused_buffer_window = ui.visiable_buffers_tree.root;
+    editor.focused_buffer_window = editor.visiable_buffers_tree.root;
 }
 
 pub fn focusedCursorRect() ?buffer_ui.Rect {

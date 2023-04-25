@@ -50,7 +50,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
 
     { // Remove all buffer windows that have invalid buffers
 
-        var wins = try globals.ui.visiable_buffers_tree.treeToArray(arena);
+        var wins = try globals.editor.visiable_buffers_tree.treeToArray(arena);
         var wins_to_close = std.ArrayList(*BufferWindowNode).init(arena);
         for (wins) |win|
             if (win.data.bhandle.getBuffer() == null) try wins_to_close.append(win);
@@ -77,14 +77,14 @@ pub fn buffers(arena: std.mem.Allocator) !void {
 
         buffers_focused = imgui.isWindowFocused(.{});
 
-        if (globals.ui.visiable_buffers_tree.root == null) {
+        if (globals.editor.visiable_buffers_tree.root == null) {
             core.command_line.open();
             break :buffers;
         }
 
         var size = imgui.getWindowSize();
         var rect = core.Rect{ .w = size[0], .h = size[1] };
-        var windows = try core.BufferWindow.getAndSetWindows(&globals.ui.visiable_buffers_tree, arena, rect);
+        var windows = try core.BufferWindow.getAndSetWindows(&globals.editor.visiable_buffers_tree, arena, rect);
         for (windows) |bw| {
             imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
 
@@ -124,15 +124,15 @@ pub fn buffers(arena: std.mem.Allocator) !void {
         buffers_focused = buffers_focused or imgui.isWindowFocused(.{});
 
         const padding = imgui.getStyle().window_padding;
-        globals.ui.command_line_buffer_window.data.rect.x = x - padding[0];
-        globals.ui.command_line_buffer_window.data.rect.y = y - padding[1];
-        const res = bufferWidget(&globals.ui.command_line_buffer_window, false, size[0], size[1]);
+        core.cliBW().data.rect.x = x - padding[0];
+        core.cliBW().data.rect.y = y - padding[1];
+        const res = bufferWidget(core.cliBW(), false, size[0], size[1]);
         buffers_focused = buffers_focused or res;
     }
 
-    if (!buffers_focused) globals.ui.focused_buffer_window = null;
+    if (!buffers_focused) globals.editor.focused_buffer_window = null;
     if (buffers_focused and core.focusedBW() == null)
-        globals.ui.focused_buffer_window = globals.ui.visiable_buffers_tree.root;
+        globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 
 pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) bool {
@@ -209,7 +209,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
 
         // render cursor
-        if (row == buffer_window.cursor().row) {
+        if (row == buffer_window.cursor().row and buffer_window_node == core.focusedBW()) {
             const offset = textLineSize(buffer, line, row, 1, buffer_window.cursor().col);
             const size = blk: {
                 var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;

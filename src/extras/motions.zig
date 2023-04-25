@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const print = std.debug.print;
 const unicode = std.unicode;
 
-const BufferWindow = @import("../ui/buffer_window.zig").BufferWindow;
+const BufferWindow = @import("../editor/buffer_window.zig").BufferWindow;
 const Buffer = @import("../editor/buffer.zig");
 const BufferIterator = Buffer.BufferIterator;
 const ReverseBufferIterator = Buffer.ReverseBufferIterator;

@@ -101,23 +101,23 @@ pub fn insertNewLineAtCursor() void {
 
 pub fn moveForward() void {
     const d = core.motions.white_space;
-    var bw = &(core.ui.focused_buffer_window orelse return).data;
-    const buffer = bw.bhandle.getBuffer() orelse return;
-    const index = buffer.getIndex(bw.cursor());
-    const range = core.motions.forward(buffer, index, &d) orelse return;
-    const end = range.endPreviousCP(buffer);
 
-    bw.setCursor(buffer.getRowAndCol(end));
+    var f = core.focusedBufferAndBW() orelse return;
+    const index = f.buffer.getIndex(f.bw.data.cursor());
+    const range = core.motions.forward(f.buffer, index, &d) orelse return;
+    const end = range.endPreviousCP(f.buffer);
+
+    f.bw.data.setCursor(f.buffer.getRowAndCol(end));
 }
 
 pub fn moveBackwards() void {
     const d = core.motions.white_space;
-    var bw = &(core.ui.focused_buffer_window orelse return).data;
-    var buffer = bw.bhandle.getBuffer() orelse return;
-    const index = buffer.getIndex(bw.cursor());
-    const range = core.motions.backward(buffer, index, &d) orelse return;
+    var f = core.focusedBufferAndBW() orelse return;
 
-    bw.setCursor(buffer.getRowAndCol(range.start));
+    const index = f.buffer.getIndex(f.bw.data.cursor());
+    const range = core.motions.backward(f.buffer, index, &d) orelse return;
+
+    f.bw.data.setCursor(f.buffer.getRowAndCol(range.start));
 }
 
 pub fn paste() void {

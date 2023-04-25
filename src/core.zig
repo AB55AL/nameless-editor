@@ -6,7 +6,7 @@ pub const registers = @import("editor/registers.zig");
 pub const Hooks = @import("editor/hooks.zig");
 pub usingnamespace @import("editor/buffer_ops.zig");
 pub usingnamespace @import("ui/notify.zig");
-pub usingnamespace @import("ui/buffer_window.zig");
+pub usingnamespace @import("editor/buffer_window.zig");
 
 pub const globals = @import("globals.zig");
 pub const editor = globals.editor;
