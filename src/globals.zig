@@ -6,7 +6,7 @@ const builtin = @import("builtin");
 const registers = @import("editor/registers.zig");
 const buffer_window = @import("editor/buffer_window.zig");
 const BufferWindow = buffer_window.BufferWindow;
-const buffer_ops = @import("editor/buffer_ops.zig");
+const editor_api = @import("editor/editor.zig");
 const Buffer = @import("editor/buffer.zig");
 const notify = @import("ui/notify.zig");
 const utils = @import("utils.zig");
@@ -17,7 +17,7 @@ const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 
 pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
 const UserUIFuncSet = std.AutoHashMap(UserUIFunc, void);
-const BufferMap = std.AutoHashMapUnmanaged(buffer_ops.BufferHandle, Buffer);
+const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
 
 const Key = @import("editor/input.zig").Key;
 
@@ -68,8 +68,8 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
     ui.user_ui = UserUIFuncSet.init(allocator);
 
     { // command line
-        const cli_bhandle = buffer_ops.generateHandle();
-        const command_line_buffer = try buffer_ops.createLocalBuffer("");
+        const cli_bhandle = editor_api.generateHandle();
+        const command_line_buffer = try editor_api.createLocalBuffer("");
         try editor.buffers.put(internal.allocator, cli_bhandle, command_line_buffer);
 
         const bw = try BufferWindow.init(cli_bhandle, 1, .north, 0, @ptrToInt(&editor.command_line_buffer_window));

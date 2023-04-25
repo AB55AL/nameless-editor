@@ -46,7 +46,6 @@ pub fn main() !void {
     imgui.init(allocator);
     defer imgui.deinit();
 
-
     _ = imgui.io.addFontFromFileWithConfig("assets/Fira Code Light Nerd Font Complete Mono.otf", 22, null, null);
     // _ = imgui.io.addFontFromFileWithConfig("assets/Amiri-Regular.ttf", 30, null, &[_]u16{ 0x20, 0xFFFF, 0 });
 

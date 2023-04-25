@@ -3,12 +3,11 @@ const print = @import("std").debug.print;
 
 const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
-const buffer_ops = @import("buffer_ops.zig");
+const editor = @import("editor.zig");
 const command_line = @import("command_line.zig");
 const file_io = @import("file_io.zig");
 const add = command_line.add;
 
-const editor = globals.editor;
 const internal = globals.internal;
 
 pub fn setDefaultCommands() !void {
@@ -39,38 +38,38 @@ fn bufferInspector(value: bool) void {
 
 fn open(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .{}) catch |err| {
+    _ = editor.openBufferFP(file_path, .{}) catch |err| {
         print("open command: err={}\n", .{err});
     };
 }
 fn openEast(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .east }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .east }) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
 fn openWest(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .west }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .west }) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
 fn openNorth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .north }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .north }) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
 fn openSouth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = buffer_ops.openBufferFP(file_path, .{ .dir = .south }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .south }) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }
 
 fn saveFocused() void {
-    var buffer = buffer_ops.focusedBufferHandle() orelse return;
-    buffer_ops.saveBuffer(buffer, .{}) catch |err| {
+    var buffer = editor.focusedBufferHandle() orelse return;
+    editor.saveBuffer(buffer, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -82,7 +81,7 @@ fn saveFocused() void {
 
 fn saveAsFocused(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    var bh = buffer_ops.focusedBufferAndHandle() orelse return;
+    var bh = editor.focusedBufferAndHandle() orelse return;
     var buffer = bh.buffer;
 
     var fp: []const u8 = undefined;
@@ -114,7 +113,7 @@ fn saveAsFocused(file_path: []const u8) void {
         internal.allocator.free(fp);
     }
 
-    buffer_ops.saveBuffer(bh.bhandle, .{}) catch |err| {
+    editor.saveBuffer(bh.bhandle, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSave", .{});
@@ -125,19 +124,19 @@ fn saveAsFocused(file_path: []const u8) void {
 }
 
 fn forceSaveFocused() void {
-    var bhandle = buffer_ops.focusedBufferHandle() orelse return;
-    buffer_ops.saveBuffer(bhandle, .{ .force_save = true }) catch |err|
+    var bhandle = editor.focusedBufferHandle() orelse return;
+    editor.saveBuffer(bhandle, .{ .force_save = true }) catch |err|
         print("err={}\n", .{err});
 }
 
 fn closeFocused() void {
-    var bw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.closeBW(bw);
+    var bw = editor.focusedBW() orelse return;
+    editor.closeBW(bw);
 }
 
 fn saveAndQuitFocused() void {
-    var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.saveAndCloseBW(fbw, .{}) catch |err| {
+    var fbw = editor.focusedBW() orelse return;
+    editor.saveAndCloseBW(fbw, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSaveAndQuit\n", .{});
@@ -148,8 +147,8 @@ fn saveAndQuitFocused() void {
 }
 
 fn forceSaveAndQuitFocused() void {
-    var fbw = buffer_ops.focusedBW() orelse return;
-    buffer_ops.saveAndCloseBW(fbw, .{ .force_save = true }) catch |err| {
+    var fbw = editor.focusedBW() orelse return;
+    editor.saveAndCloseBW(fbw, .{ .force_save = true }) catch |err| {
         print("err={}\n", .{err});
     };
 }

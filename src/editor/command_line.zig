@@ -7,7 +7,7 @@ const mecha = @import("mecha");
 
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
-const buffer_ops = @import("../editor/buffer_ops.zig");
+const editor = @import("../editor/editor.zig");
 const buffer_window = @import("buffer_window.zig");
 const notify = @import("../ui/notify.zig");
 
@@ -19,7 +19,6 @@ pub const CommandType = struct {
 
 const globals = @import("../globals.zig");
 const ui = globals.ui;
-const editor = globals.editor;
 const internal = globals.internal;
 
 const ParseError = error{
@@ -61,32 +60,32 @@ const Types = enum {
 };
 
 pub fn init() !void {
-    editor.command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
+    globals.editor.command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
     try default_commands.setDefaultCommands();
 }
 
 pub fn deinit() void {
-    editor.command_function_lut.deinit();
+    globals.editor.command_function_lut.deinit();
 }
 
 pub fn open() void {
-    editor.command_line_is_open = true;
-    if (buffer_ops.focusedBW()) |fbw| buffer_ops.pushAsPreviousBW(fbw);
-    editor.focused_buffer_window = buffer_ops.cliBW();
+    globals.editor.command_line_is_open = true;
+    if (editor.focusedBW()) |fbw| editor.pushAsPreviousBW(fbw);
+    globals.editor.focused_buffer_window = editor.cliBW();
 }
 
 pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
-    editor.command_line_is_open = false;
-    buffer_ops.cliBuffer().clear() catch |err| {
+    globals.editor.command_line_is_open = false;
+    editor.cliBuffer().clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
 
-    if (pop_previous_window) editor.focused_buffer_window = buffer_ops.popPreviousBW();
+    if (pop_previous_window) globals.editor.focused_buffer_window = editor.popPreviousBW();
     if (focus_buffers) ui.focus_buffers = true;
 }
 
 pub fn run() !void {
-    var cli_buffer = buffer_ops.cliBuffer();
+    var cli_buffer = editor.cliBuffer();
     var command_str: [4096]u8 = undefined;
     var len = cli_buffer.size();
 
@@ -107,7 +106,7 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype, comptime desc
 
     comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
 
-    try editor.command_function_lut.put(command, .{
+    try globals.editor.command_function_lut.put(command, .{
         .function = beholdMyFunctionInator(fn_ptr).funcy,
         .description = description,
     });
@@ -138,7 +137,7 @@ fn runCommand(command_string: []const u8) void {
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
-    const com = editor.command_function_lut.get(command);
+    const com = globals.editor.command_function_lut.get(command);
 
     if (com) |c| {
         c.function(args) catch |err| {
