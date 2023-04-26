@@ -79,10 +79,8 @@ pub fn buffers(arena: std.mem.Allocator) !void {
 
         buffers_focused = imgui.isWindowFocused(.{});
 
-        if (globals.editor.visiable_buffers_tree.root == null) {
-            core.command_line.open();
+        if (globals.editor.visiable_buffers_tree.root == null)
             break :buffers;
-        }
 
         var size = imgui.getWindowSize();
         var rect = core.Rect{ .w = size[0], .h = size[1] };
