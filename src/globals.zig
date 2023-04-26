@@ -14,9 +14,9 @@ const BufferWindowTree = buffer_window.BufferWindowTree;
 const BufferWindowNode = buffer_window.BufferWindowNode;
 const command_line = @import("editor/command_line.zig");
 const EditorHooks = @import("editor/hooks.zig").EditorHooks;
+const ui_api = @import("ui/ui.zig");
 
-pub const UserUIFunc = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
-const UserUIFuncSet = std.AutoHashMap(UserUIFunc, void);
+const UserUISet = std.AutoHashMapUnmanaged(ui_api.UserUI, void);
 const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
 
 const Key = @import("editor/input.zig").Key;
@@ -45,7 +45,7 @@ pub const input = struct {
 pub const ui = struct {
     pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
 
-    pub var user_ui: UserUIFuncSet = undefined;
+    pub var user_ui = UserUISet{};
 
     // Only for the focused buffer
     pub var focused_cursor_rect: ?buffer_window.Rect = null;
@@ -65,8 +65,6 @@ pub const internal = struct {
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
 
-    ui.user_ui = UserUIFuncSet.init(allocator);
-
     { // command line
         const cli_bhandle = editor_api.generateHandle();
         const command_line_buffer = try editor_api.createLocalBuffer("");
@@ -85,7 +83,7 @@ pub fn deinitGlobals() void {
     editor.buffers.deinit(internal.allocator);
 
     editor.visiable_buffers_tree.deinitTree(internal.allocator, null);
-    ui.user_ui.deinit();
+    ui.user_ui.deinit(internal.allocator);
 
     editor.hooks.deinit();
 
