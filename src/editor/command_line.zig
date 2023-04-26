@@ -7,7 +7,7 @@ const mecha = @import("mecha");
 
 const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
-const editor = @import("../editor/editor.zig");
+const editor = @import("editor.zig");
 const buffer_window = @import("buffer_window.zig");
 const notify = @import("../ui/notify.zig");
 
@@ -59,23 +59,40 @@ const Types = enum {
     bool,
 };
 
+pub const CommandLine = struct {
+    bhandle: editor.BufferHandle,
+    buffer_window: editor.BufferWindowNode,
+    functions: std.StringHashMap(CommandType),
+    open: bool = false,
+};
+
 pub fn init() !void {
-    globals.editor.command_function_lut = std.StringHashMap(CommandType).init(internal.allocator);
+    const cli_bhandle = editor.generateHandle();
+    try globals.editor.buffers.put(internal.allocator, cli_bhandle, try editor.createLocalBuffer(""));
+
+    const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
+
+    globals.editor.cli = .{
+        .bhandle = cli_bhandle,
+        .buffer_window = .{ .data = bw },
+        .functions = std.StringHashMap(CommandType).init(internal.allocator),
+    };
     try default_commands.setDefaultCommands();
 }
 
 pub fn deinit() void {
-    globals.editor.command_function_lut.deinit();
+    std.debug.print("HERE\n", .{});
+    globals.editor.cli.functions.deinit();
 }
 
 pub fn open() void {
-    globals.editor.command_line_is_open = true;
+    globals.editor.cli.open = true;
     if (editor.focusedBW()) |fbw| editor.pushAsPreviousBW(fbw);
     globals.editor.focused_buffer_window = editor.cliBW();
 }
 
 pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
-    globals.editor.command_line_is_open = false;
+    globals.editor.cli.open = false;
     editor.cliBuffer().clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
@@ -106,7 +123,7 @@ pub fn add(comptime command: []const u8, comptime fn_ptr: anytype, comptime desc
 
     comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
 
-    try globals.editor.command_function_lut.put(command, .{
+    try globals.editor.cli.functions.put(command, .{
         .function = beholdMyFunctionInator(fn_ptr).funcy,
         .description = description,
     });
@@ -137,7 +154,7 @@ fn runCommand(command_string: []const u8) void {
 }
 
 fn call(command: []const u8, args: []PossibleValues) void {
-    const com = globals.editor.command_function_lut.get(command);
+    const com = globals.editor.cli.functions.get(command);
 
     if (com) |c| {
         c.function(args) catch |err| {

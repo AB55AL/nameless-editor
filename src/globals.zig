@@ -22,19 +22,18 @@ const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
-    pub var command_function_lut: std.StringHashMap(command_line.CommandType) = undefined;
     pub var registers = std.StringHashMapUnmanaged([]const u8){};
 
     /// A hashmap of all the buffers in the editor
     pub var buffers = BufferMap{};
-    pub var command_line_is_open: bool = false;
 
     pub var hooks: EditorHooks = undefined;
 
     pub var visiable_buffers_tree = BufferWindowTree{};
     pub var focused_buffer_window: ?*BufferWindowNode = null;
     pub var previous_focused_buffer_wins = std.BoundedArray(*BufferWindowNode, 50).init(0) catch unreachable;
-    pub var command_line_buffer_window: BufferWindowNode = undefined;
+
+    pub var cli: command_line.CommandLine = undefined;
 };
 
 pub const input = struct {
@@ -64,16 +63,7 @@ pub const internal = struct {
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
-
-    { // command line
-        const cli_bhandle = editor_api.generateHandle();
-        const command_line_buffer = try editor_api.createLocalBuffer("");
-        try editor.buffers.put(internal.allocator, cli_bhandle, command_line_buffer);
-
-        const bw = try BufferWindow.init(cli_bhandle, 1, .north, 0);
-        editor.command_line_buffer_window = .{ .data = bw };
-    }
-
+    try command_line.init();
     editor.hooks = EditorHooks.init(allocator);
 }
 
@@ -88,4 +78,5 @@ pub fn deinitGlobals() void {
     editor.hooks.deinit();
 
     registers.deinit();
+    command_line.deinit();
 }

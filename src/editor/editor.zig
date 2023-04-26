@@ -51,8 +51,8 @@ pub const SaveOptions = struct { force_save: bool = false };
 pub const KillOptions = struct { force_kill: bool = false };
 
 pub const BufferHandle = struct {
-    const Error = error{BufferDoesNotExists};
     handle: u32,
+
     pub fn getBuffer(self: BufferHandle) ?*Buffer {
         return editor.buffers.getPtr(self);
     }
@@ -228,11 +228,11 @@ pub fn cliBuffer() *Buffer {
 }
 
 pub fn cliBW() *BufferWindowNode {
-    return &globals.editor.command_line_buffer_window;
+    return &globals.editor.cli.buffer_window;
 }
 
 pub fn cliOpen() bool {
-    return globals.editor.command_line_is_open;
+    return globals.editor.cli.open;
 }
 
 pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {

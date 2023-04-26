@@ -31,7 +31,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
         imgui.tableSetupColumn("Description", .{ .flags = .{ .width_stretch = true } });
         imgui.tableHeadersRow();
 
-        var iter = globals.editor.command_function_lut.iterator();
+        var iter = globals.editor.cli.functions.iterator();
         while (iter.next()) |kv| {
             imgui.tableNextRow(.{});
             const com = kv.key_ptr.*;

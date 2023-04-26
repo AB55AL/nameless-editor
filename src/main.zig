@@ -29,9 +29,6 @@ pub fn main() !void {
     try input_layer.init();
     defer input_layer.deinit();
 
-    try command_line.init();
-    defer command_line.deinit();
-
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
 
