@@ -17,6 +17,16 @@ pub fn passert(ok: bool, comptime fmt: []const u8, args: anytype) void {
     }
 }
 
+pub fn newSlice(allocator: std.mem.Allocator, content: anytype) !@TypeOf(content) {
+    const info = @typeInfo(@TypeOf(content));
+    if (info != .Pointer or info.Pointer.size != .Slice) @compileError("Expected a slice instead found " ++ @typeName(@TypeOf(content)));
+    const T = info.Pointer.child;
+
+    var slice = try allocator.alloc(T, content.len);
+    std.mem.copy(T, slice, content);
+    return slice;
+}
+
 /// Takes three numbers and returns true if the first number is in the range
 /// of the second and third numbers
 pub fn inRange(a: anytype, b: @TypeOf(a), c: @TypeOf(a)) bool {
