@@ -1,36 +1,43 @@
 const std = @import("std");
 
-const globals = @import("../globals.zig");
-const editor = globals.editor;
-const internal = globals.internal;
+pub const Registers = @This();
 
-pub fn deinit() void {
-    var iter = editor.registers.iterator();
-    while (iter.next()) |kv| {
-        internal.allocator.free(kv.key_ptr.*);
-        internal.allocator.free(kv.value_ptr.*);
-    }
+data: std.StringArrayHashMapUnmanaged([]const u8) = .{},
+allocator: std.mem.Allocator,
 
-    editor.registers.deinit(internal.allocator);
+pub fn init(allocator: std.mem.Allocator) Registers {
+    return .{ .allocator = allocator };
 }
 
-pub fn copyTo(register: []const u8, content: []const u8) !void {
-    var value = editor.registers.get(register);
-
-    if (value) |v| {
-        var key = editor.registers.getKey(register).?;
-        _ = editor.registers.remove(register);
-        internal.allocator.free(v);
-        internal.allocator.free(key);
+pub fn deinit(registers: *Registers) void {
+    var iter = registers.data.iterator();
+    while (iter.next()) |kv| {
+        registers.allocator.free(kv.key_ptr.*);
+        registers.allocator.free(kv.value_ptr.*);
     }
 
-    var reg = try internal.allocator.alloc(u8, register.len);
-    var string = try internal.allocator.alloc(u8, content.len);
+    registers.data.deinit(registers.allocator);
+}
+
+pub fn copyTo(registers: *Registers, register: []const u8, content: []const u8) !void {
+    var value = registers.data.get(register);
+
+    // Remove the old value to avoid problems with pointers
+    if (value) |v| {
+        var key = registers.data.getKey(register).?;
+        _ = registers.data.orderedRemove(register);
+        registers.allocator.free(v);
+        registers.allocator.free(key);
+    }
+
+    var reg = try registers.allocator.alloc(u8, register.len);
+    var string = try registers.allocator.alloc(u8, content.len);
     std.mem.copy(u8, reg, register);
     std.mem.copy(u8, string, content);
-    try editor.registers.put(internal.allocator, reg, string);
+
+    try registers.data.put(registers.allocator, reg, string);
 }
 
-pub fn getFrom(register: []const u8) ?[]const u8 {
-    return editor.registers.get(register);
+pub fn getFrom(registers: *Registers, register: []const u8) ?[]const u8 {
+    return registers.registers.get(register);
 }

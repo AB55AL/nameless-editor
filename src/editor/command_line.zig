@@ -81,7 +81,6 @@ pub fn init() !void {
 }
 
 pub fn deinit() void {
-    std.debug.print("HERE\n", .{});
     globals.editor.cli.functions.deinit();
 }
 

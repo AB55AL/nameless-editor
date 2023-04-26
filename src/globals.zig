@@ -3,7 +3,7 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const builtin = @import("builtin");
 
-const registers = @import("editor/registers.zig");
+const Registers = @import("editor/registers.zig");
 const buffer_window = @import("editor/buffer_window.zig");
 const BufferWindow = buffer_window.BufferWindow;
 const editor_api = @import("editor/editor.zig");
@@ -22,7 +22,7 @@ const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
-    pub var registers = std.StringHashMapUnmanaged([]const u8){};
+    pub var registers: Registers = undefined;
 
     /// A hashmap of all the buffers in the editor
     pub var buffers = BufferMap{};
@@ -63,6 +63,7 @@ pub const internal = struct {
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
     internal.allocator = allocator;
+    editor.registers = Registers.init(allocator);
     try command_line.init();
     editor.hooks = EditorHooks.init(allocator);
 }
@@ -77,6 +78,6 @@ pub fn deinitGlobals() void {
 
     editor.hooks.deinit();
 
-    registers.deinit();
+    editor.registers.deinit();
     command_line.deinit();
 }

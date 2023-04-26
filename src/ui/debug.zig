@@ -67,7 +67,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
         imgui.tableSetupColumn("Value", .{ .flags = .{ .width_stretch = true } });
         imgui.tableHeadersRow();
 
-        var iter = editor.registers.iterator();
+        var iter = editor.registers.data.iterator();
         while (iter.next()) |kv| {
             imgui.tableNextRow(.{});
             const reg = kv.key_ptr.*;
