@@ -135,8 +135,9 @@ fn closeFocused() void {
 }
 
 fn saveAndQuitFocused() void {
-    var fbw = editor.focusedBW() orelse return;
-    editor.saveAndCloseBW(fbw, .{}) catch |err| {
+    var bw = editor.focusedBW() orelse return;
+
+    editor.saveBuffer(bw.data.bhandle, .{}) catch |err| {
         if (err == file_io.Error.DifferentModTimes) {
             print("The file's contents might've changed since last load\n", .{});
             print("To force saving use forceSaveAndQuit\n", .{});
@@ -144,11 +145,14 @@ fn saveAndQuitFocused() void {
             print("err={}\n", .{err});
         }
     };
+    editor.closeBW(bw);
 }
 
 fn forceSaveAndQuitFocused() void {
-    var fbw = editor.focusedBW() orelse return;
-    editor.saveAndCloseBW(fbw, .{ .force_save = true }) catch |err| {
+    var bw = editor.focusedBW() orelse return;
+    editor.saveBuffer(bw.data.bhandle, .{ .force_save = true }) catch |err| {
         print("err={}\n", .{err});
     };
+
+    editor.closeBW(bw);
 }

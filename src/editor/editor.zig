@@ -287,8 +287,3 @@ pub fn focusedBufferAndBW() ?struct { buffer: *Buffer, bw: *BufferWindowNode } {
 pub fn focusedBufferHandle() ?BufferHandle {
     return (focusedBW() orelse return null).data.bhandle;
 }
-
-pub fn saveAndCloseBW(buffer_window: *BufferWindowNode, options: SaveOptions) !void {
-    try saveBuffer(buffer_window.data.bhandle, options);
-    closeBW(buffer_window);
-}
