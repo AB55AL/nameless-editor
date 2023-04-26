@@ -64,10 +64,7 @@ pub const Notifications = struct {
     }
 
     pub fn clearDone(self: *Notifications, nstime_since_last_frame: u64) void {
-        if (self.data.count() == 0) {
-            self.reset();
-            return;
-        }
+        if (self.data.count() == 0) return;
 
         const second_diff = @intToFloat(f32, nstime_since_last_frame) / 1000000000;
         var iter = self.data.iterator();
@@ -82,6 +79,8 @@ pub const Notifications = struct {
                 iter.len -|= 1;
             }
         }
+
+        if (self.data.count() == 0) self.reset();
     }
 
     pub fn count(self: *Notifications) u64 {
