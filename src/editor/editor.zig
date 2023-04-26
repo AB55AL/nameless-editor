@@ -258,15 +258,6 @@ pub fn popPreviousBW() ?*BufferWindowNode {
     return null;
 }
 
-pub fn focusBuffersUI() void {
-    globals.ui.focus_buffers = true;
-    editor.focused_buffer_window = editor.visiable_buffers_tree.root;
-}
-
-pub fn focusedCursorRect() ?buffer_ui.Rect {
-    return globals.ui.focused_cursor_rect;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Section 3: Convenience functions that wrap functions in Section 2
 ////////////////////////////////////////////////////////////////////////////////
