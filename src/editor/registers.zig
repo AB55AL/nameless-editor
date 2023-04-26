@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const utils = @import("../utils.zig");
+
 pub const Registers = @This();
 
 data: std.StringArrayHashMapUnmanaged([]const u8) = .{},
@@ -9,35 +11,32 @@ pub fn init(allocator: std.mem.Allocator) Registers {
     return .{ .allocator = allocator };
 }
 
-pub fn deinit(registers: *Registers) void {
-    var iter = registers.data.iterator();
+pub fn deinit(self: *Registers) void {
+    var iter = self.data.iterator();
     while (iter.next()) |kv| {
-        registers.allocator.free(kv.key_ptr.*);
-        registers.allocator.free(kv.value_ptr.*);
+        self.allocator.free(kv.key_ptr.*);
+        self.allocator.free(kv.value_ptr.*);
     }
 
-    registers.data.deinit(registers.allocator);
+    self.data.deinit(self.allocator);
 }
 
-pub fn copyTo(registers: *Registers, register: []const u8, content: []const u8) !void {
-    var value = registers.data.get(register);
+pub fn copyTo(self: *Registers, register: []const u8, content: []const u8) !void {
+    var value = self.data.get(register);
 
-    // Remove the old value to avoid problems with pointers
+    // Remove the old key/value to avoid problems with pointers
     if (value) |v| {
-        var key = registers.data.getKey(register).?;
-        _ = registers.data.orderedRemove(register);
-        registers.allocator.free(v);
-        registers.allocator.free(key);
+        var key = self.data.getKey(register).?;
+        _ = self.data.orderedRemove(register);
+        self.allocator.free(v);
+        self.allocator.free(key);
     }
 
-    var reg = try registers.allocator.alloc(u8, register.len);
-    var string = try registers.allocator.alloc(u8, content.len);
-    std.mem.copy(u8, reg, register);
-    std.mem.copy(u8, string, content);
-
-    try registers.data.put(registers.allocator, reg, string);
+    var reg = try utils.newSlice(self.allocator, register);
+    var string = try utils.newSlice(self.allocator, content);
+    try self.data.put(self.allocator, reg, string);
 }
 
-pub fn getFrom(registers: *Registers, register: []const u8) ?[]const u8 {
-    return registers.registers.get(register);
+pub fn getFrom(self: *Registers, register: []const u8) ?[]const u8 {
+    return self.data.get(register);
 }
