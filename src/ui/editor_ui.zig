@@ -110,6 +110,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
 
         imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
         imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
+        imgui.setNextWindowFocus();
         _ = imgui.begin("command line", .{
             .flags = .{
                 .no_nav_focus = true,
