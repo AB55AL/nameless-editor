@@ -377,7 +377,7 @@ pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
     var count: u64 = 0;
     var iter = LineIterator.initLines(buffer, row, row);
     while (iter.next()) |slice|
-        count += unicode.utf8CountCodepoints(slice) catch unreachable;
+        count += utf8.countCodepoints(slice);
 
     return count;
 }
