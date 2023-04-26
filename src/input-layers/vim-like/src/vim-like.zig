@@ -134,33 +134,33 @@ pub fn paste() void {
 
 pub fn moveRight() void {
     var bw = &(core.focusedBW() orelse return).data;
-    var buffer = bw.bhandle.getBuffer() orelse return;
+    var buffer = core.getBuffer(bw.bhandle) orelse return;
     bw.setCursor(buffer.moveRelativeColumn(bw.cursor(), 1));
     resetSelection(bw);
 }
 
 pub fn moveLeft() void {
     var bw = &(core.focusedBW() orelse return).data;
-    var buffer = bw.bhandle.getBuffer() orelse return;
+    var buffer = core.getBuffer(bw.bhandle) orelse return;
     bw.setCursor(buffer.moveRelativeColumn(bw.cursor(), -1));
     resetSelection(bw);
 }
 
 pub fn moveUp() void {
     var bw = &(core.focusedBW() orelse return).data;
-    var buffer = bw.bhandle.getBuffer() orelse return;
+    var buffer = core.getBuffer(bw.bhandle) orelse return;
     bw.setCursor(buffer.moveRelativeRow(bw.cursor(), -1));
     resetSelection(bw);
 }
 
 pub fn moveDown() void {
     var bw = &(core.focusedBW() orelse return).data;
-    var buffer = bw.bhandle.getBuffer() orelse return;
+    var buffer = core.getBuffer(bw.bhandle) orelse return;
     bw.setCursor(buffer.moveRelativeRow(bw.cursor(), 1));
     resetSelection(bw);
 }
 
-fn resetSelection(fbw: *core.BufferWindow) void {
-    var buffer = fbw.bhandle.getBuffer() orelse return;
+fn resetSelection(bw: *core.BufferWindow) void {
+    var buffer = core.getBuffer(bw.bhandle) orelse return;
     if (state.mode != .visual) buffer.selection.reset();
 }

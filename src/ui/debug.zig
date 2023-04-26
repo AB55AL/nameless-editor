@@ -9,6 +9,8 @@ const Buffer = core.Buffer;
 const globals = core.globals;
 const editor = globals.editor;
 
+const getBuffer = core.getBuffer;
+
 pub fn inspectEditor(arena: std.mem.Allocator) void {
     defer imgui.end();
     if (!imgui.begin("editor inspector", .{})) return;
@@ -123,7 +125,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
     imgui.sameLine(.{});
 
     const selected_bhandle = static.selected orelse return;
-    var buffer = selected_bhandle.getBuffer().?;
+    var buffer = getBuffer(selected_bhandle).?;
 
     // All code below displays information about a single buffer
 

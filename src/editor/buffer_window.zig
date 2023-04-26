@@ -12,6 +12,7 @@ const Buffer = @import("../core.zig").Buffer;
 const BufferHandle = @import("../core.zig").BufferHandle;
 const utils = @import("../utils.zig");
 const NaryTree = @import("../nary.zig").NaryTree;
+const getBuffer = @import("editor.zig").getBuffer;
 
 pub const BufferWindowTree = NaryTree(BufferWindow);
 pub const BufferWindowNode = BufferWindowTree.Node;
@@ -106,7 +107,9 @@ pub const BufferWindow = struct {
     }
 
     pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
-        const cursor_key = try (bhandle.getBuffer().?).putMarker(.{});
+        const cursor_key = try (getBuffer(bhandle).?).putMarker(.{});
+
+        // const cursor_key = try (bhandle.getBuffer().?).putMarker(.{});
 
         return .{
             .bhandle = bhandle,
@@ -118,36 +121,36 @@ pub const BufferWindow = struct {
     }
 
     pub fn deinit(buffer_window: *BufferWindow) void {
-        var buffer = buffer_window.bhandle.getBuffer() orelse return;
+        var buffer = getBuffer(buffer_window.bhandle) orelse return;
         buffer.removeMarker(buffer_window.cursor_key);
     }
 
     pub fn cursor(buffer_window: *BufferWindow) Buffer.RowCol {
-        var buffer = buffer_window.bhandle.getBuffer().?;
+        var buffer = getBuffer(buffer_window.bhandle).?;
         return buffer.marks.get(buffer_window.cursor_key).?;
     }
 
     pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.RowCol) void {
-        var buffer = buffer_window.bhandle.getBuffer().?;
+        var buffer = getBuffer(buffer_window.bhandle).?;
         var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
         c.* = new_cursor;
     }
 
     pub fn setCursorCol(buffer_window: *BufferWindow, col: u64) void {
-        var buffer = buffer_window.bhandle.getBuffer().?;
+        var buffer = getBuffer(buffer_window.bhandle).?;
         var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
         c.col = col;
     }
 
     pub fn setCursorRow(buffer_window: *BufferWindow, row: u64) void {
-        var buffer = buffer_window.bhandle.getBuffer().?;
+        var buffer = getBuffer(buffer_window.bhandle).?;
         var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
         c.row = row;
     }
 
     pub fn lastVisibleRow(buffer_window: *BufferWindow) u64 {
         var res = buffer_window.first_visiable_row + buffer_window.visible_lines -| 1;
-        const line_count = buffer_window.bhandle.getBuffer().?.lineCount();
+        const line_count = getBuffer(buffer_window.bhandle).?.lineCount();
         res = utils.bound(res, 1, line_count);
         return res;
     }
@@ -234,7 +237,7 @@ pub const BufferWindow = struct {
     }
 
     pub fn scrollDown(buffer_win: *BufferWindow, offset: u64) void {
-        var buffer = buffer_win.bhandle.getBuffer() orelse return;
+        var buffer = getBuffer(buffer_win.bhandle) orelse return;
 
         buffer_win.first_visiable_row += offset;
         buffer_win.first_visiable_row = std.math.min(

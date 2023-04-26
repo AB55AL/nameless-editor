@@ -10,6 +10,8 @@ const glfw = @import("glfw");
 const core = @import("core");
 const utils = core.utils;
 
+const getBuffer = core.getBuffer;
+
 const globals = core.globals;
 
 const Buffer = core.Buffer;
@@ -53,7 +55,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
         var wins = try globals.editor.visiable_buffers_tree.treeToArray(arena);
         var wins_to_close = std.ArrayList(*BufferWindowNode).init(arena);
         for (wins) |win|
-            if (win.data.bhandle.getBuffer() == null) try wins_to_close.append(win);
+            if (getBuffer(win.data.bhandle) == null) try wins_to_close.append(win);
 
         for (wins_to_close.items) |win| core.closeBW(win);
     }
@@ -143,7 +145,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
 
     var buffer_window = &buffer_window_node.data;
     // null is unreachable because buffer windows with invalid buffers are removed in buffers()
-    var buffer = buffer_window.bhandle.getBuffer().?;
+    var buffer = getBuffer(buffer_window.bhandle).?;
 
     var dl = imgui.getWindowDrawList();
     dl.pushClipRect(.{

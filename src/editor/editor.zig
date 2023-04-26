@@ -52,10 +52,6 @@ pub const KillOptions = struct { force_kill: bool = false };
 
 pub const BufferHandle = struct {
     handle: u32,
-
-    pub fn getBuffer(self: BufferHandle) ?*Buffer {
-        return editor.buffers.getPtr(self);
-    }
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,6 +109,10 @@ pub fn createLocalBuffer(file_path: []const u8) !Buffer {
     return buffer;
 }
 
+pub fn getBuffer(self: BufferHandle) ?*Buffer {
+    return editor.buffers.getPtr(self);
+}
+
 /// Given a *file_path* searches the editor.buffers hashmap and returns a BufferHandle
 pub fn getBufferFP(file_path: []const u8) !?BufferHandle {
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
@@ -145,7 +145,7 @@ pub fn openBufferFP(file_path: []const u8, bw_opts: BufferWindowOptions) !Buffer
 }
 
 pub fn saveBuffer(bhandle: BufferHandle, options: SaveOptions) !void {
-    var buffer = bhandle.getBuffer() orelse return;
+    var buffer = getBuffer(bhandle) orelse return;
 
     if (buffer.metadata.file_path.len == 0)
         return Error.SavingPathlessBuffer;
@@ -224,7 +224,7 @@ pub fn focusedBW() ?*BufferWindowNode {
 }
 
 pub fn cliBuffer() *Buffer {
-    return cliBW().data.bhandle.getBuffer().?;
+    return getBuffer(cliBW().data.bhandle).?;
 }
 
 pub fn cliBW() *BufferWindowNode {
@@ -261,17 +261,17 @@ pub fn popPreviousBW() ?*BufferWindowNode {
 // Section 3: Convenience functions that wrap functions in Section 2
 ////////////////////////////////////////////////////////////////////////////////
 pub fn focusedBuffer() ?*Buffer {
-    return (focusedBufferHandle() orelse return null).getBuffer();
+    return getBuffer(focusedBufferHandle() orelse return null);
 }
 
 pub fn focusedBufferAndHandle() ?struct { bhandle: BufferHandle, buffer: *Buffer } {
     var bhandle = focusedBufferHandle() orelse return null;
-    return .{ .bhandle = bhandle, .buffer = bhandle.getBuffer() orelse return null };
+    return .{ .bhandle = bhandle, .buffer = getBuffer(bhandle) orelse return null };
 }
 
 pub fn focusedBufferAndBW() ?struct { buffer: *Buffer, bw: *BufferWindowNode } {
     var bw = focusedBW() orelse return null;
-    return .{ .bw = bw, .buffer = bw.data.bhandle.getBuffer() orelse return null };
+    return .{ .bw = bw, .buffer = getBuffer(bw.data.bhandle) orelse return null };
 }
 
 pub fn focusedBufferHandle() ?BufferHandle {
