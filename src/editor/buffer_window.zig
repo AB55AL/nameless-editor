@@ -87,7 +87,7 @@ pub const BufferWindow = struct {
 
     bhandle: BufferHandle,
     first_visiable_row: u64 = 1,
-    cursor_key: u64,
+    cursor_key: u32,
 
     rect: Rect = .{}, // Reset every frame
     visible_lines: u64 = 0, // Set every frame
@@ -105,8 +105,8 @@ pub const BufferWindow = struct {
         return tree_array;
     }
 
-    pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32, cursor_key: u64) !BufferWindow {
-        try (bhandle.getBuffer().?).marks.put(cursor_key, .{});
+    pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
+        const cursor_key = try (bhandle.getBuffer().?).putMarker(.{});
 
         return .{
             .bhandle = bhandle,
@@ -119,7 +119,7 @@ pub const BufferWindow = struct {
 
     pub fn deinit(buffer_window: *BufferWindow) void {
         var buffer = buffer_window.bhandle.getBuffer() orelse return;
-        _ = buffer.marks.swapRemove(buffer_window.cursor_key);
+        buffer.removeMarker(buffer_window.cursor_key);
     }
 
     pub fn cursor(buffer_window: *BufferWindow) Buffer.RowCol {

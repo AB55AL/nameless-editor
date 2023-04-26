@@ -167,7 +167,7 @@ history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
 selection: Selection = .{},
 /// RowCol values stored here will be updated on every change of the buffer
-marks: std.AutoArrayHashMap(u64, RowCol),
+marks: std.AutoArrayHashMapUnmanaged(u32, RowCol) = .{},
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     var fp = try allocator.alloc(u8, file_path.len);
@@ -190,7 +190,6 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,
-        .marks = std.AutoArrayHashMap(u64, RowCol).init(allocator),
     };
 
     try buffer.insureLastByteIsNewline();
@@ -202,7 +201,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
 /// Deinits the members of the buffer but does not destroy the buffer.
 pub fn deinitNoDestroy(buffer: *Buffer) void {
     buffer.lines.deinit(buffer.allocator);
-    buffer.marks.deinit();
+    buffer.marks.deinit(buffer.allocator);
     buffer.allocator.free(buffer.metadata.file_path);
     buffer.allocator.free(buffer.metadata.file_type);
 
@@ -833,4 +832,21 @@ pub fn redo(buffer: *Buffer, index: u64) !?u64 {
     buffer.history_node = node;
 
     return node.data.cursor_index;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Markers
+////////////////////////////////////////////////////////////////////////////////
+pub fn putMarker(buffer: *Buffer, mark: RowCol) !u32 {
+    while (true) {
+        const key = std.crypto.random.int(u32);
+        if (buffer.marks.getKey(key) == null) {
+            try buffer.marks.put(buffer.allocator, key, mark);
+            return key;
+        }
+    }
+}
+
+pub fn removeMarker(buffer: *Buffer, key: u32) void {
+    _ = buffer.marks.swapRemove(key);
 }

@@ -196,7 +196,6 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
             options.first_visiable_row,
             options.dir orelse .north,
             options.percent,
-            @ptrToInt(new_node),
         ),
     };
 

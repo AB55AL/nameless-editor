@@ -70,7 +70,7 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
         const command_line_buffer = try editor_api.createLocalBuffer("");
         try editor.buffers.put(internal.allocator, cli_bhandle, command_line_buffer);
 
-        const bw = try BufferWindow.init(cli_bhandle, 1, .north, 0, @ptrToInt(&editor.command_line_buffer_window));
+        const bw = try BufferWindow.init(cli_bhandle, 1, .north, 0);
         editor.command_line_buffer_window = .{ .data = bw };
     }
 
