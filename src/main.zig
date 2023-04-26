@@ -55,7 +55,7 @@ pub fn main() !void {
             globals.input.key_queue.resize(0) catch unreachable;
             globals.input.char_queue.resize(0) catch unreachable;
 
-            core.clearDoneNotifications(&globals.ui.notifications, timer.read());
+            globals.ui.notifications.clearDone(timer.read());
             timer.reset();
         }
 
@@ -65,7 +65,7 @@ pub fn main() !void {
 
         if (globals.internal.extra_frame)
             glfw.pollEvents()
-        else if (globals.ui.notifications.len > 0)
+        else if (globals.ui.notifications.count() > 0)
             glfw.waitEventsTimeout(1)
         else
             glfw.waitEvents();

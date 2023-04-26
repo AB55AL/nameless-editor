@@ -42,7 +42,7 @@ pub const input = struct {
 };
 
 pub const ui = struct {
-    pub var notifications = std.BoundedArray(notify.Notify, 1024).init(0) catch unreachable;
+    pub var notifications: notify.Notifications = undefined;
 
     pub var user_ui = UserUISet{};
 
@@ -62,6 +62,7 @@ pub const internal = struct {
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
+    ui.notifications = notify.Notifications.init();
     internal.allocator = allocator;
     editor.registers = Registers.init(allocator);
     try command_line.init();
@@ -80,4 +81,5 @@ pub fn deinitGlobals() void {
 
     editor.registers.deinit();
     command_line.deinit();
+    ui.notifications.deinit();
 }

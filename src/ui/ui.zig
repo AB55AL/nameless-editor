@@ -27,3 +27,7 @@ pub fn focusBuffersUI() void {
 pub fn focusedCursorRect() ?Rect {
     return globals.ui.focused_cursor_rect;
 }
+
+pub fn notify(comptime title_fmt: []const u8, title_values: anytype, comptime message_fmt: []const u8, message_values: anytype, time: f32) void {
+    globals.ui.notifications.add(title_fmt, title_values, message_fmt, message_values, time) catch |err| std.debug.print("{!}\n", .{err});
+}

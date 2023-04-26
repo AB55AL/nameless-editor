@@ -48,13 +48,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
     const index = f.buffer.getIndex(f.bw.data.cursor());
 
     f.buffer.insertAt(index, utf8_seq) catch |err| {
-        const err_msg = switch (err) {
-            error.ModifyingReadOnlyBuffer => "ModifyingReadOnlyBuffer",
-            error.InvalidInsertionPoint => "InvalidInsertionPoint",
-            error.OutOfMemory => "OutOfMemory",
-        };
-        core.notify("Error:", err_msg, 3);
-
+        core.notify("Error:", .{}, "{!}", .{err}, 3);
         return;
     };
 

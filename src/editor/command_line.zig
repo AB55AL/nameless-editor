@@ -9,7 +9,7 @@ const Buffer = @import("buffer.zig");
 const default_commands = @import("default_commands.zig");
 const editor = @import("editor.zig");
 const buffer_window = @import("buffer_window.zig");
-const notify = @import("../ui/notify.zig");
+const ui_api = @import("../ui/ui.zig");
 
 pub const FuncType = *const fn ([]PossibleValues) CommandRunError!void;
 pub const CommandType = struct {
@@ -157,16 +157,10 @@ fn call(command: []const u8, args: []PossibleValues) void {
 
     if (com) |c| {
         c.function(args) catch |err| {
-            const err_msg = switch (err) {
-                CommandRunError.FunctionCommandMismatchedTypes => "The command argument type does not match the function",
-                CommandRunError.ExtraArgs => "Extra arguments\n",
-                CommandRunError.MissingArgs => "Missing arguments\n",
-            };
-
-            notify.notify("Command Line Error:", err_msg, 3);
+            ui_api.notify("Command Line Error:", .{}, "{!}", .{err}, 3);
         };
     } else {
-        notify.notify("Command Line Error:", "The command doesn't exist", 3);
+        ui_api.notify("Command Line Error:", .{}, "The command doesn't exist", .{}, 3);
     }
 }
 

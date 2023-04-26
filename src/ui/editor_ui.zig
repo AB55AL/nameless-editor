@@ -311,15 +311,19 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
 }
 
 pub fn notifications() void {
-    if (core.globals.ui.notifications.slice().len == 0) return;
+    if (core.globals.ui.notifications.count() == 0)
+        return;
 
     var width: f32 = 0;
 
-    var notifys = core.globals.ui.notifications.slice();
-    for (notifys) |n| {
-        const title_size = imgui.calcTextSize(n.title, .{});
-        const message_size = imgui.calcTextSize(n.message, .{});
-        width = std.math.max3(width, title_size[0], message_size[0]);
+    {
+        var iter = core.globals.ui.notifications.data.iterator();
+        while (iter.next()) |kv| {
+            var n = kv.key_ptr.*;
+            const title_size = imgui.calcTextSize(n.title, .{});
+            const message_size = imgui.calcTextSize(n.message, .{});
+            width = std.math.max3(width, title_size[0], message_size[0]);
+        }
     }
 
     const s = imgui.getStyle();
@@ -334,7 +338,9 @@ pub fn notifications() void {
     });
     defer imgui.end();
 
-    for (notifys) |*n| {
+    var iter = core.globals.ui.notifications.data.iterator();
+    while (iter.next()) |kv| {
+        var n = kv.key_ptr;
         if (n.remaining_time <= 0) continue;
 
         var text = tmpStringZ("{d:<.0} x{:>}", .{ n.remaining_time, n.duplicates });
