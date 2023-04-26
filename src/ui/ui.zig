@@ -2,6 +2,8 @@ const std = @import("std");
 
 const globals = @import("../globals.zig");
 
+pub usingnamespace @import("notify.zig");
+
 pub const UserUI = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
 
 pub fn extraFrame() void {

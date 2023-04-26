@@ -4,12 +4,9 @@ const fs = std.fs;
 const ArrayList = std.ArrayList;
 const eql = std.mem.eql;
 const assert = std.debug.assert;
-const Buffer = @import("buffer.zig");
 const file_io = @import("file_io.zig");
 
 const globals = @import("../core.zig").globals;
-
-const command_line = @import("command_line.zig");
 
 const buffer_ui = @import("buffer_window.zig");
 const BufferWindow = buffer_ui.BufferWindow;
@@ -17,7 +14,6 @@ const Dir = BufferWindow.Dir;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
 
 const editor = globals.editor;
-const ui = globals.ui;
 const internal = globals.internal;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,6 +26,14 @@ const internal = globals.internal;
 ////////////////////////////////////////////////////////////////////////////////
 // Section 1: Error and Struct definitions
 ////////////////////////////////////////////////////////////////////////////////
+
+pub const Buffer = @import("buffer.zig");
+pub const command_line = @import("command_line.zig");
+pub const input = @import("input.zig");
+pub const common_input_functions = @import("common_input_functions.zig");
+pub const registers = @import("registers.zig");
+pub const hooks = @import("hooks.zig");
+pub usingnamespace @import("buffer_window.zig");
 
 pub const Error = error{
     SavingPathlessBuffer,
@@ -255,12 +259,12 @@ pub fn popPreviousBW() ?*BufferWindowNode {
 }
 
 pub fn focusBuffersUI() void {
-    ui.focus_buffers = true;
+    globals.ui.focus_buffers = true;
     editor.focused_buffer_window = editor.visiable_buffers_tree.root;
 }
 
 pub fn focusedCursorRect() ?buffer_ui.Rect {
-    return ui.focused_cursor_rect;
+    return globals.ui.focused_cursor_rect;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
