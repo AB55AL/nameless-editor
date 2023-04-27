@@ -168,6 +168,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     buffer_window.windowFollowCursor();
 
     const cursor_index = buffer.getIndex(buffer_window.cursor());
+    const cursor = buffer_window.cursor();
 
     const start_row = buffer_window.first_visiable_row;
     const end_row = buffer_window.lastVisibleRow();
@@ -183,7 +184,7 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         if (!new_line) abs_y -= line_h;
 
         // render selection
-        const selection = buffer.selection.get(buffer_window.cursor());
+        const selection = buffer.selection.get(cursor);
         if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
             row >= selection.start.row and row <= selection.end.row)
         {
@@ -210,8 +211,12 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         }
 
         // render cursor
-        if (row == buffer_window.cursor().row and buffer_window_node == core.focusedBW()) {
-            const offset = textLineSize(buffer, line, row, 1, buffer_window.cursor().col);
+        if (row == cursor.row and buffer_window_node == core.focusedBW()) {
+            const offset = if (cursor.col == 1)
+                [2]f32{ 0, 0 }
+            else
+                textLineSize(buffer, line, row, 1, cursor.col);
+
             const size = blk: {
                 var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
                 if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
