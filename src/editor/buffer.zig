@@ -383,6 +383,12 @@ pub fn lineRangeSize(buffer: *Buffer, start_line: u64, end_line: u64) u64 {
     return buffer.indexOfLastByteAtRow(end_line) - buffer.indexOfFirstByteAtRow(start_line) + 1;
 }
 
+pub fn maxLineRangeSize(buffer: *Buffer, start_row: u64, end_row: u64) u64 {
+    var s: u64 = 0;
+    for (start_row..end_row + 1) |row| s = max(s, buffer.lineSize(row));
+    return s;
+}
+
 pub fn codePointAt(buffer: *Buffer, index: u64) !u21 {
     return unicode.utf8Decode(try buffer.codePointSliceAt(index));
 }
@@ -411,13 +417,8 @@ pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
 pub fn search(buffer: *Buffer, allocator: std.mem.Allocator, string: []const u8, start_row: u64, end_row: u64) !?[]u64 {
     if (string.len == 0) return null;
 
-    const largest_line_size = blk: {
-        var s: u64 = 0;
-        for (start_row..end_row + 1) |row| s = max(s, buffer.lineSize(row));
-        break :blk s;
-    };
-
-    var line_buf = try buffer.allocator.alloc(u8, largest_line_size);
+    const max_line_size = buffer.maxLineRangeSize(start_row, end_row);
+    var line_buf = try buffer.allocator.alloc(u8, max_line_size);
     defer buffer.allocator.free(line_buf);
 
     var indices = std.ArrayListUnmanaged(u64){};
