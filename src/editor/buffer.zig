@@ -525,14 +525,29 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
 }
 
 pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
-    var row: u64 = 0;
-    var newline_index: u64 = 0;
-    while (row < buffer.lineCount()) : (row += 1) {
-        var ni = buffer.indexOfFirstByteAtRow(row + 1);
-        if (ni <= index) newline_index = ni else break;
+    utils.assert(index <= buffer.size(), "");
+    var lower_bound: u64 = 1;
+    var upper_bound: u64 = buffer.lineCount();
+    var row = (upper_bound + lower_bound) / 2;
+
+    var start: u64 = 0;
+    var end: u64 = 0;
+    while (true) {
+        start = buffer.indexOfFirstByteAtRow(row);
+        end = buffer.indexOfLastByteAtRow(row);
+
+        if ((index >= start and index <= end) or upper_bound == lower_bound)
+            break;
+
+        if (index < start)
+            upper_bound = row - 1
+        else
+            lower_bound = row + 1;
+
+        row = (upper_bound + lower_bound) / 2;
     }
 
-    return .{ .row = row, .index = newline_index };
+    return .{ .row = row, .index = start };
 }
 
 pub fn indexOfLastByteAtRow(buffer: *Buffer, row: u64) u64 {
