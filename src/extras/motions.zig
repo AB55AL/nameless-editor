@@ -170,12 +170,12 @@ pub fn textObject(buffer: *Buffer, index: u64, delimators: []const u21) ?Range {
 }
 
 pub fn endOfLine(buffer: *Buffer, index: u64) Range {
-    const row = buffer.getRowAndCol(index).row;
+    const row = buffer.getPoint(index).row;
     return .{ .start = index, .end = buffer.indexOfLastByteAtRow(row) + 1 };
 }
 
 pub fn startOfLine(buffer: *Buffer, index: u64) Range {
-    const row = buffer.getRowAndCol(index).row;
+    const row = buffer.getPoint(index).row;
     return .{ .start = buffer.indexOfFirstByteAtRow(row), .end = index + 1 };
 }
 

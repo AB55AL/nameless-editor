@@ -51,7 +51,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
                     cli_buffer.clear() catch break :open_cli;
                     cli_buffer.insertAt(0, " ") catch break :open_cli;
                     cli_buffer.insertAt(0, com) catch break :open_cli;
-                    cli.setCursorCol(Buffer.RowCol.last_col);
+                    cli.setCursorCol(Buffer.Point.last_col);
                 }
             }
         }
@@ -185,8 +185,8 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             } });
             defer imgui.endChild();
 
-            // TODo: print differently when selection.kind.block is set
-            var iter = Buffer.LineIterator.initRC(buffer, selection);
+            // TODO: print differently when selection.kind.block is set
+            var iter = Buffer.LineIterator.initPoint(buffer, selection);
             while (iter.next()) |string| {
                 imgui.textUnformatted(string);
                 if (string[string.len - 1] != '\n') imgui.sameLine(.{ .spacing = 0 });
@@ -205,9 +205,9 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
 
             if (indices != null) {
                 for (indices.?) |index| {
-                    const rc = buffer.getRowAndCol(index);
+                    const rc = buffer.getPoint(index);
                     var line = buffer.getLineBuf(&static.big_buf, rc.row);
-                    imgui.text("RC {} {} I {}:{s}\n", .{ rc.row, rc.col, index, line });
+                    imgui.text("Point {} {} I {}:{s}\n", .{ rc.row, rc.col, index, line });
                 }
             }
         }

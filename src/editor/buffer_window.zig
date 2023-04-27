@@ -5,7 +5,7 @@ const math = std.math;
 
 const imgui = @import("imgui");
 
-const globals = @import("../core.zig").globals;
+const globals = @import("../globals.zig");
 const ui = globals.ui;
 const editor = globals.editor;
 const Buffer = @import("../core.zig").Buffer;
@@ -125,12 +125,12 @@ pub const BufferWindow = struct {
         buffer.removeMarker(buffer_window.cursor_key);
     }
 
-    pub fn cursor(buffer_window: *BufferWindow) Buffer.RowCol {
+    pub fn cursor(buffer_window: *BufferWindow) Buffer.Point {
         var buffer = getBuffer(buffer_window.bhandle).?;
         return buffer.marks.get(buffer_window.cursor_key).?;
     }
 
-    pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.RowCol) void {
+    pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.Point) void {
         var buffer = getBuffer(buffer_window.bhandle).?;
         var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
         c.* = new_cursor;

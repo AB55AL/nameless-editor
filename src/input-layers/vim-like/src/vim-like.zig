@@ -106,7 +106,7 @@ pub fn moveForward() void {
     const range = core.motions.forward(f.buffer, index, &d) orelse return;
     const end = range.endPreviousCP(f.buffer);
 
-    f.bw.data.setCursor(f.buffer.getRowAndCol(end));
+    f.bw.data.setCursor(f.buffer.getPoint(end));
 }
 
 pub fn moveBackwards() void {
@@ -116,7 +116,7 @@ pub fn moveBackwards() void {
     const index = f.buffer.getIndex(f.bw.data.cursor());
     const range = core.motions.backward(f.buffer, index, &d) orelse return;
 
-    f.bw.data.setCursor(f.buffer.getRowAndCol(range.start));
+    f.bw.data.setCursor(f.buffer.getPoint(range.start));
 }
 
 pub fn paste() void {

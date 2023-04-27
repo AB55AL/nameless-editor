@@ -38,52 +38,39 @@ pub const Range = struct {
     }
 };
 
-pub const Position = struct {
-    index: u64,
-    row: u64,
-    col: u64,
-
-    pub fn rowCol(pos: Position) RowCol {
-        return .{
-            .row = pos.row,
-            .col = pos.col,
-        };
-    }
+pub const PointRange = struct {
+    start: Point,
+    end: Point,
 };
 
-pub const RowColRange = struct {
-    start: RowCol,
-    end: RowCol,
-};
-
-pub const RowCol = struct {
+pub const Point = struct {
     pub const last_col = std.math.maxInt(u64);
 
     row: u64 = 1,
     col: u64 = 1,
 
-    pub fn min(a: RowCol, b: RowCol) RowCol {
+    pub fn min(a: Point, b: Point) Point {
         if (a.row == b.row) {
             if (a.col <= b.col) return a else return b;
         }
         if (a.row < b.row) return a else return b;
     }
 
-    pub fn max(a: RowCol, b: RowCol) RowCol {
+    pub fn max(a: Point, b: Point) Point {
         if (a.row == b.row) {
             if (a.col >= b.col) return a else return b;
         }
         if (a.row > b.row) return a else return b;
     }
 
-    pub fn updateRowColInsert(to_update: RowCol, change_row: u64, line_count_before: u64, line_count_after: u64) RowCol {
+    pub fn updatePointInsert(to_update: Point, change_row: u64, line_count_before: u64, line_count_after: u64) Point {
         if (change_row > to_update.row) return to_update; // no need to update
         const diff = line_count_after - line_count_before;
         // (to_update.row + diff) can never be exceed buffer.lineCount();
         return .{ .row = to_update.row + diff, .col = to_update.col };
     }
 
-    pub fn updateRowColDelete(to_update: RowCol, change_row: u64, line_count_before: u64, line_count_after: u64) RowCol {
+    pub fn updatePointDelete(to_update: Point, change_row: u64, line_count_before: u64, line_count_after: u64) Point {
         if (change_row > to_update.row) return to_update; // no need to update
         const diff = line_count_before - line_count_after;
         // (to_update.row - diff) can never be 0
@@ -126,10 +113,10 @@ pub const HistoryInfo = struct {
 
 pub const Selection = struct {
     const Kind = enum { regular, block, line };
-    anchor: RowCol = .{ .row = 0, .col = 0 }, // 0,0 means no selection
+    anchor: Point = .{ .row = 0, .col = 0 }, // 0,0 means no selection
     kind: Kind = .regular,
 
-    pub fn get(selection: Selection, cursor: RowCol) RowColRange {
+    pub fn get(selection: Selection, cursor: Point) PointRange {
         var start = selection.anchor.min(cursor);
         var end = selection.anchor.max(cursor);
         start.col = max(start.col, 1);
@@ -145,7 +132,7 @@ pub const Selection = struct {
 
         return switch (selection.kind) {
             .regular, .block => .{ .start = start, .end = end },
-            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row, .col = RowCol.last_col } },
+            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row, .col = Point.last_col } },
         };
     }
 
@@ -166,8 +153,8 @@ allocator: std.mem.Allocator,
 history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
 selection: Selection = .{},
-/// RowCol values stored here will be updated on every change of the buffer
-marks: std.AutoArrayHashMapUnmanaged(u32, RowCol) = .{},
+/// Point values stored here will be updated on every change of the buffer
+marks: std.AutoArrayHashMapUnmanaged(u32, Point) = .{},
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
     var fp = try allocator.alloc(u8, file_path.len);
@@ -222,7 +209,7 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_point = buffer.getRowAndCol(index);
+    const change_point = buffer.getPoint(index);
     const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     try buffer.validateInsertionPoint(index);
@@ -233,14 +220,14 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColInsert(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointInsert(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
 }
 
 /// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_row = buffer.getRowAndCol(start).row;
+    const change_row = buffer.getPoint(start).row;
     const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     const s = min(start, end);
@@ -255,7 +242,7 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
@@ -275,7 +262,7 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = RowCol.updateRowColDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
 }
 
 pub fn clear(buffer: *Buffer) !void {
@@ -295,7 +282,7 @@ pub fn clear(buffer: *Buffer) !void {
 ////////////////////////////////////////////////////////////////////////////////
 // Convenience insertion and deletion functions
 ////////////////////////////////////////////////////////////////////////////////
-pub fn insertAtRC(buffer: *Buffer, rc: RowCol, string: []const u8) !void {
+pub fn insertAtRC(buffer: *Buffer, rc: Point, string: []const u8) !void {
     const index = buffer.getIndex(rc);
     try buffer.insertAt(index, string);
 }
@@ -493,7 +480,7 @@ pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
     return buffer.getLinesBuf(lines, 1, buffer.lineCount());
 }
 
-pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
+pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
     const row = std.math.min(buffer.lineCount(), rc.row);
     const col = rc.col;
     assert(row <= buffer.lineCount());
@@ -501,7 +488,7 @@ pub fn getIndex(buffer: *Buffer, rc: RowCol) u64 {
     assert(col > 0);
     var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
-    if (rc.col == RowCol.last_col) {
+    if (rc.col == Point.last_col) {
         return buffer.indexOfLastByteAtRow(row);
     } else {
         var i: u64 = 0;
@@ -565,7 +552,7 @@ pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
     return j - i;
 }
 
-pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
+pub fn getPoint(buffer: *Buffer, index_: u64) Point {
     var index = min(index_, buffer.size());
 
     const roi = buffer.rowOfIndex(index);
@@ -585,14 +572,14 @@ pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
     return .{ .row = row, .col = col };
 }
 
-pub fn rowColRangeToRange(buffer: *Buffer, range: RowColRange) Range {
+pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
     const start = range.start.min(range.end);
     const end = range.start.max(range.end);
 
     const start_index = buffer.getIndex(start);
     var end_index = buffer.getIndex(end);
     // offset end_index so that it includes the whole utf8 sequence
-    // The RowColRange is already end exclusive that's why we subtract 1
+    // The PointRange is already end exclusive that's why we subtract 1
     end_index += (buffer.codePointSliceAt(end_index) catch unreachable).len - 1;
 
     return .{ .start = start_index, .end = end_index };
@@ -606,8 +593,8 @@ pub const LineIterator = struct {
     end: u64,
     current_line: u64,
 
-    pub fn initRC(buffer: *Buffer, range: RowColRange) LineIterator {
-        const r = buffer.rowColRangeToRange(range);
+    pub fn initPoint(buffer: *Buffer, range: PointRange) LineIterator {
+        const r = buffer.pointRangeToRange(range);
         return .{
             .buffer = buffer,
             .start = r.start,
@@ -756,19 +743,19 @@ pub fn lineCount(buffer: *Buffer) u64 {
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, rc: RowCol, col_offset: i64) RowCol {
-    if (col_offset == 0) return rc;
+pub fn moveRelativeColumn(buffer: *Buffer, p: Point, col_offset: i64) Point {
+    if (col_offset == 0) return p;
 
     const abs_offset = std.math.absCast(col_offset);
     if (col_offset > 0) {
-        const row_size = buffer.countCodePointsAtRow(rc.row);
-        return .{ .row = rc.row, .col = min(row_size, rc.col +| abs_offset) };
+        const row_size = buffer.countCodePointsAtRow(p.row);
+        return .{ .row = p.row, .col = min(row_size, p.col +| abs_offset) };
     } else {
-        return .{ .row = rc.row, .col = max(1, rc.col -| abs_offset) };
+        return .{ .row = p.row, .col = max(1, p.col -| abs_offset) };
     }
 }
 
-pub fn moveRelativeRow(buffer: *Buffer, rc: RowCol, row_offset: i64) RowCol {
+pub fn moveRelativeRow(buffer: *Buffer, rc: Point, row_offset: i64) Point {
     if (row_offset == 0) return rc;
 
     const abs_offset = std.math.absCast(row_offset);
@@ -840,7 +827,7 @@ pub fn redo(buffer: *Buffer, index: u64) !?u64 {
 ////////////////////////////////////////////////////////////////////////////////
 // Markers
 ////////////////////////////////////////////////////////////////////////////////
-pub fn putMarker(buffer: *Buffer, mark: RowCol) !u32 {
+pub fn putMarker(buffer: *Buffer, mark: Point) !u32 {
     while (true) {
         const key = std.crypto.random.int(u32);
         if (buffer.marks.getKey(key) == null) {

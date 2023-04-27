@@ -194,9 +194,9 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
                 .regular => if (row > selection.start.row) 1 else selection.start.col,
             };
             const end_col = switch (buffer.selection.kind) {
-                .line => Buffer.RowCol.last_col,
+                .line => Buffer.Point.last_col,
                 .block => selection.end.col,
-                .regular => if (row < selection.end.row) Buffer.RowCol.last_col else selection.end.col,
+                .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
             };
 
             const size = textLineSize(buffer, line, row, start_col, end_col);

@@ -52,7 +52,7 @@ pub fn characterInput(utf8_seq: []const u8) void {
         return;
     };
 
-    f.bw.data.setCursor(f.buffer.getRowAndCol(index + utf8_seq.len));
+    f.bw.data.setCursor(f.buffer.getPoint(index + utf8_seq.len));
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";

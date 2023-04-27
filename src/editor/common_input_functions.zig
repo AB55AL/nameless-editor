@@ -34,7 +34,7 @@ pub fn deleteBackward() void {
     };
 
     const deleted_bytes = old_size - f.buffer.size();
-    f.bw.data.setCursor(f.buffer.getRowAndCol(index - deleted_bytes));
+    f.bw.data.setCursor(f.buffer.getPoint(index - deleted_bytes));
 }
 
 pub fn deleteForward() void {
