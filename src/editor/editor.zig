@@ -27,6 +27,9 @@ const internal = globals.internal;
 // Section 1: Error and Struct definitions
 ////////////////////////////////////////////////////////////////////////////////
 
+pub const KeyQueue = std.BoundedArray(input.Key, 1024);
+pub const CharQueue = std.BoundedArray(u21, 1024);
+
 pub const Buffer = @import("buffer.zig");
 pub const command_line = @import("command_line.zig");
 pub const input = @import("input.zig");

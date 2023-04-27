@@ -52,8 +52,8 @@ pub fn main() !void {
     var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
         defer {
-            globals.input.key_queue.resize(0) catch unreachable;
-            globals.input.char_queue.resize(0) catch unreachable;
+            globals.internal.key_queue.resize(0) catch unreachable;
+            globals.internal.char_queue.resize(0) catch unreachable;
 
             globals.ui.notifications.clearDone(timer.read());
             timer.reset();
@@ -74,7 +74,7 @@ pub fn main() !void {
 
         imgui.backend.newFrame();
 
-        input_layer.handleInput();
+        input_layer.handleInput(&globals.internal.key_queue, &globals.internal.char_queue);
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = false });
         const window_size = window.getSize();

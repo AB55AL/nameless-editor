@@ -87,14 +87,14 @@ pub fn deinit() void {
     _ = input_layer_main.gpa.deinit();
 }
 
-pub fn handleInput() void {
-    while (core.globals.input.char_queue.popOrNull()) |cp| {
+pub fn handleInput(keys: *core.KeyQueue, chars: *core.CharQueue) void {
+    while (chars.popOrNull()) |cp| {
         var seq: [4]u8 = undefined;
         var bytes = std.unicode.utf8Encode(cp, &seq) catch unreachable;
         input_layer_main.characterInput(seq[0..bytes]);
     }
 
-    while (core.globals.input.key_queue.popOrNull()) |key| {
+    while (keys.popOrNull()) |key| {
         input_layer_main.keyInput(key);
     }
 }

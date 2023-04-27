@@ -36,11 +36,6 @@ pub const editor = struct {
     pub var cli: command_line.CommandLine = undefined;
 };
 
-pub const input = struct {
-    pub var key_queue = std.BoundedArray(Key, 1024).init(0) catch unreachable;
-    pub var char_queue = std.BoundedArray(u21, 1024).init(0) catch unreachable;
-};
-
 pub const ui = struct {
     pub var notifications: notify.Notifications = undefined;
 
@@ -59,6 +54,9 @@ pub const internal = struct {
     /// Global allocator
     pub var allocator: std.mem.Allocator = undefined;
     pub var extra_frame = true;
+
+    pub var key_queue = editor_api.KeyQueue.init(0) catch unreachable;
+    pub var char_queue = editor_api.CharQueue.init(0) catch unreachable;
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {

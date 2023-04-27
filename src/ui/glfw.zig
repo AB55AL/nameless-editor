@@ -13,12 +13,12 @@ pub fn keyCallback(window: glfw.Window, key: glfw.Key, scancode: i32, action: gl
     _ = window;
 
     const k = glfwKeyToEditorKey(key, mods);
-    globals.input.key_queue.insert(0, k) catch return;
+    globals.internal.key_queue.insert(0, k) catch return;
 }
 
 pub fn charCallback(window: glfw.Window, codepoint: u21) void {
     _ = window;
-    globals.input.char_queue.insert(0, codepoint) catch return;
+    globals.internal.char_queue.insert(0, codepoint) catch return;
 }
 
 pub fn glfwKeyToEditorKey(glfw_key: glfw.Key, mods: glfw.Mods) core.input.Key {
