@@ -537,6 +537,17 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
         buffer.lines.tree.findNodeWithLine(&buffer.lines, row - 2).newline_index + 1;
 }
 
+pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
+    var row: u64 = 0;
+    var newline_index: u64 = 0;
+    while (row < buffer.lineCount()) : (row += 1) {
+        var ni = buffer.indexOfFirstByteAtRow(row + 1);
+        if (ni <= index) newline_index = ni else break;
+    }
+
+    return .{ .row = row, .index = newline_index };
+}
+
 pub fn indexOfLastByteAtRow(buffer: *Buffer, row: u64) u64 {
     utils.assert(row <= buffer.lineCount(), "row cannot be greater than the total rows in the buffer");
     return buffer.lines.tree.findNodeWithLine(&buffer.lines, row -| 1).newline_index;
@@ -557,26 +568,18 @@ pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
 pub fn getRowAndCol(buffer: *Buffer, index_: u64) RowCol {
     var index = min(index_, buffer.size());
 
-    var row: u64 = 0;
-    var newline_index: u64 = 0;
-    while (row < buffer.lineCount()) : (row += 1) {
-        var ni = buffer.indexOfFirstByteAtRow(row + 1);
-        if (ni <= index) newline_index = ni else break;
-    }
+    const roi = buffer.rowOfIndex(index);
+    var row = roi.row;
+    var newline_index = roi.index;
 
     var col: u64 = 1;
     var i: u64 = newline_index;
     while (i < index) {
         const byte = buffer.lines.byteAt(i);
-        const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
-        if (byte == '\n') {
-            break;
-        } else if (byte_seq_len > 0) {
-            col += 1;
-            i += byte_seq_len;
-        } else { // Continuation byte
-            i += 1;
-        }
+        if (byte == '\n') break;
+        const len = unicode.utf8ByteSequenceLength(byte) catch 1;
+        col += 1;
+        i += len;
     }
 
     return .{ .row = row, .col = col };
