@@ -553,23 +553,19 @@ pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
 }
 
 pub fn getPoint(buffer: *Buffer, index_: u64) Point {
-    var index = min(index_, buffer.size());
-
+    const index = min(index_, buffer.size());
     const roi = buffer.rowOfIndex(index);
-    var row = roi.row;
-    var newline_index = roi.index;
 
     var col: u64 = 1;
-    var i: u64 = newline_index;
+    var i: u64 = roi.index;
     while (i < index) {
         const byte = buffer.lines.byteAt(i);
-        if (byte == '\n') break;
         const len = unicode.utf8ByteSequenceLength(byte) catch 1;
         col += 1;
         i += len;
     }
 
-    return .{ .row = row, .col = col };
+    return .{ .row = roi.row, .col = col };
 }
 
 pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
