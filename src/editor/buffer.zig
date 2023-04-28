@@ -13,6 +13,7 @@ pub const PieceTable = @import("piece_table.zig");
 const utf8 = @import("../utf8.zig");
 const NaryTree = @import("../nary.zig").NaryTree;
 const utils = @import("../utils.zig");
+const file_io = @import("file_io.zig");
 
 const HistoryTree = NaryTree(HistoryInfo);
 
@@ -85,20 +86,6 @@ pub const MetaData = struct {
     dirty: bool = false,
     history_dirty: bool = false,
     read_only: bool = false,
-
-    pub fn setFileType(metadata: *MetaData, allocator: std.mem.Allocator, new_ft: []const u8) !void {
-        var file_type = try allocator.alloc(u8, new_ft.len);
-        std.mem.copy(u8, file_type, new_ft);
-        allocator.free(metadata.file_type);
-        metadata.file_type = file_type;
-    }
-
-    pub fn setFilePath(metadata: *MetaData, allocator: std.mem.Allocator, new_fp: []const u8) !void {
-        var file_path = try allocator.alloc(u8, new_fp.len);
-        std.mem.copy(u8, file_path, new_fp);
-        allocator.free(metadata.file_path);
-        metadata.file_path = file_path;
-    }
 
     pub fn setDirty(metadata: *MetaData) void {
         metadata.dirty = true;
@@ -849,4 +836,21 @@ pub fn putMarker(buffer: *Buffer, mark: Point) !u32 {
 
 pub fn removeMarker(buffer: *Buffer, key: u32) void {
     _ = buffer.marks.swapRemove(key);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Metadata setters
+////////////////////////////////////////////////////////////////////////////////
+pub fn setFileType(buffer: *Buffer, new_ft: []const u8) !void {
+    var file_type = try buffer.allocator.alloc(u8, new_ft.len);
+    std.mem.copy(u8, file_type, new_ft);
+    buffer.allocator.free(buffer.metadata.file_type);
+    buffer.metadata.file_type = file_type;
+}
+
+pub fn setFilePath(buffer: *Buffer, new_fp: []const u8) !void {
+    var file_path = try buffer.allocator.alloc(u8, new_fp.len);
+    std.mem.copy(u8, file_path, new_fp);
+    buffer.allocator.free(buffer.metadata.file_path);
+    buffer.metadata.file_path = file_path;
 }

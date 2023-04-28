@@ -87,7 +87,7 @@ fn saveAsFocused(file_path: []const u8) void {
     var fp: []const u8 = undefined;
     if (std.fs.path.isAbsolute(file_path)) {
         fp = file_path;
-        buffer.metadata.setFilePath(buffer.allocator, fp) catch |err| {
+        buffer.setFilePath(fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
@@ -105,7 +105,7 @@ fn saveAsFocused(file_path: []const u8) void {
             print("err={}\n", .{err});
             return;
         };
-        buffer.metadata.setFilePath(buffer.allocator, fp) catch |err| {
+        buffer.setFilePath(fp) catch |err| {
             print("err={}\n", .{err});
             return;
         };
