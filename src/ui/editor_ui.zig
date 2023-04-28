@@ -331,7 +331,19 @@ pub fn notifications() void {
     imgui.setNextWindowPos(.{ .x = x, .y = 0 });
 
     _ = imgui.begin("Notifications", .{
-        .flags = .{ .no_title_bar = true, .no_resize = true, .no_move = true, .no_scrollbar = true, .no_scroll_with_mouse = true, .no_collapse = true, .always_auto_resize = false, .no_background = true, .no_saved_settings = true, .no_mouse_inputs = false, .menu_bar = false, .horizontal_scrollbar = false, .no_focus_on_appearing = true, .no_bring_to_front_on_focus = false, .always_vertical_scrollbar = false, .always_horizontal_scrollbar = false, .always_use_window_padding = false, .no_nav_inputs = false, .no_nav_focus = false, .unsaved_document = false },
+        .flags = .{
+            .no_title_bar = true,
+            .no_resize = true,
+            .no_move = true,
+            .no_scrollbar = true,
+            .no_scroll_with_mouse = true,
+            .no_collapse = true,
+            .always_auto_resize = true,
+            .no_background = true,
+            .no_saved_settings = true,
+            .menu_bar = false,
+            .no_focus_on_appearing = true,
+        },
     });
     defer imgui.end();
 
