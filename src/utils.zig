@@ -17,7 +17,7 @@ pub fn passert(ok: bool, comptime fmt: []const u8, args: anytype) void {
     }
 }
 
-pub fn newSlice(allocator: std.mem.Allocator, content: anytype) !@TypeOf(content) {
+pub fn newSlice(allocator: std.mem.Allocator, content: anytype) ![]@typeInfo(@TypeOf(content)).Pointer.child {
     const info = @typeInfo(@TypeOf(content));
     if (info != .Pointer or info.Pointer.size != .Slice) @compileError("Expected a slice instead found " ++ @typeName(@TypeOf(content)));
     const T = info.Pointer.child;
