@@ -19,8 +19,8 @@ pub fn removeUserUI(func: UserUI) void {
     _ = globals.ui.user_ui.remove(func);
 }
 
-pub fn focusBuffersUI() void {
-    globals.ui.focus_buffers = true;
+pub fn toggleBuffersUI() void {
+    globals.ui.show_buffers = !globals.ui.show_buffers;
     globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 

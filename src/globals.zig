@@ -44,7 +44,7 @@ pub const ui = struct {
     // Only for the focused buffer
     pub var focused_cursor_rect: ?buffer_window.Rect = null;
 
-    pub var gui_full_size = true;
+    pub var show_buffers = true;
     pub var imgui_demo = builtin.mode == .Debug;
     pub var inspect_editor = builtin.mode == .Debug;
     pub var focus_buffers = true;

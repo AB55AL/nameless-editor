@@ -72,7 +72,7 @@ pub fn setDefaultMappnigs() void {
     setDefaultMappnigsInsertMode();
     setDefaultMappnigsVisualMode();
 
-    mapAll(&.{f(.none, .f1)}, core.focusBuffersUI);
+    mapAll(&.{f(.none, .f1)}, core.toggleBuffersUI);
 
     mapSome(&.{ .normal, .visual }, &.{a(.none, .h)}, vim_like.moveLeft);
     mapSome(&.{ .normal, .visual }, &.{a(.none, .j)}, vim_like.moveDown);

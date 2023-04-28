@@ -46,7 +46,7 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) []u8 {
     return slice;
 }
 
-pub fn buffers(arena: std.mem.Allocator) !void {
+pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height: f32) !void {
     var buffers_focused = false;
     if (!core.cliOpen()) globals.ui.focused_cursor_rect = null;
 
@@ -61,39 +61,39 @@ pub fn buffers(arena: std.mem.Allocator) !void {
     }
 
     buffers: {
-        if (globals.ui.focus_buffers) {
-            imgui.setNextWindowFocus();
-            globals.ui.focus_buffers = false;
+        if (!globals.ui.show_buffers) break :buffers;
 
-            core.command_line.close(false, false);
-        }
-
-        imgui.setNextWindowPos(.{ .x = 0, .y = 0 });
-        defer imgui.end();
-        if (!imgui.begin("buffers", .{ .flags = .{
+        const win_flags = imgui.WindowFlags{
             .no_nav_focus = true,
-            .no_resize = false,
+            .no_resize = true,
             .no_scroll_with_mouse = true,
             .no_scrollbar = true,
-        } })) break :buffers;
-
-        buffers_focused = imgui.isWindowFocused(.{});
+            .no_title_bar = false,
+            .no_collapse = true,
+        };
 
         if (globals.editor.visiable_buffers_tree.root == null)
             break :buffers;
 
-        var size = imgui.getWindowSize();
-        var rect = core.Rect{ .w = size[0], .h = size[1] };
+        var rect = core.Rect{ .w = os_window_width, .h = os_window_height };
         var windows = try core.BufferWindow.getAndSetWindows(&globals.editor.visiable_buffers_tree, arena, rect);
-        for (windows) |bw| {
-            imgui.setCursorPos(.{ bw.data.rect.x, bw.data.rect.y });
+        for (windows, 0..) |bw, i| {
+            imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
+            imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .appearing });
+            const file_path = getBuffer(bw.data.bhandle).?.metadata.file_path;
+            if (bw == core.focusedBW() and globals.ui.focus_buffers) {
+                imgui.setNextWindowFocus();
+                globals.ui.focus_buffers = false;
+                core.command_line.close(false, false);
+            }
 
-            const padding = imgui.getStyle().window_padding;
-            bw.data.rect.x -= padding[0];
-            bw.data.rect.y -= padding[1];
+            _ = imgui.begin(tmpStringZ("{s}##{}", .{ file_path, i }), .{ .flags = win_flags });
+            defer imgui.end();
 
-            const res = bufferWidget(bw, true, bw.data.rect.w, bw.data.rect.h);
+            const res = bufferWidget(bw, bw.data.rect.w, bw.data.rect.h);
             buffers_focused = buffers_focused or res;
+            const res_2 = imgui.isWindowFocused(.{});
+            buffers_focused = res_2 or buffers_focused;
         }
     }
 
@@ -127,7 +127,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
         const padding = imgui.getStyle().window_padding;
         core.cliBW().data.rect.x = x - padding[0];
         core.cliBW().data.rect.y = y - padding[1];
-        const res = bufferWidget(core.cliBW(), false, size[0], size[1]);
+        const res = bufferWidget(core.cliBW(), size[0], size[1]);
         buffers_focused = buffers_focused or res;
     }
 
@@ -136,7 +136,7 @@ pub fn buffers(arena: std.mem.Allocator) !void {
         globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 
-pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, width: f32, height: f32) bool {
+pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, width: f32, height: f32) bool {
     const static = struct {
         pub var buf: [max_visible_bytes]u8 = undefined;
     };
@@ -146,22 +146,17 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
     var buffer = getBuffer(buffer_window.bhandle).?;
 
     var dl = imgui.getWindowDrawList();
-    dl.pushClipRect(.{
-        .pmin = .{ buffer_window.rect.x, buffer_window.rect.y },
-        .pmax = .{ buffer_window.rect.x + width, buffer_window.rect.y + height },
-    });
-
     _ = imgui.beginChild(tmpStringZ("buffer_window ({x})", .{@ptrToInt(buffer_window)}), .{
-        .w = width,
-        .h = height,
-        .border = true,
-        .flags = .{ .no_scroll_with_mouse = true, .no_scrollbar = true },
+        .border = false,
+        .flags = .{
+            .no_scroll_with_mouse = true,
+            .no_scrollbar = true,
+            .always_auto_resize = true,
+        },
     });
     defer imgui.endChild();
 
     const begin_cursor_pos = imgui.getCursorPos();
-
-    if (new_line) imgui.newLine();
 
     var line_h = imgui.getTextLineHeightWithSpacing();
     buffer_window.visible_lines = @floatToInt(u32, std.math.floor(height / line_h)) -| 2;
@@ -178,10 +173,9 @@ pub fn bufferWidget(buffer_window_node: *core.BufferWindowNode, new_line: bool, 
         imgui.textUnformatted(line);
 
         const pos = imgui.getWindowPos();
-        const padding = imgui.getStyle().window_padding;
-        const abs_x = padding[0] + pos[0];
-        var abs_y = @intToFloat(f32, on_screen_row) * line_h + padding[1] + pos[1];
-        if (!new_line) abs_y -= line_h;
+        const abs_x = pos[0];
+        var abs_y = @intToFloat(f32, on_screen_row) * line_h + pos[1];
+        abs_y -= line_h;
 
         // render selection
         const selection = buffer.selection.get(cursor);

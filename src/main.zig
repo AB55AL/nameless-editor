@@ -78,12 +78,8 @@ pub fn main() !void {
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = false });
         const window_size = window.getSize();
-        if (globals.ui.gui_full_size) {
-            imgui.setNextWindowSize(.{ .w = @intToFloat(f32, window_size.width), .h = @intToFloat(f32, window_size.height) });
-            globals.ui.gui_full_size = false;
-        }
 
-        try editor_ui.buffers(arena);
+        try editor_ui.buffers(arena, @intToFloat(f32, window_size.width), @intToFloat(f32, window_size.height));
         editor_ui.notifications();
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
