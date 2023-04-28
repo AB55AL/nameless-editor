@@ -157,13 +157,11 @@ selection: Selection = .{},
 marks: std.AutoArrayHashMapUnmanaged(u32, Point) = .{},
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
-    var fp = try allocator.alloc(u8, file_path.len);
-    std.mem.copy(u8, fp, file_path);
+    var fp = try utils.newSlice(allocator, file_path);
 
-    var iter = std.mem.splitBackwards(u8, file_path, ".");
-    const file_type = iter.next() orelse "";
-    var ft = try allocator.alloc(u8, file_type.len);
-    std.mem.copy(u8, ft, file_type);
+    const index = std.mem.lastIndexOf(u8, fp, ".");
+    const file_type = if (index) |i| fp[i + 1 ..] else "";
+    var ft = try utils.newSlice(allocator, file_type);
 
     var metadata = MetaData{
         .file_path = fp,
