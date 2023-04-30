@@ -100,7 +100,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
                 core.command_line.close(false, false);
             }
             imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
-            imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .appearing });
+            imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .always });
 
             const file_path = getBuffer(bw.data.bhandle).?.metadata.file_path;
             var win_name = tmpStringZ("{s}##({x})", .{ file_path, @ptrToInt(bw) });
