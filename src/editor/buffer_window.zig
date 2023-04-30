@@ -60,6 +60,10 @@ pub const Size = struct {
 };
 
 pub const BufferWindow = struct {
+    pub const Options = struct {
+        line_number: enum { relative, absolute, none } = .absolute,
+    };
+
     pub const CursorRect = struct {
         rect: Rect,
 
@@ -89,6 +93,7 @@ pub const BufferWindow = struct {
     bhandle: BufferHandle,
     first_visiable_row: u64 = 1,
     cursor_key: u32,
+    options: Options = .{},
 
     rect: Rect = .{}, // Reset every frame
     visible_lines: u64 = 0, // Set every frame

@@ -149,12 +149,28 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
     const start_row = buffer_window.first_visiable_row;
     const end_row = buffer_window.lastVisibleRow();
 
+    if (buffer_window.options.line_number == .none) return false;
+
     const w = imgui.calcTextSize(tmpStringZ("{}", .{end_row}), .{})[0];
     _ = imgui.beginChild("displayLineNumber", .{ .w = w, .flags = child_flags });
     defer imgui.endChild();
 
-    for (start_row..end_row + 1) |row|
-        imgui.text("{}", .{row});
+    const cursor = buffer_window.cursor();
+    const on_screen_cursor_row = buffer_window.relativeBufferRowFromAbsolute(cursor.row);
+
+    switch (buffer_window.options.line_number) {
+        .none => {},
+        .relative => {
+            var r = on_screen_cursor_row - 1;
+            while (r > 0) : (r -= 1) imgui.text("{}", .{r});
+            imgui.text("{}", .{cursor.row});
+            for (1..buffer_window.lastVisibleRow()) |row| imgui.text("{}", .{row});
+        },
+        .absolute => {
+            for (start_row..end_row + 1) |row|
+                imgui.text("{}", .{row});
+        },
+    }
 
     imgui.setCursorPos(imgui.getCursorStartPos());
     const clicked = imgui.invisibleButton("displayLineNumber button", .{ .w = w, .h = imgui.getContentRegionMax()[1] });
