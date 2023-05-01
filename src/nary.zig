@@ -134,6 +134,15 @@ pub fn NaryTree(comptime T: type) type {
                 return res;
             }
 
+            pub fn isDescendentOf(node: *Node, ancestor: *Node) bool {
+                var parent = node.parent;
+                while (parent) |p| {
+                    if (p == ancestor) return true;
+                    parent = p.parent;
+                }
+                return false;
+            }
+
             fn concat(new_parent: *Node, first_list_head: *Node, second_list_head: *Node) void {
                 std.debug.assert(second_list_head.previousSibling() == null);
                 std.debug.assert(first_list_head.previousSibling() == null);
