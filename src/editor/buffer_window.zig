@@ -61,13 +61,14 @@ pub const Size = struct {
 
 pub const BufferWindow = struct {
     pub const Options = struct {
+        /// ARGB Colors
         pub const Color = struct {
-            bg: u32 = 0x000000_FF,
-            text: u32 = 0xFFFFFF_FF,
+            bg: u32 = 0xFF_000000,
+            text: u32 = 0xFF_FFFFFF,
         };
 
         line_number: enum { relative, absolute, none } = .absolute,
-        /// RGBA colors
+        /// ARGB colors
         color: Color = .{},
     };
 
