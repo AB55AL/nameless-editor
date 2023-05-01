@@ -4,10 +4,14 @@ const imgui = @import("imgui");
 
 const core = @import("core");
 
+const math = @import("math.zig");
+
 const editor_ui = @import("editor_ui.zig");
 const Buffer = core.Buffer;
 const globals = core.globals;
 const editor = globals.editor;
+
+const tmpStringZ = editor_ui.tmpStringZ;
 
 const getBuffer = core.getBuffer;
 
@@ -76,6 +80,71 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
             imgui.textUnformatted(reg);
             _ = imgui.tableSetColumnIndex(1);
             imgui.textUnformatted(val);
+        }
+    }
+
+    if (imgui.beginTabItem("Buffer windows", .{})) {
+        defer imgui.endTabItem();
+        inspectBufferWindows(arena);
+    }
+}
+
+pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
+    var windows = core.globals.editor.visiable_buffers_tree.treeToArray(arena) catch return;
+
+    var height = imgui.getTextLineHeightWithSpacing() * 10;
+
+    var dl = imgui.getForegroundDrawList();
+
+    for (windows, 0..) |win, i| {
+        _ = imgui.beginChild(tmpStringZ("Buffer window child {}", .{i}), .{ .h = height });
+        defer imgui.endChild();
+        // cap the height of the next child wins to the amount actually used
+        defer height = imgui.getCursorPos()[1];
+
+        var bw = &(win.data);
+        var buffer = core.getBuffer(bw.bhandle) orelse continue;
+        imgui.text("handle: {} File Path: {s}", .{ bw.bhandle.handle, buffer.metadata.file_path });
+        if (win.parent == null)
+            imgui.textUnformatted("Root buffer window");
+
+        _ = imgui.sliderFloat(tmpStringZ("Percent of parent##{}", .{i}), .{
+            .v = &bw.percent_of_parent,
+            .min = 0.01,
+            .max = 0.99,
+        });
+
+        // zig fmt: off
+        imgui.text("Dir:", .{}); imgui.sameLine(.{});
+        const north = imgui.radioButton(tmpStringZ("North##{}",.{i}), .{ .active = bw.dir == .north }); imgui.sameLine(.{});
+        const east = imgui.radioButton(tmpStringZ("East##{}",.{i}), .{ .active = bw.dir == .east }); imgui.sameLine(.{});
+        const south = imgui.radioButton(tmpStringZ("South##{}",.{i}), .{ .active = bw.dir == .south }); imgui.sameLine(.{});
+        const west = imgui.radioButton(tmpStringZ("West##{}",.{i}), .{ .active = bw.dir == .west });
+        if (north) bw.dir = .north else if (east) bw.dir = .east else if (south) bw.dir = .south else if (west) bw.dir = .west;
+        // zig fmt: on
+
+        imgui.text("Lines from {} to {}", .{ bw.first_visiable_row, bw.lastVisibleRow() });
+        imgui.text("{}", .{bw.options});
+        imgui.text("x: {d:.2} y: {d:.2} w: {d:.2} h: {d:.2}", .{ bw.rect.x, bw.rect.y, bw.rect.w, bw.rect.h });
+        imgui.separatorText("");
+
+        if (imgui.isWindowHovered(.{}) or imgui.isWindowFocused(.{})) {
+            dl.addRectFilled(.{
+                .pmin = bw.rect.leftTop(),
+                .pmax = bw.rect.rightBottom(),
+                .col = 0x55_AAAAAA,
+            });
+
+            // Highlight children
+            for (windows[i + 1 ..]) |next_win| {
+                if (next_win.isDescendentOf(win)) {
+                    dl.addRectFilled(.{
+                        .pmin = math.arrayAdd(next_win.data.rect.leftTop(), .{ 5, 5 }),
+                        .pmax = math.arrayAdd(next_win.data.rect.rightBottom(), .{ -5, -5 }),
+                        .col = 0x55_AA0000,
+                    });
+                }
+            }
         }
     }
 }
