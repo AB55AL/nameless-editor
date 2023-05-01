@@ -42,6 +42,10 @@ pub fn Vec4(comptime T: type) type {
     };
 }
 
+pub fn arrayAdd(a: [2]f32, b: [2]f32) [2]f32 {
+    return .{ a[0] + b[0], a[1] + b[1] };
+}
+
 pub fn hexToColorVector(hex: u24) Vec3(f32) {
     var r = (1.0 / 255.0) * @intToFloat(f32, hex >> 16);
     var g = (1.0 / 255.0) * @intToFloat(f32, (hex >> 8) & 0xFF);

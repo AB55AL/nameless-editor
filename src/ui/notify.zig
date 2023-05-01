@@ -3,7 +3,6 @@ const print = std.debug.print;
 
 const gui = @import("gui");
 
-const math = @import("math.zig");
 const editor = @import("../globals.zig").editor;
 const ui = @import("../globals.zig").ui;
 const utils = @import("../utils.zig");
