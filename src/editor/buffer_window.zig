@@ -61,7 +61,14 @@ pub const Size = struct {
 
 pub const BufferWindow = struct {
     pub const Options = struct {
+        pub const Color = struct {
+            bg: u32 = 0x000000_FF,
+            text: u32 = 0xFFFFFF_FF,
+        };
+
         line_number: enum { relative, absolute, none } = .absolute,
+        /// RGBA colors
+        color: Color = .{},
     };
 
     pub const CursorRect = struct {

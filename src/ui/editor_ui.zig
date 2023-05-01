@@ -117,6 +117,11 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
 pub fn bufferWidget(window_name: [:0]const u8, buffer_window_node: *core.BufferWindowNode, width: f32, height: f32, win_flags: imgui.WindowFlags) bool {
     const child_flags = imgui.WindowFlags{ .no_scroll_with_mouse = true, .no_scrollbar = true, .always_auto_resize = true };
     _ = width;
+
+    imgui.pushStyleColor1u(.{ .idx = .window_bg, .c = buffer_window_node.data.options.color.bg });
+    imgui.pushStyleColor1u(.{ .idx = .text, .c = buffer_window_node.data.options.color.text });
+    defer imgui.popStyleColor(.{ .count = 2 });
+
     _ = imgui.begin(window_name, .{ .flags = win_flags });
     defer imgui.end();
 
