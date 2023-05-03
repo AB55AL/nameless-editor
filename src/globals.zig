@@ -53,7 +53,7 @@ pub const ui = struct {
 pub const internal = struct {
     /// Global allocator
     pub var allocator: std.mem.Allocator = undefined;
-    pub var extra_frame = true;
+    pub var extra_frames: u32 = 2;
 
     pub var key_queue = editor_api.KeyQueue.init(0) catch unreachable;
     pub var char_queue = editor_api.CharQueue.init(0) catch unreachable;

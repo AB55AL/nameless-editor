@@ -7,8 +7,8 @@ pub usingnamespace @import("notify.zig");
 
 pub const UserUI = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
 
-pub fn extraFrame() void {
-    globals.internal.extra_frame = true;
+pub fn extraFrames() void {
+    globals.internal.extra_frames = 2;
 }
 
 pub fn addUserUI(func: UserUI) void {

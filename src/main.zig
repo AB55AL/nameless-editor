@@ -63,14 +63,14 @@ pub fn main() !void {
         defer arena_instance.deinit();
         const arena = arena_instance.allocator();
 
-        if (globals.internal.extra_frame)
+        if (globals.internal.extra_frames > 0)
             glfw.pollEvents()
         else if (globals.ui.notifications.count() > 0)
             glfw.waitEventsTimeout(1)
         else
             glfw.waitEvents();
 
-        globals.internal.extra_frame = false;
+        globals.internal.extra_frames -|= 1;
 
         imgui.backend.newFrame();
 
