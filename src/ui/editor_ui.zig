@@ -177,10 +177,7 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
         },
     }
 
-    imgui.setCursorPos(imgui.getCursorStartPos());
-    const clicked = imgui.invisibleButton("displayLineNumber button", .{ .w = w, .h = imgui.getContentRegionMax()[1] });
-    const focused = imgui.isItemFocused();
-    return clicked or focused;
+    return imgui.isWindowFocused(.{});
 }
 
 fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFlags) bool {
@@ -276,11 +273,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFl
         }
     } // for loop
 
-    const wh = imgui.getContentRegionMax();
-    imgui.setCursorPos(imgui.getCursorStartPos());
-    var clicked = imgui.invisibleButton("bufferText button", .{ .w = wh[0], .h = wh[1] });
-    var focused = imgui.isItemFocused();
-    return focused or clicked;
+    return imgui.isWindowFocused(.{});
 }
 
 pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
