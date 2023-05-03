@@ -67,8 +67,10 @@ pub fn main() !void {
             glfw.pollEvents()
         else if (globals.ui.notifications.count() > 0)
             glfw.waitEventsTimeout(1)
-        else
+        else {
             glfw.waitEvents();
+            core.extraFrames();
+        }
 
         globals.internal.extra_frames -|= 1;
 
