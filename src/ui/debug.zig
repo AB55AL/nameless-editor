@@ -8,6 +8,7 @@ const math = @import("math.zig");
 
 const editor_ui = @import("editor_ui.zig");
 const Buffer = core.Buffer;
+const BufferWindow = core.BufferWindow;
 const globals = core.globals;
 const editor = globals.editor;
 
@@ -90,17 +91,23 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
 }
 
 pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
+    const static = struct {
+        pub var show_window_border: bool = true;
+        pub var show_child_window_border: bool = false;
+    };
     var windows = core.globals.editor.visiable_buffers_tree.treeToArray(arena) catch return;
 
-    var height = imgui.getTextLineHeightWithSpacing() * 10;
+    const child_height = imgui.getTextLineHeightWithSpacing() * 8;
 
     var dl = imgui.getForegroundDrawList();
 
+    _ = imgui.checkbox("show window border", .{ .v = &static.show_window_border });
+    imgui.sameLine(.{});
+    _ = imgui.checkbox("show child window border", .{ .v = &static.show_child_window_border });
+
     for (windows, 0..) |win, i| {
-        _ = imgui.beginChild(tmpStringZ("Buffer window child {}", .{i}), .{ .h = height });
+        _ = imgui.beginChild(tmpStringZ("Buffer window child {}", .{i}), .{ .h = child_height });
         defer imgui.endChild();
-        // cap the height of the next child wins to the amount actually used
-        defer height = imgui.getCursorPos()[1];
 
         var bw = &(win.data);
         var buffer = core.getBuffer(bw.bhandle) orelse continue;
@@ -108,18 +115,13 @@ pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
         if (win.parent == null)
             imgui.textUnformatted("Root buffer window");
 
-        _ = imgui.sliderFloat(tmpStringZ("Percent of parent##{}", .{i}), .{
-            .v = &bw.percent_of_parent,
-            .min = 0.01,
-            .max = 0.99,
-        });
-
         // zig fmt: off
         imgui.text("Dir:", .{}); imgui.sameLine(.{});
         const north = imgui.radioButton(tmpStringZ("North##{}",.{i}), .{ .active = bw.dir == .north }); imgui.sameLine(.{});
         const east = imgui.radioButton(tmpStringZ("East##{}",.{i}), .{ .active = bw.dir == .east }); imgui.sameLine(.{});
         const south = imgui.radioButton(tmpStringZ("South##{}",.{i}), .{ .active = bw.dir == .south }); imgui.sameLine(.{});
         const west = imgui.radioButton(tmpStringZ("West##{}",.{i}), .{ .active = bw.dir == .west });
+
         if (north) bw.dir = .north else if (east) bw.dir = .east else if (south) bw.dir = .south else if (west) bw.dir = .west;
         // zig fmt: on
 
@@ -128,21 +130,26 @@ pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
         imgui.text("x: {d:.2} y: {d:.2} w: {d:.2} h: {d:.2}", .{ bw.rect.x, bw.rect.y, bw.rect.w, bw.rect.h });
         imgui.separatorText("");
 
-        if (imgui.isWindowHovered(.{}) or imgui.isWindowFocused(.{})) {
-            dl.addRectFilled(.{
+        if (imgui.isWindowHovered(.{}) and static.show_window_border) {
+            dl.addRect(.{
                 .pmin = bw.rect.leftTop(),
                 .pmax = bw.rect.rightBottom(),
-                .col = 0x55_AAAAAA,
+                .col = 0xFF_AAAAAA,
+                .thickness = 2,
             });
 
-            // Highlight children
-            for (windows[i + 1 ..]) |next_win| {
-                if (next_win.isDescendentOf(win)) {
-                    dl.addRectFilled(.{
-                        .pmin = math.arrayAdd(next_win.data.rect.leftTop(), .{ 5, 5 }),
-                        .pmax = math.arrayAdd(next_win.data.rect.rightBottom(), .{ -5, -5 }),
-                        .col = 0x55_AA0000,
-                    });
+            if (static.show_child_window_border) {
+
+                // Highlight children
+                for (windows[i + 1 ..]) |next_win| {
+                    if (next_win.isDescendentOf(win)) {
+                        dl.addRect(.{
+                            .pmin = math.arrayAdd(next_win.data.rect.leftTop(), .{ 5, 5 }),
+                            .pmax = math.arrayAdd(next_win.data.rect.rightBottom(), .{ -5, -5 }),
+                            .col = 0xFF_FF0000,
+                            .thickness = 2,
+                        });
+                    }
                 }
             }
         }
