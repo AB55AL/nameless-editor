@@ -87,7 +87,7 @@ pub fn main() !void {
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
         if (globals.ui.imgui_demo) {
             imgui.showDemoWindow(&globals.ui.imgui_demo);
-            core.extraFrame();
+            core.extraFrames();
         }
         if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
 
