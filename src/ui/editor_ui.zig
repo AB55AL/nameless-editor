@@ -50,7 +50,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
     const buffer_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_resize = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = false, .no_collapse = true };
     const cli_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = true, .no_resize = true };
     var buffers_focused = false;
-    if (!core.cliOpen()) globals.ui.focused_cursor_rect = null;
+    if (!core.cliIsOpen()) globals.ui.focused_cursor_rect = null;
 
     { // Remove all buffer windows that have invalid buffers
 
@@ -62,7 +62,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         for (wins_to_close.items) |win| core.closeBW(win);
     }
 
-    if (core.cliOpen()) {
+    if (core.cliIsOpen()) {
         // get cli window pos and size
         const center = imgui.getMainViewport().getCenter();
 
@@ -97,7 +97,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
             if (bw == core.focusedBW() and globals.ui.focus_buffers) {
                 imgui.setNextWindowFocus();
                 globals.ui.focus_buffers = false;
-                core.command_line.close(false, false);
+                core.closeCLI(false, false);
             }
             imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
             imgui.setNextWindowSize(.{ .w = bw.data.rect.w, .h = bw.data.rect.h, .cond = .always });

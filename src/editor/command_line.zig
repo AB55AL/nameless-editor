@@ -18,8 +18,6 @@ pub const CommandType = struct {
 };
 
 const globals = @import("../globals.zig");
-const ui = globals.ui;
-const internal = globals.internal;
 
 const ParseError = error{
     DoubleQuoteInvalidPosition,
@@ -31,6 +29,7 @@ const CommandRunError = error{
     FunctionCommandMismatchedTypes,
     ExtraArgs,
     MissingArgs,
+    CommandDoesNotExist,
 };
 
 const PossibleValues = union(enum) {
@@ -64,18 +63,42 @@ pub const CommandLine = struct {
     buffer_window: editor.BufferWindowNode,
     functions: std.StringHashMap(CommandType),
     open: bool = false,
+
+    pub fn run(cli: *CommandLine, allocator: std.mem.Allocator, command_string: []const u8) !void {
+        const command_result = try parseCommand(allocator, command_string);
+        var command = command_result.value;
+
+        var buffer: [128]PossibleValues = undefined;
+        var string = command_result.rest;
+        var i: u32 = 0;
+        while (string.len != 0) : (i += 1) {
+            var result = try parseArgs(allocator, string);
+            buffer[i] = result.value;
+            string = result.rest;
+        }
+
+        try cli.call(command, buffer[0..i]);
+    }
+
+    fn call(cli: *CommandLine, command: []const u8, args: []PossibleValues) !void {
+        const com = cli.functions.get(command);
+
+        if (com) |c| {
+            try c.function(args);
+        } else return CommandRunError.CommandDoesNotExist;
+    }
 };
 
 pub fn init() !void {
     const cli_bhandle = editor.generateHandle();
-    try globals.editor.buffers.put(internal.allocator, cli_bhandle, try editor.createLocalBuffer(""));
+    try globals.editor.buffers.put(globals.internal.allocator, cli_bhandle, try editor.createLocalBuffer(""));
 
     const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
 
     globals.editor.cli = .{
         .bhandle = cli_bhandle,
         .buffer_window = .{ .data = bw },
-        .functions = std.StringHashMap(CommandType).init(internal.allocator),
+        .functions = std.StringHashMap(CommandType).init(globals.internal.allocator),
     };
     try default_commands.setDefaultCommands();
 }
@@ -84,91 +107,11 @@ pub fn deinit() void {
     globals.editor.cli.functions.deinit();
 }
 
-pub fn open() void {
-    globals.editor.cli.open = true;
-    if (editor.focusedBW()) |fbw| editor.pushAsPreviousBW(fbw);
-    globals.editor.focused_buffer_window = editor.cliBW();
-}
-
-pub fn close(pop_previous_window: bool, focus_buffers: bool) void {
-    globals.editor.cli.open = false;
-    editor.cliBuffer().clear() catch |err| {
-        print("cloudn't clear command_line buffer err={}", .{err});
-    };
-
-    if (pop_previous_window) globals.editor.focused_buffer_window = editor.popPreviousBW();
-    if (focus_buffers) ui.focus_buffers = true;
-}
-
-pub fn run() !void {
-    var cli_buffer = editor.cliBuffer();
-    var command_str: [4096]u8 = undefined;
-    var len = cli_buffer.size();
-
-    const command_line_content = try cli_buffer.getAllLines(internal.allocator);
-    defer internal.allocator.free(command_line_content);
-    std.mem.copy(u8, &command_str, command_line_content);
-
-    close(true, true);
-    runCommand(command_str[0 .. len - 1]);
-}
-
-pub fn add(comptime command: []const u8, comptime fn_ptr: anytype, comptime description: []const u8) !void {
-    const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
-    if (fn_info.return_type.? != void)
-        @compileError("The command's function return type needs to be void");
-    if (fn_info.is_var_args)
-        @compileError("The command's function cannot be variadic");
-
-    comptime if (count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
-
-    try globals.editor.cli.functions.put(command, .{
-        .function = beholdMyFunctionInator(fn_ptr).funcy,
-        .description = description,
-    });
-}
-
-fn runCommand(command_string: []const u8) void {
-    const allocator = internal.allocator;
-
-    const command_result = parseCommand(allocator, command_string) catch |err| {
-        print("{}\n", .{err});
-        return;
-    };
-    var command = command_result.value;
-
-    var buffer: [128]PossibleValues = undefined;
-    var string = command_result.rest;
-    var i: u32 = 0;
-    while (string.len != 0) : (i += 1) {
-        var result = parseArgs(allocator, string) catch |err| {
-            print("{}\n", .{err});
-            return;
-        };
-        buffer[i] = result.value;
-        string = result.rest;
-    }
-
-    call(command, buffer[0..i]);
-}
-
-fn call(command: []const u8, args: []PossibleValues) void {
-    const com = globals.editor.cli.functions.get(command);
-
-    if (com) |c| {
-        c.function(args) catch |err| {
-            ui_api.notify("Command Line Error:", .{}, "{!}", .{err}, 3);
-        };
-    } else {
-        ui_api.notify("Command Line Error:", .{}, "The command doesn't exist", .{}, 3);
-    }
-}
-
-fn beholdMyFunctionInator(comptime function: anytype) type {
+pub fn beholdMyFunctionInator(comptime function: anytype) type {
     const fn_info = @typeInfo(@TypeOf(function)).Fn;
 
     return struct {
-        fn funcy(args: []PossibleValues) CommandRunError!void {
+        pub fn funcy(args: []PossibleValues) CommandRunError!void {
             if (fn_info.params.len == 0) {
                 function();
             } else if (args.len > 0 and args.len == fn_info.params.len) {

@@ -77,7 +77,7 @@ pub fn setVisualMode() void {
 
 pub fn openCommandLine() void {
     setMode(.insert);
-    core.command_line.open();
+    core.openCLI();
 }
 
 pub fn closeCommandLine() void {
@@ -86,10 +86,8 @@ pub fn closeCommandLine() void {
 }
 
 pub fn enterKey() void {
-    if (core.cliOpen()) {
-        core.command_line.run() catch |err| {
-            print("Couldn't run command. err={}\n", .{err});
-        };
+    if (core.cliIsOpen()) {
+        core.runCLI();
         setMode(.normal);
     } else insertNewLineAtCursor();
 }

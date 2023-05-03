@@ -50,7 +50,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
 
             open_cli: {
                 if (clicked) {
-                    core.command_line.open();
+                    core.openCLI();
                     var cli = &(core.focusedBW().?.data);
                     var cli_buffer = core.cliBuffer();
                     cli_buffer.clear() catch break :open_cli;

@@ -6,7 +6,7 @@ const Buffer = @import("buffer.zig");
 const editor = @import("editor.zig");
 const command_line = @import("command_line.zig");
 const file_io = @import("file_io.zig");
-const add = command_line.add;
+const add = editor.addCommand;
 
 const internal = globals.internal;
 

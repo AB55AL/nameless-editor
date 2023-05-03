@@ -13,6 +13,8 @@ const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
 
+const ui_api = @import("../ui/ui.zig");
+
 const editor = globals.editor;
 const internal = globals.internal;
 
@@ -219,23 +221,11 @@ pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
 
     editor.focused_buffer_window = buffer_window;
 
-    if (buffer_window != cliBW()) command_line.close(false, true);
+    if (buffer_window != cliBW()) closeCLI(false, true);
 }
 
 pub fn focusedBW() ?*BufferWindowNode {
     return globals.editor.focused_buffer_window;
-}
-
-pub fn cliBuffer() *Buffer {
-    return getBuffer(cliBW().data.bhandle).?;
-}
-
-pub fn cliBW() *BufferWindowNode {
-    return &globals.editor.cli.buffer_window;
-}
-
-pub fn cliOpen() bool {
-    return globals.editor.cli.open;
 }
 
 pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
@@ -258,6 +248,66 @@ pub fn popPreviousBW() ?*BufferWindowNode {
     }
 
     return null;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// CLI functions
+
+pub fn cliBuffer() *Buffer {
+    return getBuffer(cliBW().data.bhandle).?;
+}
+
+pub fn cliBW() *BufferWindowNode {
+    return &globals.editor.cli.buffer_window;
+}
+
+pub fn cliIsOpen() bool {
+    return globals.editor.cli.open;
+}
+pub fn openCLI() void {
+    globals.editor.cli.open = true;
+    if (focusedBW()) |fbw| pushAsPreviousBW(fbw);
+    globals.editor.focused_buffer_window = cliBW();
+}
+
+pub fn closeCLI(pop_previous_window: bool, focus_buffers: bool) void {
+    globals.editor.cli.open = false;
+    cliBuffer().clear() catch |err| {
+        print("cloudn't clear command_line buffer err={}", .{err});
+    };
+
+    if (pop_previous_window) globals.editor.focused_buffer_window = popPreviousBW();
+    if (focus_buffers) globals.ui.focus_buffers = true;
+}
+
+pub fn runCLI() void {
+    var cli_buffer = cliBuffer();
+    var command_str: [4096]u8 = undefined;
+    var len = cli_buffer.size();
+
+    const command_line_content = cli_buffer.getAllLines(internal.allocator) catch return;
+    defer internal.allocator.free(command_line_content);
+    std.mem.copy(u8, &command_str, command_line_content);
+
+    closeCLI(true, true);
+    globals.editor.cli.run(internal.allocator, command_str[0 .. len - 1]) catch |err| {
+        ui_api.notify("Command Line Error:", .{}, "{!}", .{err}, 3);
+    };
+}
+
+pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype, comptime description: []const u8) !void {
+    const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
+    if (fn_info.return_type.? != void)
+        @compileError("The command's function return type needs to be void");
+    if (fn_info.is_var_args)
+        @compileError("The command's function cannot be variadic");
+
+    comptime if (std.mem.count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
+
+    try globals.editor.cli.functions.put(command, .{
+        .function = command_line.beholdMyFunctionInator(fn_ptr).funcy,
+        .description = description,
+    });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
