@@ -110,7 +110,7 @@ pub fn backFindOutsideBlackList(buffer: *Buffer, start: Point, list: []const u21
             for (list) |list_cp| {
                 var buf: [4]u8 = undefined;
                 var len = unicode.utf8Encode(list_cp, &buf) catch continue;
-                if (std.mem.eql(u8, slice, buf[0..len]))
+                if (!std.mem.eql(u8, slice, buf[0..len]))
                     return buffer.getPoint(index);
             }
         }
