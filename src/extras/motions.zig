@@ -84,10 +84,12 @@ pub fn backFindCodePointsInList(buffer: *Buffer, start: Point, list: []const u21
         var view = utf8.ReverseUtf8View(string);
         while (view.prevSlice()) |slice| {
             defer index -|= slice.len;
-
-            const cp = unicode.utf8Decode(slice) catch continue;
-            if (utils.atLeastOneIsEqual(u21, list, cp))
-                return buffer.getPoint(index);
+            for (list) |list_cp| {
+                var buf: [4]u8 = undefined;
+                var len = unicode.utf8Encode(list_cp, &buf) catch continue;
+                if (std.mem.eql(u8, slice, buf[0..len]))
+                    return buffer.getPoint(index);
+            }
         }
     }
 
@@ -105,9 +107,12 @@ pub fn backFindOutsideBlackList(buffer: *Buffer, start: Point, list: []const u21
         while (view.prevSlice()) |slice| {
             defer index -|= slice.len;
 
-            const cp = unicode.utf8Decode(slice) catch continue;
-            if (!utils.atLeastOneIsEqual(u21, list, cp))
-                return buffer.getPoint(index);
+            for (list) |list_cp| {
+                var buf: [4]u8 = undefined;
+                var len = unicode.utf8Encode(list_cp, &buf) catch continue;
+                if (std.mem.eql(u8, slice, buf[0..len]))
+                    return buffer.getPoint(index);
+            }
         }
     }
 
@@ -139,7 +144,7 @@ pub fn backward(buffer: *Buffer, start: Point, delimiters: []const u21) ?Buffer.
     if (utils.atLeastOneIsEqual(u21, delimiters, cp) and !utils.atLeastOneIsEqual(u21, &white_space, cp))
         return .{ .start = start.subCol(1), .end = start };
 
-    const mid = backFindCodePointsInList(buffer, start, delimiters) orelse Point{ .row = 1, .col = 1 };
+    const mid = backFindCodePointsInList(buffer, start.subCol(1), delimiters) orelse Point{ .row = 1, .col = 1 };
     const s = backFindOutsideBlackList(buffer, mid, &white_space) orelse mid;
     return .{ .start = s, .end = start };
 }
