@@ -453,7 +453,6 @@ pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) 
     utils.assert(first_line > 0, "");
     utils.assert(last_line <= buffer.lineCount(), "");
     utils.assert(buf.len >= buffer.lineRangeSize(first_line, last_line), "");
-    // utils.passert(buf.len >= buffer.lineRangeSize(first_line, last_line), "first line {} last line {} size {} buf.len {}", .{ first_line, last_line, buffer.lineRangeSize(first_line, last_line), buf.len });
 
     const start = buffer.indexOfFirstByteAtRow(first_line);
     const end = buffer.indexOfLastByteAtRow(last_line) + 1;
@@ -519,34 +518,6 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
             }
         }
 
-        // while (i + index < end) {
-        // const byte = buffer.lines.byteAt(i + index);
-        // const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
-        // if (byte == '\n') {
-        //     if (i > 0) i += 1; // if the line has more than just one newline char increment
-        //     break;
-        // } else if (byte_seq_len > 0) {
-        //     char_count += 1;
-        //     i += byte_seq_len;
-        // } else { // Continuation byte
-        //     i += 1;
-        // }
-        // }
-        // var i: u64 = 0;
-        // var char_count: u64 = 0;
-        // while (char_count < col - 1) {
-        //     const byte = buffer.lines.byteAt(i + index);
-        //     const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
-        //     if (byte == '\n') {
-        //         if (i > 0) i += 1; // if the line has more than just one newline char increment
-        //         break;
-        //     } else if (byte_seq_len > 0) {
-        //         char_count += 1;
-        //         i += byte_seq_len;
-        //     } else { // Continuation byte
-        //         i += 1;
-        //     }
-        // }
         return index + i;
     }
 }
@@ -642,12 +613,6 @@ pub const AllocLineIterator = struct {
     inner_iter: LineIterator,
     buf: []u8,
     current_line: u64,
-    // buffer: *Buffer,
-    // start_index: u64,
-    // end_index: u64,
-    // start: Point,
-    // end: Point,
-    // current_line: u64,
 
     pub fn initPoint(buffer: *Buffer, start: Point, end: Point) !AllocLineIterator {
         var buf = try buffer.allocator.alloc(u8, buffer.maxLineRangeSize(start.row, end.row));
@@ -697,18 +662,11 @@ pub const LineIterator = struct {
 
     pub fn initPoint(buffer: *Buffer, range: PointRange) LineIterator {
         const r = buffer.pointRangeToRange(range);
-        _ = r;
-
-        const start_index = buffer.getIndex(range.start);
-        var end_index = buffer.getIndex(range.end);
-
-        const s = start_index;
-        const e = end_index;
 
         return .{
             .buffer = buffer,
-            .start = s,
-            .end = e,
+            .start = r.start,
+            .end = r.end,
             .current_line = range.start.min(range.end).row,
         };
     }
