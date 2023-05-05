@@ -64,6 +64,30 @@ pub const Point = struct {
         if (a.row > b.row) return a else return b;
     }
 
+    pub fn addRow(point: Point, offset: u64) Point {
+        return .{ .row = point.row + offset, .col = point.col };
+    }
+
+    pub fn addCol(point: Point, offset: u64) Point {
+        return .{ .row = point.row, .col = point.col + offset };
+    }
+
+    pub fn subRow(point: Point, offset: u64) Point {
+        return .{ .row = std.math.max(1, point.row - offset), .col = point.col };
+    }
+
+    pub fn subCol(point: Point, offset: u64) Point {
+        return .{ .row = point.row, .col = std.math.max(1, point.col - offset) };
+    }
+
+    pub fn setRow(point: Point, row: u64) Point {
+        return .{ .row = std.math.max(1, row), .col = point.col };
+    }
+
+    pub fn setCol(point: Point, col: u64) Point {
+        return .{ .row = point.row, .col = std.math.max(1, col) };
+    }
+
     pub fn updatePointInsert(to_update: Point, change_row: u64, line_count_before: u64, line_count_after: u64) Point {
         if (change_row > to_update.row) return to_update; // no need to update
         const diff = line_count_after - line_count_before;
@@ -291,15 +315,12 @@ pub fn deleteAfterCursor(buffer: *Buffer, index: u64) !void {
     try buffer.deleteRange(index, index + len);
 }
 
-pub fn deleteRows(buffer: *Buffer, start_row: u32, end_row: u32) !void {
+pub fn deleteRows(buffer: *Buffer, start_row: u64, end_row: u64) !void {
     assert(start_row <= end_row);
     assert(end_row <= buffer.lineCount());
 
-    const start_index = buffer.getIndex(.{ .row = start_row, .col = 1 });
-    const end_index = if (end_row >= buffer.lineCount())
-        buffer.size() + 1
-    else
-        buffer.getIndex(.{ .row = end_row + 1, .col = 1 });
+    const start_index = buffer.indexOfFirstByteAtRow(start_row);
+    const end_index = buffer.indexOfLastByteAtRow(end_row) + 1;
 
     try buffer.deleteRange(start_index, end_index);
 }
@@ -375,10 +396,10 @@ pub fn maxLineRangeSize(buffer: *Buffer, start_row: u64, end_row: u64) u64 {
 }
 
 pub fn codePointAt(buffer: *Buffer, index: u64) !u21 {
-    return unicode.utf8Decode(try buffer.codePointSliceAt(index));
+    return unicode.utf8Decode(buffer.codePointSliceAt(index));
 }
 
-pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
+pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) []const u8 {
     var index = const_index;
     var byte = buffer.lines.byteAt(index);
 
@@ -389,7 +410,7 @@ pub fn codePointSliceAt(buffer: *Buffer, const_index: u64) ![]const u8 {
         byte = buffer.lines.byteAt(index);
     }
 
-    const count = try unicode.utf8ByteSequenceLength(byte);
+    const count = unicode.utf8ByteSequenceLength(byte) catch 1;
     var piece_info = buffer.lines.tree.findNode(index);
     var i = piece_info.relative_index;
     const slice = piece_info.piece.content(&buffer.lines)[i .. i + count];
@@ -432,6 +453,7 @@ pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) 
     utils.assert(first_line > 0, "");
     utils.assert(last_line <= buffer.lineCount(), "");
     utils.assert(buf.len >= buffer.lineRangeSize(first_line, last_line), "");
+    // utils.passert(buf.len >= buffer.lineRangeSize(first_line, last_line), "first line {} last line {} size {} buf.len {}", .{ first_line, last_line, buffer.lineRangeSize(first_line, last_line), buf.len });
 
     const start = buffer.indexOfFirstByteAtRow(first_line);
     const end = buffer.indexOfLastByteAtRow(last_line) + 1;
@@ -479,19 +501,52 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
     } else {
         var i: u64 = 0;
         var char_count: u64 = 0;
-        while (char_count < col - 1) {
-            const byte = buffer.lines.byteAt(i + index);
-            const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
-            if (byte == '\n') {
-                if (i > 0) i += 1; // if the line has more than just one newline char increment
-                break;
-            } else if (byte_seq_len > 0) {
+        // const end = buffer.indexOfLastByteAtRow(row);
+        // _ = end;
+
+        var iter = BufferIterator.initLines(buffer, row, row);
+        outer: while (iter.next()) |string| {
+            var j: u64 = 0;
+            while (j < string.len) {
+                var byte = string[j];
+                var len = unicode.utf8ByteSequenceLength(byte) catch 1;
                 char_count += 1;
-                i += byte_seq_len;
-            } else { // Continuation byte
-                i += 1;
+
+                if (char_count == rc.col) break :outer;
+
+                j += len;
+                i += len;
             }
         }
+
+        // while (i + index < end) {
+        // const byte = buffer.lines.byteAt(i + index);
+        // const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+        // if (byte == '\n') {
+        //     if (i > 0) i += 1; // if the line has more than just one newline char increment
+        //     break;
+        // } else if (byte_seq_len > 0) {
+        //     char_count += 1;
+        //     i += byte_seq_len;
+        // } else { // Continuation byte
+        //     i += 1;
+        // }
+        // }
+        // var i: u64 = 0;
+        // var char_count: u64 = 0;
+        // while (char_count < col - 1) {
+        //     const byte = buffer.lines.byteAt(i + index);
+        //     const byte_seq_len = unicode.utf8ByteSequenceLength(byte) catch 0;
+        //     if (byte == '\n') {
+        //         if (i > 0) i += 1; // if the line has more than just one newline char increment
+        //         break;
+        //     } else if (byte_seq_len > 0) {
+        //         char_count += 1;
+        //         i += byte_seq_len;
+        //     } else { // Continuation byte
+        //         i += 1;
+        //     }
+        // }
         return index + i;
     }
 }
@@ -576,11 +631,61 @@ pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
     const start_index = buffer.getIndex(start);
     var end_index = buffer.getIndex(end);
     // offset end_index so that it includes the whole utf8 sequence
-    // The PointRange is already end exclusive that's why we subtract 1
-    end_index += (buffer.codePointSliceAt(end_index) catch unreachable).len - 1;
+    end_index += buffer.codePointSliceAt(end_index).len;
 
     return .{ .start = start_index, .end = end_index };
 }
+
+pub const AllocLineIterator = struct {
+    const Self = @This();
+
+    inner_iter: LineIterator,
+    buf: []u8,
+    current_line: u64,
+    // buffer: *Buffer,
+    // start_index: u64,
+    // end_index: u64,
+    // start: Point,
+    // end: Point,
+    // current_line: u64,
+
+    pub fn initPoint(buffer: *Buffer, start: Point, end: Point) !AllocLineIterator {
+        var buf = try buffer.allocator.alloc(u8, buffer.maxLineRangeSize(start.row, end.row));
+        return .{
+            .inner_iter = LineIterator.initPoint(buffer, .{ .start = start, .end = end }),
+            .buf = buf,
+            .current_line = start.row -| 1,
+        };
+    }
+
+    pub fn initLines(buffer: *Buffer, start_row: u64, end_row: u64) !AllocLineIterator {
+        var buf = try buffer.allocator.alloc(u8, buffer.maxLineRangeSize(start_row, end_row));
+        return .{
+            .inner_iter = LineIterator.initLines(buffer, start_row, end_row),
+            .buf = buf,
+            .current_line = start_row -| 1,
+        };
+    }
+
+    pub fn deinit(self: *AllocLineIterator) void {
+        self.inner_iter.buffer.allocator.free(self.buf);
+    }
+
+    pub fn next(self: *AllocLineIterator) ?[]u8 {
+        self.current_line += 1;
+        var i: u64 = 0;
+        while (self.inner_iter.next()) |string| {
+            std.mem.copy(u8, self.buf[i..], string);
+            i += string.len;
+
+            if (string[string.len - 1] == '\n') break;
+        }
+
+        if (i > 0) return self.buf[0..i];
+
+        return null;
+    }
+};
 
 pub const LineIterator = struct {
     const Self = @This();
@@ -592,10 +697,18 @@ pub const LineIterator = struct {
 
     pub fn initPoint(buffer: *Buffer, range: PointRange) LineIterator {
         const r = buffer.pointRangeToRange(range);
+        _ = r;
+
+        const start_index = buffer.getIndex(range.start);
+        var end_index = buffer.getIndex(range.end);
+
+        const s = start_index;
+        const e = end_index;
+
         return .{
             .buffer = buffer,
-            .start = r.start,
-            .end = r.end,
+            .start = s,
+            .end = e,
             .current_line = range.start.min(range.end).row,
         };
     }

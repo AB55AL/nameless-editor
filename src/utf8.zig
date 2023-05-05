@@ -49,6 +49,23 @@ pub fn indexOfCP(string: []const u8, cp: u64) u64 {
     return i;
 }
 
+pub const Utf8Iterator = struct {
+    const Self = @This();
+
+    bytes: []const u8,
+    i: usize = 0,
+
+    pub fn nextCodepointSlice(it: *Self) ?[]const u8 {
+        if (it.i >= it.bytes.len) {
+            return null;
+        }
+
+        const cp_len = unicode.utf8ByteSequenceLength(it.bytes[it.i]) catch 1;
+        it.i += cp_len;
+        return it.bytes[it.i - cp_len .. it.i];
+    }
+};
+
 pub fn ReverseUtf8View(string: []const u8) ReverseUtf8ViewType {
     return .{
         .string = string,

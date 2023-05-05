@@ -244,7 +244,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFl
                 textLineSize(buffer, line, row, 1, cursor.col);
 
             const size = blk: {
-                var slice = buffer.codePointSliceAt(cursor_index) catch unreachable;
+                var slice = buffer.codePointSliceAt(cursor_index);
                 if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
                 break :blk imgui.calcTextSize(slice, .{});
             };
