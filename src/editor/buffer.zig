@@ -65,19 +65,19 @@ pub const Point = struct {
     }
 
     pub fn addRow(point: Point, offset: u64) Point {
-        return .{ .row = point.row +| offset, .col = point.col };
+        return .{ .row = point.row + offset, .col = point.col };
     }
 
     pub fn addCol(point: Point, offset: u64) Point {
-        return .{ .row = point.row, .col = point.col +| offset };
+        return .{ .row = point.row, .col = point.col + offset };
     }
 
     pub fn subRow(point: Point, offset: u64) Point {
-        return .{ .row = std.math.max(1, point.row -| offset), .col = point.col };
+        return .{ .row = std.math.max(1, point.row - offset), .col = point.col };
     }
 
     pub fn subCol(point: Point, offset: u64) Point {
-        return .{ .row = point.row, .col = std.math.max(1, point.col -| offset) };
+        return .{ .row = point.row, .col = std.math.max(1, point.col - offset) };
     }
 
     pub fn setRow(point: Point, row: u64) Point {
@@ -128,9 +128,8 @@ pub const Selection = struct {
     kind: Kind = .regular,
 
     pub fn get(selection: Selection, cursor: Point) PointRange {
-        var start = Point.min(selection.anchor, cursor);
-        var end = Point.max(selection.anchor, cursor);
-
+        var start = selection.anchor.min(cursor);
+        var end = selection.anchor.max(cursor);
         start.col = max(start.col, 1);
         end.col = max(end.col, 1);
 
@@ -139,6 +138,8 @@ pub const Selection = struct {
             start.col = end.col;
             end.col = temp;
         }
+
+        end.col +|= 1; // end exclusive
 
         return switch (selection.kind) {
             .regular, .block => .{ .start = start, .end = end },

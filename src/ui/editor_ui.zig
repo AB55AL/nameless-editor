@@ -225,7 +225,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFl
                 .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
             };
 
-            const size = textLineSize(buffer, line, row, start_col, end_col +| 1);
+            const size = textLineSize(buffer, line, row, start_col, end_col);
             const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 1, start_col)[0];
 
             const x = abs_x + x_offset;
