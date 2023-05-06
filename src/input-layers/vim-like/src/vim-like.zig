@@ -98,23 +98,27 @@ pub fn insertNewLineAtCursor() void {
 
 pub fn moveForward() void {
     const d = core.motions.white_space;
+    _ = d;
 
     var f = core.focusedBufferAndBW() orelse return;
     const index = f.buffer.getIndex(f.bw.data.cursor());
-    const range = core.motions.forward(f.buffer, index, &d) orelse return;
-    const end = range.endPreviousCP(f.buffer);
+    _ = index;
+    // const range = core.motions.forward(f.buffer, index, &d) orelse return;
+    // const end = range.endPreviousCP(f.buffer);
 
-    f.bw.data.setCursor(f.buffer.getPoint(end));
+    // f.bw.data.setCursor(f.buffer.getPoint(end));
 }
 
 pub fn moveBackwards() void {
     const d = core.motions.white_space;
+    _ = d;
     var f = core.focusedBufferAndBW() orelse return;
+    _ = f;
 
-    const index = f.buffer.getIndex(f.bw.data.cursor());
-    const range = core.motions.backward(f.buffer, index, &d) orelse return;
+    // const index = f.buffer.getIndex(f.bw.data.cursor());
+    // const range = core.motions.backward(f.buffer, index, &d) orelse return;
 
-    f.bw.data.setCursor(f.buffer.getPoint(range.start));
+    // f.bw.data.setCursor(f.buffer.getPoint(range.start));
 }
 
 pub fn paste() void {
