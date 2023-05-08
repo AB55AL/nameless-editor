@@ -51,6 +51,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
         exe.addModule("user", um);
     }
 
+        exe.linkSystemLibrary("tree-sitter");
     const user_config_loaded = if (user_module != null) true else false;
     options.addOption(bool, "user_config_loaded", user_config_loaded);
 

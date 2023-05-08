@@ -38,6 +38,7 @@ pub const input = @import("input.zig");
 pub const common_input_functions = @import("common_input_functions.zig");
 pub const registers = @import("registers.zig");
 pub const hooks = @import("hooks.zig");
+pub const TreeSitterData = @import("tree_sitter.zig").TreeSitterData;
 pub usingnamespace @import("buffer_window.zig");
 
 pub const Error = error{
@@ -308,6 +309,13 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype, compti
         .function = command_line.beholdMyFunctionInator(fn_ptr).funcy,
         .description = description,
     });
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Tree Sitter
+
+pub fn getTS() *TreeSitterData {
+    return &globals.editor.tree_sitter;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

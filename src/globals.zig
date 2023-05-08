@@ -15,6 +15,7 @@ const BufferWindowNode = buffer_window.BufferWindowNode;
 const command_line = @import("editor/command_line.zig");
 const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 const ui_api = @import("ui/ui.zig");
+const TreeSitterData = @import("editor/tree_sitter.zig").TreeSitterData;
 
 const UserUISet = std.AutoHashMapUnmanaged(ui_api.UserUI, void);
 
@@ -37,6 +38,8 @@ pub const editor = struct {
     pub var previous_focused_buffer_wins = std.BoundedArray(*BufferWindowNode, 50).init(0) catch unreachable;
 
     pub var cli: command_line.CommandLine = undefined;
+
+    pub var tree_sitter: TreeSitterData = undefined;
 };
 
 pub const ui = struct {
@@ -70,6 +73,8 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
     editor.registers = Registers.init(allocator);
     try command_line.init();
     editor.hooks = EditorHooks.init(allocator);
+
+    editor.tree_sitter = TreeSitterData.init(allocator);
 }
 
 pub fn deinitGlobals() void {
@@ -87,4 +92,6 @@ pub fn deinitGlobals() void {
     editor.registers.deinit();
     command_line.deinit();
     ui.notifications.deinit();
+
+    editor.tree_sitter.deinit();
 }
