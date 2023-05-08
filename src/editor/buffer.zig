@@ -595,6 +595,12 @@ pub fn getPoint(buffer: *Buffer, index_: u64) Point {
     return .{ .row = roi.row, .col = col };
 }
 
+pub fn getColIndex(buffer: *Buffer, point: Point) u64 {
+    const index = buffer.getIndex(point);
+    const line_start = buffer.indexOfFirstByteAtRow(point.row);
+    return index - line_start;
+}
+
 pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
     const start = range.start.min(range.end);
     const end = range.start.max(range.end);
