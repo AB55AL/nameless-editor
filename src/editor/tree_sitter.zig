@@ -7,7 +7,7 @@ const StringTable = @import("../string_table.zig").StringTable;
 
 pub const TreeSitterData = struct {
     pub const QueryData = struct {
-        query: *Query,
+        query: ?*Query,
         error_offset: u32 = 0,
         error_type: u32 = 0,
     };
