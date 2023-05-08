@@ -19,6 +19,9 @@ const BufferWindow = core.BufferWindow;
 const BufferWindowNode = core.BufferWindowNode;
 const BufferIterator = core.Buffer.BufferIterator;
 const LineIterator = core.Buffer.LineIterator;
+const BufferDisplayer = core.BufferDisplayer;
+const ColorRange = core.BufferDisplayer.ColorRange;
+const RowInfo = core.BufferDisplayer.RowInfo;
 
 const max_visible_rows: u64 = 4000;
 const max_visible_cols: u64 = 4000;
@@ -62,27 +65,29 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         for (wins_to_close.items) |win| core.closeBW(win);
     }
 
-    if (core.cliIsOpen()) {
-        // get cli window pos and size
-        const center = imgui.getMainViewport().getCenter();
+    cli: {
+        if (core.cliIsOpen()) {
+            // get cli window pos and size
+            const center = imgui.getMainViewport().getCenter();
 
-        const m_size = imgui.calcTextSize("m", .{})[0];
-        var size = [2]f32{ 0, 0 };
-        size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, core.cliBuffer().size() + 2));
-        size[1] = imgui.getTextLineHeightWithSpacing() * 2;
+            const m_size = imgui.calcTextSize("m", .{})[0];
+            var size = [2]f32{ 0, 0 };
+            size[0] = std.math.max(m_size * 20, m_size * @intToFloat(f32, core.cliBuffer().size() + 2));
+            size[1] = imgui.getTextLineHeightWithSpacing() * 2;
 
-        const x = if (core.focusedCursorRect()) |rect| rect.right() else center[0] - (size[0] / 2);
-        const y = if (core.focusedCursorRect()) |rect| rect.top() else center[1] - (size[1] / 2);
+            const x = if (core.focusedCursorRect()) |rect| rect.right() else center[0] - (size[0] / 2);
+            const y = if (core.focusedCursorRect()) |rect| rect.top() else center[1] - (size[1] / 2);
 
-        imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
-        imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
-        imgui.setNextWindowFocus();
+            imgui.setNextWindowPos(.{ .x = x, .y = y, .cond = .appearing, .pivot_x = 0, .pivot_y = 0 });
+            imgui.setNextWindowSize(.{ .w = size[0], .h = size[1], .cond = .always });
+            imgui.setNextWindowFocus();
 
-        const padding = imgui.getStyle().window_padding;
-        core.cliBW().data.rect.x = x - padding[0];
-        core.cliBW().data.rect.y = y - padding[1];
-        const res = bufferWidget("command line", core.cliBW(), size[0], size[1], cli_win_flags);
-        buffers_focused = buffers_focused or res;
+            const padding = imgui.getStyle().window_padding;
+            core.cliBW().data.rect.x = x - padding[0];
+            core.cliBW().data.rect.y = y - padding[1];
+            const res = bufferWidget("command line", arena, core.cliBW(), size[0], size[1], cli_win_flags) catch break :cli;
+            buffers_focused = buffers_focused or res;
+        }
     }
 
     buffers: {
@@ -104,7 +109,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
 
             const file_path = getBuffer(bw.data.bhandle).?.metadata.file_path;
             var win_name = tmpStringZ("{s}##({x})", .{ file_path, @ptrToInt(bw) });
-            const res = bufferWidget(win_name, bw, bw.data.rect.w, bw.data.rect.h, buffer_win_flags);
+            const res = bufferWidget(win_name, arena, bw, bw.data.rect.w, bw.data.rect.h, buffer_win_flags) catch continue;
             buffers_focused = buffers_focused or res;
         }
     }
@@ -114,7 +119,7 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 
-pub fn bufferWidget(window_name: [:0]const u8, buffer_window_node: *core.BufferWindowNode, width: f32, height: f32, win_flags: imgui.WindowFlags) bool {
+pub fn bufferWidget(window_name: [:0]const u8, arena: std.mem.Allocator, buffer_window_node: *core.BufferWindowNode, width: f32, height: f32, win_flags: imgui.WindowFlags) !bool {
     const child_flags = imgui.WindowFlags{ .no_scroll_with_mouse = true, .no_scrollbar = true, .always_auto_resize = true };
     _ = width;
 
@@ -138,7 +143,7 @@ pub fn bufferWidget(window_name: [:0]const u8, buffer_window_node: *core.BufferW
 
     imgui.sameLine(.{});
 
-    var bufres = bufferText(buffer_window_node, child_flags);
+    var bufres = try bufferText(buffer_window_node, arena, child_flags);
     focused = focused or bufres;
 
     // keep the buffer focused
@@ -180,7 +185,7 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
     return imgui.isWindowFocused(.{});
 }
 
-fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFlags) bool {
+fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, child_flags: imgui.WindowFlags) !bool {
     const static = struct {
         pub var buf: [max_visible_bytes]u8 = undefined;
     };
@@ -200,11 +205,36 @@ fn bufferText(buffer_window_node: *BufferWindowNode, child_flags: imgui.WindowFl
     _ = imgui.beginChild("bufferText", .{ .border = false, .flags = child_flags });
     defer imgui.endChild();
 
+    var displayer = globals.ui.buffer_displayers.get(buffer.metadata.file_type);
+    var display_info: []RowInfo = if (displayer) |dis|
+        try dis.info(arena, buffer_window, buffer, 0)
+    else
+        &.{};
+
     const abs_pos = imgui.getCursorScreenPos();
     for (start_row..end_row + 1, 1..) |row, on_screen_row| {
         // render text
         const line = getVisibleLine(buffer, &static.buf, row);
-        imgui.textUnformatted(line);
+
+        if (on_screen_row - 1 < display_info.len and display_info[on_screen_row - 1].color_ranges.len > 0) {
+            var info = display_info[on_screen_row - 1];
+
+            if (!std.sort.isSorted(ColorRange, info.color_ranges, void, ColorRange.lessThan))
+                std.sort.sort(ColorRange, info.color_ranges, void, ColorRange.lessThan);
+
+            var iter = ColorRange.ColorRangeIterator.init(0xFFFFFFFF, line.len, info.color_ranges);
+
+            while (iter.next()) |cr| {
+                var slice = line[cr.start..cr.end];
+                imgui.textUnformattedColored(hexToFloatColor(cr.color), slice);
+                imgui.sameLine(.{ .spacing = 0 });
+            }
+            imgui.newLine();
+        }
+
+        if (on_screen_row >= display_info.len or display_info[on_screen_row - 1].color_ranges.len == 0) {
+            imgui.textUnformatted(line);
+        }
 
         const abs_x = abs_pos[0];
         const abs_y = @intToFloat(f32, on_screen_row) * line_h + abs_pos[1] - line_h;
@@ -498,4 +528,13 @@ pub fn modToEditorMod(shift: bool, control: bool, alt: bool) core.input.Modifier
     if (alt) mod_int |= @enumToInt(core.input.Modifiers.alt);
 
     return @intToEnum(core.input.Modifiers, mod_int);
+}
+
+pub fn hexToFloatColor(color: u32) [4]f32 {
+    var r = @intToFloat(f32, (color & 0xFF_000000) >> 24) / 255;
+    var g = @intToFloat(f32, (color & 0x00_FF_0000) >> 16) / 255;
+    var b = @intToFloat(f32, (color & 0x0000_FF_00) >> 8) / 255;
+    var a = @intToFloat(f32, (color & 0x000000_FF)) / 255;
+
+    return .{ r, g, b, a };
 }

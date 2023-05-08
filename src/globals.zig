@@ -17,6 +17,9 @@ const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 const ui_api = @import("ui/ui.zig");
 
 const UserUISet = std.AutoHashMapUnmanaged(ui_api.UserUI, void);
+
+const BufferDisplayerMap = std.StringHashMapUnmanaged(ui_api.BufferDisplayer);
+
 const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
 
 const Key = @import("editor/input.zig").Key;
@@ -37,6 +40,8 @@ pub const editor = struct {
 };
 
 pub const ui = struct {
+    pub var buffer_displayers = BufferDisplayerMap{};
+
     pub var notifications: notify.Notifications = undefined;
 
     pub var user_ui = UserUISet{};
@@ -71,6 +76,8 @@ pub fn deinitGlobals() void {
     var iter = editor.buffers.valueIterator();
     while (iter.next()) |buffer| buffer.deinitNoDestroy();
     editor.buffers.deinit(internal.allocator);
+
+    ui.buffer_displayers.deinit(internal.allocator);
 
     editor.visiable_buffers_tree.deinitTree(internal.allocator, null);
     ui.user_ui.deinit(internal.allocator);

@@ -1,8 +1,9 @@
 const std = @import("std");
 
+const editor_api = @import("../editor/editor.zig");
 const globals = @import("../globals.zig");
-const Rect = @import("../editor/buffer_window.zig").Rect;
 
+pub const BufferDisplayer = @import("buffer_display.zig");
 pub usingnamespace @import("notify.zig");
 
 pub const UserUI = *const fn (gpa: std.mem.Allocator, arena: std.mem.Allocator) void;
@@ -24,7 +25,7 @@ pub fn toggleBuffersUI() void {
     globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
 }
 
-pub fn focusedCursorRect() ?Rect {
+pub fn focusedCursorRect() ?editor_api.Rect {
     return globals.ui.focused_cursor_rect;
 }
 
