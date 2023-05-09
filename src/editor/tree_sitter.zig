@@ -20,11 +20,15 @@ pub const TreeSitterData = struct {
     pub const QueriesTable = StringTable(QueryData);
     pub const StringSet = std.StringHashMapUnmanaged(void);
     pub const TreeMap = std.AutoHashMapUnmanaged(core.BufferHandle, *Tree);
+    pub const ThemeMap = std.StringHashMapUnmanaged(u32);
+    pub const CaptureColor = struct { name: []const u8, color: u32 };
 
     parsers: ParserMap = .{},
     queries: QueriesTable = .{},
     trees: TreeMap = .{},
     strings: StringSet = .{},
+    themes: StringTable(ThemeMap) = .{},
+    active_themes: std.StringHashMapUnmanaged([]const u8) = .{},
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) TreeSitterData {
@@ -34,22 +38,22 @@ pub const TreeSitterData = struct {
 
     pub fn deinit(self: *TreeSitterData) void {
         // zig fmt: off
-        { var iter = self.parsers.valueIterator();
-            while (iter.next()) |parser| ts.ts_parser_delete(parser.*); }
-
-        { var iter = self.queries.data.valueIterator();
-            while (iter.next()) |query_data| ts.ts_query_delete(query_data.query); }
-
-        { var iter = self.trees.valueIterator();
-            while (iter.next()) |tree| ts.ts_tree_delete(tree.*); }
-
-        { var iter = self.strings.keyIterator();
-            while (iter.next()) |string| self.allocator.free(string.*); }
-
+        { var iter = self.parsers.valueIterator(); while (iter.next()) |parser| ts.ts_parser_delete(parser.*); }
         self.parsers.deinit(self.allocator);
+
+        { var iter = self.queries.data.valueIterator(); while (iter.next()) |query_data| ts.ts_query_delete(query_data.query); }
         self.queries.data.deinit(self.allocator);
+
+        { var iter = self.trees.valueIterator(); while (iter.next()) |tree| ts.ts_tree_delete(tree.*); }
         self.trees.deinit(self.allocator);
+
+        { var iter = self.themes.data.valueIterator(); while (iter.next()) |theme| theme.deinit(self.allocator); }
+        self.themes.data.deinit(self.allocator);
+
+        { var iter = self.strings.keyIterator(); while (iter.next()) |string| self.allocator.free(string.*); }
         self.strings.deinit(self.allocator);
+
+        self.active_themes.deinit(self.allocator);
         // zig fmt: on
     }
 
@@ -78,6 +82,36 @@ pub const TreeSitterData = struct {
 
     pub fn getTree(self: *TreeSitterData, bhandle: core.BufferHandle) ?*Tree {
         return self.trees.get(bhandle);
+    }
+
+    pub fn putTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8, theme: []CaptureColor) !void {
+        const ft = try self.getAndPutString(file_type);
+        const tn = try self.getAndPutString(theme_name);
+
+        var theme_copy = ThemeMap{};
+        errdefer theme_copy.deinit(self.allocator);
+        for (theme) |cc| {
+            const ts_capture_name = try self.getAndPutString(cc.name);
+            try theme_copy.put(self.allocator, ts_capture_name, cc.color);
+        }
+        try self.themes.put(self.allocator, ft, tn, theme_copy);
+    }
+
+    pub fn getTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8) ?*ThemeMap {
+        return self.themes.data.getPtr(.{ file_type, theme_name });
+    }
+
+    pub fn getActiveTheme(self: *TreeSitterData, file_type: []const u8) ?[]const u8 {
+        return self.active_themes.get(file_type);
+    }
+
+    pub fn setActiveTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8) !void {
+        const theme_exits = self.themes.data.getKey(.{ file_type, theme_name }) != null;
+        if (theme_exits) {
+            const ft = try self.getAndPutString(file_type);
+            const tn = try self.getAndPutString(theme_name);
+            try self.active_themes.put(self.allocator, ft, tn);
+        }
     }
 
     pub fn createTree(self: *TreeSitterData, bhandle: core.BufferHandle, parser: *Parser) !?*Tree {
