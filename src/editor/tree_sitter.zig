@@ -109,7 +109,7 @@ pub const TreeSitterData = struct {
 
         var node_info = buffer.lines.tree.findNode(index);
         const content = node_info.piece.content(&buffer.lines);
-        bytes_read.* += @truncate(u32, content.len);
+        bytes_read.* = @truncate(u32, content.len);
         return content.ptr;
     }
 };
