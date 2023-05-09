@@ -52,9 +52,10 @@ pub const ColorRange = struct {
                 color_ranges[0].end
             else
                 color_ranges[0].start;
+
             return .{
                 .start = 0,
-                .end = end,
+                .end = std.math.min(line_len, end),
                 .line_len = line_len,
                 .i = 0,
                 .color_ranges = color_ranges,
@@ -94,9 +95,14 @@ pub const ColorRange = struct {
 
             const result = ColorRange{ .start = self.start, .end = self.end, .color = color };
 
-            self.start = new_start;
-            self.end = new_end;
+            self.start = std.math.min(self.line_len, new_start);
+            self.end = std.math.min(self.line_len, new_end);
             if (is_color_range) self.i += 1;
+
+            // the next range is invalid so ignore the rest of the color_ranges
+            if (new_end < result.end) {
+                self.i = self.color_ranges.len;
+            }
 
             return result;
         }
@@ -107,4 +113,9 @@ pub const RowInfo = struct {
     color_ranges: []ColorRange,
     row: u64,
     size: f32,
+
+    pub fn lessThan(comptime self: type, a: RowInfo, b: RowInfo) bool {
+        _ = self;
+        return a.row < b.row;
+    }
 };
