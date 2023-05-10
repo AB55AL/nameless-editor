@@ -537,7 +537,11 @@ pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
 }
 
 pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
-    utils.assert(index <= buffer.size(), "");
+    if (index >= buffer.size()) return .{
+        .row = buffer.lineCount(),
+        .index = buffer.indexOfFirstByteAtRow(buffer.lineCount()),
+    };
+
     var lower_bound: u64 = 1;
     var upper_bound: u64 = buffer.lineCount();
     var row = (upper_bound + lower_bound) / 2;
@@ -599,6 +603,12 @@ pub fn getColIndex(buffer: *Buffer, point: Point) u64 {
     const index = buffer.getIndex(point);
     const line_start = buffer.indexOfFirstByteAtRow(point.row);
     return index - line_start;
+}
+
+/// Offsets the index to be relative to the line it is in
+pub fn offsetIndexToLine(buffer: *Buffer, index: u64) u64 {
+    const roi = buffer.rowOfIndex(index);
+    return index - roi.index;
 }
 
 pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
