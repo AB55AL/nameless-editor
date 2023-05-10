@@ -91,7 +91,7 @@ pub const CommandLine = struct {
 
 pub fn init() !void {
     const cli_bhandle = editor.generateHandle();
-    try globals.editor.buffers.put(globals.internal.allocator, cli_bhandle, try editor.createLocalBuffer(""));
+    try globals.editor.buffers.put(globals.internal.allocator, cli_bhandle, try editor.createLocalBuffer("", cli_bhandle));
 
     const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
 

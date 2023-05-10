@@ -10,6 +10,9 @@ const max = std.math.max;
 const min = std.math.min;
 
 pub const PieceTable = @import("piece_table.zig");
+const core = @import("../core.zig");
+const globals = core.globals;
+const BufferHandle = core.BufferHandle;
 const utf8 = @import("../utf8.zig");
 const NaryTree = @import("../nary.zig").NaryTree;
 const utils = @import("../utils.zig");
@@ -166,8 +169,9 @@ history_node: ?*HistoryTree.Node = null,
 selection: Selection = .{},
 /// Point values stored here will be updated on every change of the buffer
 marks: std.AutoArrayHashMapUnmanaged(u32, Point) = .{},
+bhandle: ?BufferHandle,
 
-pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8) !Buffer {
+pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8, bhandle: ?BufferHandle) !Buffer {
     var fp = try utils.newSlice(allocator, file_path);
 
     const index = std.mem.lastIndexOf(u8, fp, ".");
@@ -186,6 +190,7 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
         .metadata = metadata,
         .lines = try PieceTable.init(allocator, buf),
         .allocator = allocator,
+        .bhandle = bhandle,
     };
 
     try buffer.insureLastByteIsNewline();

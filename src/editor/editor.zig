@@ -56,9 +56,7 @@ pub const SaveOptions = struct { force_save: bool = false };
 
 pub const KillOptions = struct { force_kill: bool = false };
 
-pub const BufferHandle = struct {
-    handle: u32,
-};
+pub const BufferHandle = struct { handle: u32 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Section 2: Functions that do all the work
@@ -80,8 +78,8 @@ pub fn createBuffer(file_path: []const u8) !BufferHandle {
     if (try getBufferFP(file_path)) |handle| return handle;
 
     try editor.buffers.ensureUnusedCapacity(internal.allocator, 1);
-    var buffer = try createLocalBuffer(file_path);
     const handle = generateHandle();
+    var buffer = try createLocalBuffer(file_path, handle);
     editor.buffers.putAssumeCapacity(handle, buffer);
 
     return handle;
@@ -90,7 +88,7 @@ pub fn createBuffer(file_path: []const u8) !BufferHandle {
 /// Opens a file and returns a Buffer.
 /// Does not add the buffer to the editor.buffers hashmap
 /// Always creates a new buffer
-pub fn createLocalBuffer(file_path: []const u8) !Buffer {
+pub fn createLocalBuffer(file_path: []const u8, bhandle: ?BufferHandle) !Buffer {
     var buffer: Buffer = undefined;
 
     if (file_path.len > 0) {
@@ -105,11 +103,11 @@ pub fn createLocalBuffer(file_path: []const u8) !Buffer {
         var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
         defer internal.allocator.free(buf);
 
-        buffer = try Buffer.init(internal.allocator, full_file_path, buf);
+        buffer = try Buffer.init(internal.allocator, full_file_path, buf, bhandle);
         buffer.metadata.file_last_mod_time = metadata.modified();
         buffer.metadata.read_only = perms.readOnly();
     } else {
-        buffer = try Buffer.init(internal.allocator, "", "");
+        buffer = try Buffer.init(internal.allocator, "", "", bhandle);
     }
 
     return buffer;
