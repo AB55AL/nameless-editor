@@ -99,10 +99,15 @@ fn randomCodePoint() u21 {
     // small chance of a newline character
     if (random.int(u8) == 0) return '\n';
 
-    while (true) {
-        var cp = random.intRangeAtMost(u21, 1, comptime std.math.maxInt(u16));
-        if (unicode.utf8ValidCodepoint(cp)) return cp;
-        // std.debug.print("randomCodePoint()\n", .{});
+    const ascii = false;
+    if (ascii) {
+        var byte = random.intRangeAtMost(u8, 32, 127);
+        return byte;
+    } else {
+        while (true) {
+            var cp = random.intRangeAtMost(u21, 1, comptime std.math.maxInt(u21));
+            if (unicode.utf8ValidCodepoint(cp)) return cp;
+        }
     }
 }
 
@@ -114,7 +119,6 @@ fn randomUTF8String(size: u64, allocator: std.mem.Allocator) []const u8 {
         var string: [4]u8 = undefined;
         var bytes = unicode.utf8Encode(randomCodePoint(), &string) catch unreachable;
         if (i + bytes > buf.len) {
-            // std.debug.print("randomUTF8String()\n", .{});
             continue;
         }
 
@@ -246,6 +250,20 @@ fn modSlice() []const Mod {
 //     std.debug.print("----------------------------------------\n", .{});
 // }
 
+test "Correct Piece table append. Modify node" {
+    var buffer = try Buffer.init(test_allocator, "", "BREAK_HERE@FOO\n", null);
+    defer buffer.deinitNoDestroy();
+
+    var t = &buffer.lines.tree;
+    const count = Buffer.PieceTable.SplayTree.piecesCount;
+
+    for (10..100) |i| try buffer.insertAt(i, "_");
+    try expect(count(t) == 3);
+
+    for (10..100) |_| try buffer.insertAt(buffer.size(), "_");
+    try expect(count(t) == 4);
+}
+
 test "fuzz modify the buffer" {
     std.debug.print("\n", .{});
     var timer = try std.time.Timer.start();
@@ -271,7 +289,7 @@ test "fuzz modify the buffer" {
         const string_len = if (randomize) std.crypto.random.intRangeAtMost(u64, 1, 1000) else 500;
 
         var mods = ArrayList(Mod).init(allocator);
-        var buffer = try Buffer.init(allocator, "", "");
+        var buffer = try Buffer.init(allocator, "", "", null);
         var buffer_array = ArrayList(u8).init(allocator);
         try buffer_array.append('\n'); // emulate Buffer.insureLastByteIsNewLine()
 
@@ -312,7 +330,7 @@ test "deleteRange()" {
         \\
     ;
 
-    var buffer = try Buffer.init(test_allocator, "", original_text);
+    var buffer = try Buffer.init(test_allocator, "", original_text, null);
     defer buffer.deinitNoDestroy();
 
     std.debug.assert(buffer.lines.tree.root.?.left == null);
@@ -366,7 +384,7 @@ test "deleteRows()" {
         \\
     ;
 
-    var buffer = try Buffer.init(test_allocator, "", original_text);
+    var buffer = try Buffer.init(test_allocator, "", original_text, null);
     defer buffer.deinitNoDestroy();
 
     try buffer.deleteRows(1, 5);
@@ -397,7 +415,7 @@ test "buffer.insertBeforeCursor()" {
         \\
     ;
 
-    var buffer = try Buffer.init(test_allocator, "", "HELLO THERE\n");
+    var buffer = try Buffer.init(test_allocator, "", "HELLO THERE\n", null);
     defer buffer.deinitNoDestroy();
 
     try buffer.insertAt(11, "! GENERAL");
@@ -415,7 +433,7 @@ test "buffer.insertBeforeCursor()" {
 
 test "buffer.getAllLines()" {
     const this_file = @embedFile("buffer.zig");
-    var buffer = try Buffer.init(test_allocator, "", this_file);
+    var buffer = try Buffer.init(test_allocator, "", this_file, null);
     defer buffer.deinitNoDestroy();
 
     const buffer_slice = try buffer.getAllLines(test_allocator);
@@ -424,13 +442,19 @@ test "buffer.getAllLines()" {
 }
 
 test "buffer" {
-    var buffer = try Buffer.init(test_allocator, "", "hello\nthere\n");
+    var buffer = try Buffer.init(test_allocator, "", "hello\nthere\n", null);
     defer buffer.deinitNoDestroy();
     // std.debug.print("DONE DEINITG\n", .{});
 
     const index: u64 = 5;
     try buffer.insertAt(index, "i"); // (hello) (i) (\nthere\n)
+
+    try bufferEql("helloi\nthere\n", &buffer);
+
     try buffer.deleteBefore(index + 1); // (hello) (\nthere\n)
+    try bufferEql("hello\nthere\n", &buffer);
+
+    std.debug.print("====================== LAST INSERT ========================\n", .{});
     try buffer.insertAt(index, " "); // (hello) ( ) (\nthere\n)
 
     try bufferEql("hello \nthere\n", &buffer);
@@ -439,7 +463,7 @@ test "buffer" {
 test "utf8 delete" {
     const original_text = "نعم إنه مدهش Amazing isn't it ?!\n";
     const target_text = "نه مدهش Amazing isn't it ?!\n";
-    var buffer = try Buffer.init(test_allocator, "", original_text);
+    var buffer = try Buffer.init(test_allocator, "", original_text, null);
     defer buffer.deinitNoDestroy();
 
     try buffer.deleteRange(0, 9);
@@ -451,7 +475,7 @@ test "History" {
     //             /     \
     //          yes\n       \n
 
-    var buffer = try Buffer.init(test_allocator, "", "hello");
+    var buffer = try Buffer.init(test_allocator, "", "hello", null);
     defer buffer.deinitNoDestroy();
 
     var old_tree_content = try buffer.getAllLines(test_allocator);
