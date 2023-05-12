@@ -68,7 +68,7 @@ pub fn deinit(pt: *PieceTable, allocator: std.mem.Allocator) void {
     if (root) |r| allocator.destroy(r);
 }
 
-pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, string: []const u8) !void {
+pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, const_index: u64, string: []const u8) !void {
     var newlines_in_string_indices = ArrayList(u64).init(allocator);
     defer newlines_in_string_indices.deinit();
     for (string, 0..) |c, ni|
@@ -80,13 +80,23 @@ pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, string:
 
     var new_tree = SplayTree{};
     if (pt.tree.root != null) {
-        var node_info = pt.tree.findNode(index);
+        var node_info = pt.tree.findNode(const_index);
         var node = node_info.piece;
         var i = node_info.relative_index;
+        var previous_node = node.previousNode();
+        const index = const_index;
+        if (node_info.relative_index == 0 and previous_node != null and previous_node.?.source == .add) {
+            if (previous_node) |pn| {
+                node = pn;
+                i = node.len;
+            }
+        }
+
         pt.tree.splay(node);
-        const is_last_node = pt.tree.isLastNode(node);
-        const is_first_node = pt.tree.isFirstNode(node);
-        if (node.source == .add and node.start + node.len == pt.add.items.len and i >= node.len) {
+        var is_last_node = pt.tree.isLastNode(node);
+        var is_first_node = pt.tree.isFirstNode(node);
+
+        if (node.source == .add and node.start + node.len >= pt.add.items.len and i >= node.len) {
             // modify the piece
             node.len += string.len;
             node.newlines_count += newlines_in_string_indices.items.len;
@@ -123,19 +133,19 @@ pub fn insert(pt: *PieceTable, allocator: std.mem.Allocator, index: u64, string:
 
                 new_tree.splay(node);
             }
-        }
 
-        if (pt.tree.root == null) {
-            pt.tree.setAsNewTree(new_tree);
-        } else if (is_last_node) { // append to tree
-            pt.tree.appendTree(new_tree);
-        } else if (is_first_node) {
-            pt.tree.prependTree(new_tree);
-        } else if (new_tree.root != null) {
-            const insert_index = (index - node_info.relative_index);
-            var ni = pt.tree.findNode(insert_index);
-            var n = ni.piece;
-            pt.tree.insertBeforeTree(n, new_tree);
+            if (pt.tree.root == null) {
+                pt.tree.setAsNewTree(new_tree);
+            } else if (is_last_node) { // append to tree
+                pt.tree.appendTree(new_tree);
+            } else if (is_first_node) {
+                pt.tree.prependTree(new_tree);
+            } else if (new_tree.root != null) {
+                const insert_index = (index - i);
+                var ni = pt.tree.findNode(insert_index);
+                var n = ni.piece;
+                pt.tree.insertBeforeTree(n, new_tree);
+            }
         }
     } else {
         var new_piece = try pt.newAddPiece(allocator, string.len, newlines_in_string_indices.items.len);
