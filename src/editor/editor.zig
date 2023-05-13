@@ -6,6 +6,8 @@ const eql = std.mem.eql;
 const assert = std.debug.assert;
 const file_io = @import("file_io.zig");
 
+const ts = @cImport(@cInclude("tree_sitter/api.h"));
+
 const globals = @import("../core.zig").globals;
 
 const buffer_ui = @import("buffer_window.zig");
@@ -314,6 +316,10 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype, compti
 
 pub fn getTS() *TreeSitterData {
     return &globals.editor.tree_sitter;
+}
+
+pub fn getTSLang(lang: []const u8) ?*ts.TSLanguage {
+    return globals.editor.ts_langs.get(lang);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -3,6 +3,9 @@ const print = std.debug.print;
 const ArrayList = std.ArrayList;
 const builtin = @import("builtin");
 
+const ts = @cImport(@cInclude("tree_sitter/api.h"));
+const ts_languages = @import("tree_sitter_languages.zig");
+
 const Registers = @import("editor/registers.zig");
 const buffer_window = @import("editor/buffer_window.zig");
 const BufferWindow = buffer_window.BufferWindow;
@@ -40,6 +43,7 @@ pub const editor = struct {
     pub var cli: command_line.CommandLine = undefined;
 
     pub var tree_sitter: TreeSitterData = undefined;
+    pub var ts_langs: std.StringHashMap(*ts.TSLanguage) = undefined;
 };
 
 pub const ui = struct {
@@ -75,6 +79,7 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
     editor.hooks = EditorHooks.init(allocator);
 
     editor.tree_sitter = TreeSitterData.init(allocator);
+    editor.ts_langs = try ts_languages.init(allocator);
 }
 
 pub fn deinitGlobals() void {
@@ -94,4 +99,5 @@ pub fn deinitGlobals() void {
     ui.notifications.deinit();
 
     editor.tree_sitter.deinit();
+    editor.ts_langs.deinit();
 }

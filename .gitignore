@@ -2,3 +2,5 @@ zig-cache
 zig-out
 imgui.ini
 imgui_log.txt
+src/tree_sitter_languages.zig
+generated
