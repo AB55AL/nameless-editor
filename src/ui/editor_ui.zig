@@ -216,23 +216,23 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         // render text
         const line = getVisibleLine(buffer, &static.buf, row);
 
-        if (on_screen_row - 1 < display_info.len and display_info[on_screen_row - 1].color_ranges.len > 0) {
-            var info = display_info[on_screen_row - 1];
+        var row_info = getInfoOfRow(display_info, row);
+        if (row_info != null and row_info.?.color_ranges.len > 0) {
+            var info = row_info.?;
 
-            if (!std.sort.isSorted(ColorRange, info.color_ranges, void, ColorRange.lessThan))
+            if (!std.sort.isSorted(ColorRange, info.color_ranges, void, ColorRange.lessThan)) {
                 std.sort.sort(ColorRange, info.color_ranges, void, ColorRange.lessThan);
+            }
 
             var iter = ColorRange.ColorRangeIterator.init(0xFFFFFFFF, line.len, info.color_ranges);
-
             while (iter.next()) |cr| {
                 var slice = line[cr.start..cr.end];
                 imgui.textUnformattedColored(hexToFloatColor(cr.color), slice);
                 imgui.sameLine(.{ .spacing = 0 });
             }
-            imgui.newLine();
-        }
 
-        if (on_screen_row >= display_info.len or display_info[on_screen_row - 1].color_ranges.len == 0) {
+            imgui.newLine();
+        } else {
             imgui.textUnformatted(line);
         }
 
@@ -537,4 +537,9 @@ pub fn hexToFloatColor(color: u32) [4]f32 {
     var a = @intToFloat(f32, (color & 0x000000_FF)) / 255;
 
     return .{ r, g, b, a };
+}
+
+fn getInfoOfRow(row_info: []RowInfo, row: u64) ?RowInfo {
+    for (row_info) |ri| if (ri.row == row) return ri;
+    return null;
 }
