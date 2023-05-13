@@ -126,13 +126,46 @@ pub const TreeSitterData = struct {
         return tree;
     }
 
+    pub fn updateTree(ptr: *anyopaque, buffer: *core.Buffer, bhandle: ?core.BufferHandle, change: core.Buffer.Change) void {
+        var self = @ptrCast(*TreeSitterData, @alignCast(@alignOf(*TreeSitterData), ptr));
+        const handle = bhandle orelse return;
+        var tree = self.getTree(handle) orelse return;
+        var parser = self.getParser(buffer.metadata.file_type) orelse return;
+
+        var input = ts.TSInput{
+            .encoding = ts.TSInputEncodingUTF8,
+            .payload = @as(*anyopaque, core.getBuffer(bhandle.?) orelse return),
+            .read = read,
+        };
+
+        var ts_edit = toTSInputEdit(buffer, change);
+        ts.ts_tree_edit(tree, &ts_edit);
+        // TODO: Incrementally parse the tree
+        var new_tree = ts.ts_parser_parse(parser, null, input);
+
+        if (new_tree) |nt| {
+            self.trees.getPtr(handle).?.* = nt;
+            ts.ts_tree_delete(tree);
+        }
+    }
+
+    pub fn hookUpToEditorHooks(self: *TreeSitterData, hooks: *core.hooks.EditorHooks) void {
+        const Interface = core.hooks.EditorHooks.interfaceType(.after_insert);
+        var inter = Interface{
+            .ptr = @ptrCast(*anyopaque, @alignCast(1, self)),
+            .vtable = &.{ .call = updateTree },
+        };
+        hooks.attach(.after_insert, inter) catch return;
+        hooks.attach(.after_delete, inter) catch return;
+    }
+
     fn getAndPutString(self: *TreeSitterData, string: []const u8) ![]const u8 {
         var gop = try self.strings.getOrPut(self.allocator, string);
         if (!gop.found_existing) gop.key_ptr.* = try core.utils.newSlice(self.allocator, string);
         return gop.key_ptr.*;
     }
 
-    fn read(payload: ?*anyopaque, index: u32, pos: ts.TSPoint, bytes_read: [*c]u32) callconv(.C) [*c]const u8 {
+    pub fn read(payload: ?*anyopaque, index: u32, pos: ts.TSPoint, bytes_read: [*c]u32) callconv(.C) [*c]const u8 {
         _ = pos;
         var buffer = @ptrCast(*core.Buffer, @alignCast(@alignOf(*core.Buffer), payload.?));
 
@@ -146,4 +179,146 @@ pub const TreeSitterData = struct {
         bytes_read.* = @truncate(u32, content.len);
         return content.ptr;
     }
+
+    pub fn toTSPoint(point: core.Buffer.Point) ts.TSPoint {
+        return .{ .row = @truncate(u32, point.row - 1), .column = @truncate(u32, point.col - 1) };
+    }
+
+    pub fn toTSInputEdit(buffer: *core.Buffer, change: core.Buffer.Change) ts.TSInputEdit {
+        // zig fmt: off
+        const start_byte = change.start_index;
+        const start_point = change.start_point;
+        const old_end_byte = start_byte + change.delete_len;
+        const new_end_byte = start_byte + change.inserted_len;
+        const old_end_point = buffer.getPoint(old_end_byte);
+        const new_end_point = buffer.getPoint(new_end_byte);
+
+        return ts.TSInputEdit{
+            .start_byte = @truncate(u32, start_byte), .old_end_byte = @truncate(u32, old_end_byte), .new_end_byte = @truncate(u32, new_end_byte),
+            .start_point = toTSPoint(start_point), .old_end_point = toTSPoint(old_end_point), .new_end_point = toTSPoint(new_end_point),
+        };
+        // zig fmt: on
+    }
+
+    pub const BufferDisplayer = struct {
+        const Self = BufferDisplayer;
+
+        const RangeSet = std.AutoHashMapUnmanaged(core.Buffer.Range, core.BufferDisplayer.ColorRange);
+        const RowInfoSet = std.AutoHashMap(u64, *RangeSet);
+
+        tree_sitter: *TreeSitterData,
+
+        pub fn interface(self: *Self) core.BufferDisplayer {
+            return .{ .ptr = @ptrCast(*anyopaque, @alignCast(1, self)), .vtable = &.{ .info = info } };
+        }
+
+        pub fn info(ptr: *anyopaque, arena: std.mem.Allocator, buffer_window: *core.BufferWindow, buffer: *core.Buffer, window_height: f32) std.mem.Allocator.Error![]core.BufferDisplayer.RowInfo {
+            var self = @ptrCast(*Self, @alignCast(@alignOf(*Self), ptr));
+            _ = window_height;
+
+            var tree_sitter = self.tree_sitter;
+
+            var rows_info = RowInfoSet.init(arena);
+
+            // TODO: Create query and tree instead of returning an empty slice
+            var tree = tree_sitter.getTree(buffer_window.bhandle);
+            var query_data = tree_sitter.getQuery(buffer.metadata.file_type, "highlight") orelse return &.{};
+
+            var root = ts.ts_tree_root_node(tree);
+            if (ts.ts_node_is_null(root)) return &.{};
+
+            var qc = ts.ts_query_cursor_new();
+            const start_byte = @intCast(u32, buffer.indexOfFirstByteAtRow(buffer_window.first_visiable_row));
+            const end_byte = @intCast(u32, buffer.size());
+            ts.ts_query_cursor_set_byte_range(qc, start_byte, end_byte);
+            ts.ts_query_cursor_exec(qc, query_data.query, root);
+
+            var match: ts.TSQueryMatch = undefined;
+            while (ts.ts_query_cursor_next_match(qc, &match)) {
+                if (match.capture_count <= 0) continue;
+
+                var captures = match.captures[0..match.capture_count];
+                for (captures) |cap| {
+                    var sp = ts.ts_node_start_point(cap.node);
+                    var ep = ts.ts_node_end_point(cap.node);
+                    _ = ep;
+                    var si = ts.ts_node_start_byte(cap.node);
+                    var ei = ts.ts_node_end_byte(cap.node);
+
+                    var len: u32 = 0;
+                    const slice = ts.ts_query_capture_name_for_id(query_data.query, cap.index, &len);
+                    const name = slice[0..len];
+
+                    const active_theme = tree_sitter.getActiveTheme(buffer.metadata.file_type) orelse "";
+                    const theme = tree_sitter.getTheme(buffer.metadata.file_type, active_theme);
+                    const color = if (theme) |th| th.get(name) orelse 0xFFFFFFFF else 0xFFFFFFFF;
+
+                    var range = bufferRange(si, ei);
+                    var range_set = try getOrCreateRangeSet(&rows_info, sp.row + 1); // offset to be 1-based
+                    const exists = range_set.get(range);
+                    if (exists == null and !partiallyOverlaps(range, range_set)) {
+                        var v = core.BufferDisplayer.ColorRange{ .start = buffer.offsetIndexToLine(si), .end = buffer.offsetIndexToLine(ei), .color = color };
+                        try range_set.put(arena, range, v);
+                    }
+                }
+            }
+
+            return rowInfoSetToSlice(arena, &rows_info);
+        }
+
+        fn getOrCreateRangeSet(rows_info: *RowInfoSet, row: u64) !*RangeSet {
+            const allocator = rows_info.allocator;
+            var range_set = rows_info.get(row) orelse blk: {
+                var rs = try allocator.create(RangeSet);
+                rs.* = RangeSet{};
+                try rows_info.put(row, rs);
+                break :blk rs;
+            };
+
+            return range_set;
+        }
+
+        fn partiallyOverlaps(range: core.Buffer.Range, set: *RangeSet) bool {
+            var iter = set.keyIterator();
+            while (iter.next()) |kp| {
+                if (range.overlaps(kp.*) and range.start != kp.end) {
+                    // a range's start is allowed to overlap with the end of a another range
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        fn rowInfoSetToSlice(allocator: std.mem.Allocator, set: *RowInfoSet) ![]core.BufferDisplayer.RowInfo {
+            var row_info = try allocator.alloc(core.BufferDisplayer.RowInfo, set.count());
+            var row_iter = set.iterator();
+            var i: u64 = 0;
+            while (row_iter.next()) |kp| {
+                const row = kp.key_ptr.*;
+                const ranges_slice = try rangeSetToSlice(allocator, kp.value_ptr.*);
+                const size: f32 = -1;
+                row_info[i] = .{ .row = row, .color_ranges = ranges_slice, .size = size };
+                i += 1;
+            }
+
+            return row_info;
+        }
+
+        fn rangeSetToSlice(allocator: std.mem.Allocator, set: *RangeSet) ![]core.BufferDisplayer.ColorRange {
+            var slice = try allocator.alloc(core.BufferDisplayer.ColorRange, set.count());
+            var iter = set.valueIterator();
+            var i: u64 = 0;
+            while (iter.next()) |cr| {
+                slice[i] = cr.*;
+                i += 1;
+            }
+
+            return slice;
+        }
+
+        fn bufferRange(start: u32, end: u32) core.Buffer.Range {
+            return .{ .start = start, .end = end };
+        }
+    };
 };

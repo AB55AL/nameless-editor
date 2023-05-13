@@ -133,9 +133,9 @@ pub const EditorInterfaces = struct {
         ptr: *anyopaque,
         vtable: *const VTable,
         const VTable = struct {
-            call: *const fn (ptr: *anyopaque, buffer: *const Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void,
+            call: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void,
         };
-        pub fn call(self: Change, buffer: *const Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void {
+        pub fn call(self: Change, buffer: *Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void {
             self.vtable.call(self.ptr, buffer, bhandle, change);
         }
     };
@@ -144,9 +144,9 @@ pub const EditorInterfaces = struct {
         ptr: *anyopaque,
         vtable: *const VTable,
         const VTable = struct {
-            call: *const fn (ptr: *anyopaque, buffer: *const Buffer, bhandle: BufferHandle) void,
+            call: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: BufferHandle) void,
         };
-        pub fn call(self: BufferCreated, buffer: *const Buffer, bhandle: BufferHandle) void {
+        pub fn call(self: BufferCreated, buffer: *Buffer, bhandle: BufferHandle) void {
             self.vtable.call(self.ptr, buffer, bhandle);
         }
     };

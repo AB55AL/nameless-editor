@@ -22,6 +22,13 @@ const HistoryTree = NaryTree(HistoryInfo);
 
 const Buffer = @This();
 
+pub const Change = struct {
+    start_index: u64,
+    start_point: Point,
+    delete_len: u64,
+    inserted_len: u64,
+};
+
 pub const Size = struct {
     size: u64,
     line_count: u64,
@@ -30,6 +37,10 @@ pub const Size = struct {
 pub const Range = struct {
     start: u64,
     end: u64,
+
+    pub fn overlaps(a: Range, b: Range) bool {
+        return a.start <= b.end and a.end >= b.start;
+    }
 
     /// Returns an index that is an offset of Range.end. The index would be the first
     /// byte of a utf8 sequence
@@ -223,25 +234,27 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
 pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
+    const old_line_count = buffer.lineCount();
     const change_point = buffer.getPoint(index);
-    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     try buffer.validateInsertionPoint(index);
     try buffer.lines.insert(buffer.allocator, index, string);
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
 
-    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
-
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointInsert(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointInsert(kv.value_ptr.*, change_point.row, old_line_count, buffer.lineCount());
+
+    const change = Change{ .start_index = index, .start_point = change_point, .delete_len = 0, .inserted_len = string.len };
+    globals.editor.hooks.dispatch(.after_insert, .{ buffer, buffer.bhandle, change });
 }
 
 /// End exclusive
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_row = buffer.getPoint(start).row;
+    const change_point = buffer.getPoint(start);
+
     const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     const s = min(start, end);
@@ -256,7 +269,10 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
+
+    const change = Change{ .start_index = start, .start_point = change_point, .delete_len = end - start, .inserted_len = 0 };
+    globals.editor.hooks.dispatch(.after_delete, .{ buffer, buffer.bhandle, change });
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
@@ -370,8 +386,8 @@ pub fn validateRange(buffer: *Buffer, start: u64, end: u64) !void {
     return error.InvalidRange;
 }
 
-pub fn countCodePointsAtRow(buffer: *Buffer, row: u64) u64 {
-    assert(row <= buffer.lineCount());
+pub fn countCodePointsAtRow(buffer: *Buffer, arg_row: u64) u64 {
+    const row = std.math.min(arg_row, buffer.lineCount());
     var count: u64 = 0;
     var iter = LineIterator.initLines(buffer, row, row);
     while (iter.next()) |slice|
@@ -527,9 +543,8 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
     }
 }
 
-pub fn indexOfFirstByteAtRow(buffer: *Buffer, row: u64) u64 {
-    utils.assert(row <= buffer.lineCount() + 1, "row cannot be greater than the total rows in the buffer");
-    utils.assert(row > 0, "row must be greater than 0");
+pub fn indexOfFirstByteAtRow(buffer: *Buffer, arg_row: u64) u64 {
+    const row = utils.bound(arg_row, 1, buffer.lineCount());
 
     // in the findNodeWithLine() call we subtract 2 from row because
     // rows in the buffer are 1-based but in buffer.lines they're 0-based so
