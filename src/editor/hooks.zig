@@ -84,6 +84,12 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
                 @call(.never_inline, @field(interface, "call"), args); // an error here means the *caller* has provided the wrong function args
         }
 
+        pub fn createAndAttach(self: *Self, comptime kind: KindEnum, ptr: anytype, call: anytype) !interfaceType(kind) {
+            var int = createInterface(kind, ptr, call);
+            try self.attach(kind, int);
+            return int;
+        }
+
         fn exists(self: *Self, comptime kind: KindEnum, interface: anytype) bool {
             for ((@field(self.sets, fieldName(kind))).items) |inter|
                 if (std.meta.eql(inter, interface)) return true;
@@ -97,6 +103,13 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
                 if (field.value == @enumToInt(kind)) return field.name;
 
             unreachable;
+        }
+
+        pub fn createInterface(comptime kind: KindEnum, ptr: anytype, call: anytype) interfaceType(kind) {
+            return interfaceType(kind){
+                .ptr = @ptrCast(*anyopaque, @alignCast(1, ptr)),
+                .vtable = &.{ .call = call },
+            };
         }
 
         pub fn interfaceType(comptime kind: KindEnum) type {

@@ -150,13 +150,8 @@ pub const TreeSitterData = struct {
     }
 
     pub fn hookUpToEditorHooks(self: *TreeSitterData, hooks: *core.hooks.EditorHooks) void {
-        const Interface = core.hooks.EditorHooks.interfaceType(.after_insert);
-        var inter = Interface{
-            .ptr = @ptrCast(*anyopaque, @alignCast(1, self)),
-            .vtable = &.{ .call = updateTree },
-        };
-        hooks.attach(.after_insert, inter) catch return;
-        hooks.attach(.after_delete, inter) catch return;
+        _ = hooks.createAndAttach(.after_insert, self, updateTree) catch return;
+        _ = hooks.createAndAttach(.after_delete, self, updateTree) catch return;
     }
 
     fn getAndPutString(self: *TreeSitterData, string: []const u8) ![]const u8 {
