@@ -14,6 +14,7 @@ const buffer_ui = @import("buffer_window.zig");
 const BufferWindow = buffer_ui.BufferWindow;
 const Dir = BufferWindow.Dir;
 const BufferWindowNode = buffer_ui.BufferWindowNode;
+const command_line = @import("command_line.zig");
 
 const ui_api = @import("../ui/ui.zig");
 
@@ -37,7 +38,6 @@ pub const KeyQueue = std.BoundedArray(input.Key, 1024);
 pub const CharQueue = std.BoundedArray(u21, 1024);
 
 pub const Buffer = @import("buffer.zig");
-pub const command_line = @import("command_line.zig");
 pub const input = @import("input.zig");
 pub const common_input_functions = @import("common_input_functions.zig");
 pub const registers = @import("registers.zig");
