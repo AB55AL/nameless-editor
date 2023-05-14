@@ -300,18 +300,22 @@ pub fn runCLI() void {
     };
 }
 
-pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype, comptime description: []const u8) !void {
+pub fn addCommand(command: []const u8, comptime fn_ptr: anytype, description: []const u8) !void {
     const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
     if (fn_info.return_type.? != void)
         @compileError("The command's function return type needs to be void");
     if (fn_info.is_var_args)
         @compileError("The command's function cannot be variadic");
 
-    comptime if (std.mem.count(u8, command, " ") > 0) @compileError("The command name shouldn't have a space");
+    if (command.len == 0) return error.EmptyCommand;
+    if (std.mem.count(u8, command, " ") > 0) return error.CommandContainsSpaces;
 
-    try globals.editor.cli.functions.put(command, .{
+    const cmd_string = try stringStorageGetOrPut(command);
+    const desc_string = try stringStorageGetOrPut(description);
+
+    try globals.editor.cli.functions.put(cmd_string, .{
         .function = command_line.beholdMyFunctionInator(fn_ptr).funcy,
-        .description = description,
+        .description = desc_string,
     });
 }
 
