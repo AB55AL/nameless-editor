@@ -32,3 +32,11 @@ pub fn focusedCursorRect() ?editor_api.Rect {
 pub fn notify(comptime title_fmt: []const u8, title_values: anytype, comptime message_fmt: []const u8, message_values: anytype, time: f32) void {
     globals.ui.notifications.add(title_fmt, title_values, message_fmt, message_values, time) catch |err| std.debug.print("{!}\n", .{err});
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// BufferDisplayer
+
+pub fn putBufferDisplayer(file_type: []const u8, interface: BufferDisplayer) !void {
+    const ft = try editor_api.stringStorageGetOrPut(file_type);
+    try globals.ui.buffer_displayers.put(globals.internal.allocator, ft, interface);
+}
