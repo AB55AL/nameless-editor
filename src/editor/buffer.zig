@@ -245,8 +245,10 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     var iter = buffer.marks.iterator();
     while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointInsert(kv.value_ptr.*, change_point.row, old_line_count, buffer.lineCount());
 
-    const change = Change{ .start_index = index, .start_point = change_point, .delete_len = 0, .inserted_len = string.len };
-    globals.editor.hooks.dispatch(.after_insert, .{ buffer, buffer.bhandle, change });
+    if (globals.globals != null) {
+        const change = Change{ .start_index = index, .start_point = change_point, .delete_len = 0, .inserted_len = string.len };
+        core.gs().hooks.dispatch(.after_insert, .{ buffer, buffer.bhandle, change });
+    }
 }
 
 /// End exclusive
@@ -271,8 +273,10 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     var iter = buffer.marks.iterator();
     while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
 
-    const change = Change{ .start_index = start, .start_point = change_point, .delete_len = end - start, .inserted_len = 0 };
-    globals.editor.hooks.dispatch(.after_delete, .{ buffer, buffer.bhandle, change });
+    if (globals.globals != null) {
+        const change = Change{ .start_index = start, .start_point = change_point, .delete_len = end - start, .inserted_len = 0 };
+        core.gs().hooks.dispatch(.after_delete, .{ buffer, buffer.bhandle, change });
+    }
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {

@@ -7,7 +7,7 @@ const glfw = @import("glfw");
 const core = @import("core");
 
 const command_line = core.command_line;
-const globals = core.globals;
+const Globals = core.globals.Globals;
 
 const editor_ui = @import("ui/editor_ui.zig");
 const ui_glfw = @import("ui/glfw.zig");
@@ -23,8 +23,13 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    try globals.initGlobals(allocator);
-    defer globals.deinitGlobals();
+    var gs = try allocator.create(Globals);
+    defer allocator.destroy(gs);
+    gs.* = try Globals.init(allocator);
+    defer gs.deinit();
+    core.globals.globals = gs;
+
+    // var gs = core.gs.*.?;
 
     try input_layer.init();
     defer input_layer.deinit();
@@ -49,10 +54,10 @@ pub fn main() !void {
     var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
         defer {
-            globals.internal.key_queue.resize(0) catch unreachable;
-            globals.internal.char_queue.resize(0) catch unreachable;
+            gs.key_queue.resize(0) catch unreachable;
+            gs.char_queue.resize(0) catch unreachable;
 
-            globals.ui.notifications.clearDone(timer.read());
+            gs.notifications.clearDone(timer.read());
             timer.reset();
         }
 
@@ -60,20 +65,20 @@ pub fn main() !void {
         defer arena_instance.deinit();
         const arena = arena_instance.allocator();
 
-        if (globals.internal.extra_frames > 0)
+        if (gs.extra_frames > 0)
             glfw.pollEvents()
-        else if (globals.ui.notifications.count() > 0)
+        else if (gs.notifications.count() > 0)
             glfw.waitEventsTimeout(1)
         else {
             glfw.waitEvents();
             core.extraFrames();
         }
 
-        globals.internal.extra_frames -|= 1;
+        gs.extra_frames -|= 1;
 
         imgui.backend.newFrame();
 
-        input_layer.handleInput(&globals.internal.key_queue, &globals.internal.char_queue);
+        input_layer.handleInput(&gs.key_queue, &gs.char_queue);
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = false });
         const window_size = window.getSize();
@@ -82,13 +87,13 @@ pub fn main() !void {
         editor_ui.notifications();
 
         imgui.io.setConfigFlags(.{ .nav_enable_keyboard = true });
-        if (globals.ui.imgui_demo) {
-            imgui.showDemoWindow(&globals.ui.imgui_demo);
+        if (gs.imgui_demo) {
+            imgui.showDemoWindow(&gs.imgui_demo);
             core.extraFrames();
         }
-        if (globals.ui.inspect_editor) ui_debug.inspectEditor(arena);
+        if (gs.inspect_editor) ui_debug.inspectEditor(arena);
 
-        var iter = globals.ui.user_ui.keyIterator();
+        var iter = gs.user_ui.keyIterator();
         while (iter.next()) |f|
             (f.*)(allocator, arena);
 

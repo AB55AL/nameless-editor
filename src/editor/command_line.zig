@@ -64,6 +64,38 @@ pub const CommandLine = struct {
     functions: std.StringHashMap(CommandType),
     open: bool = false,
 
+    pub fn init(allocator: std.mem.Allocator, cli_bhandle: editor.BufferHandle) !CommandLine {
+        const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
+
+        var cli = CommandLine{
+            .bhandle = cli_bhandle,
+            .buffer_window = .{ .data = bw },
+            .functions = std.StringHashMap(CommandType).init(allocator),
+        };
+
+        return cli;
+    }
+
+    pub fn deinit(cli: *CommandLine) void {
+        cli.functions.deinit();
+    }
+
+    pub fn addCommand(cli: *CommandLine, command: []const u8, comptime fn_ptr: anytype, description: []const u8) !void {
+        const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
+        if (fn_info.return_type.? != void)
+            @compileError("The command's function return type needs to be void");
+        if (fn_info.is_var_args)
+            @compileError("The command's function cannot be variadic");
+
+        if (command.len == 0) return error.EmptyCommand;
+        if (std.mem.count(u8, command, " ") > 0) return error.CommandContainsSpaces;
+
+        try cli.functions.put(command, .{
+            .function = beholdMyFunctionInator(fn_ptr).funcy,
+            .description = description,
+        });
+    }
+
     pub fn run(cli: *CommandLine, allocator: std.mem.Allocator, command_string: []const u8) !void {
         const command_result = try parseCommand(allocator, command_string);
         var command = command_result.value;
@@ -88,24 +120,6 @@ pub const CommandLine = struct {
         } else return CommandRunError.CommandDoesNotExist;
     }
 };
-
-pub fn init() !void {
-    const cli_bhandle = editor.generateHandle();
-    try globals.editor.buffers.put(globals.internal.allocator, cli_bhandle, try editor.createLocalBuffer("", cli_bhandle));
-
-    const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
-
-    globals.editor.cli = .{
-        .bhandle = cli_bhandle,
-        .buffer_window = .{ .data = bw },
-        .functions = std.StringHashMap(CommandType).init(globals.internal.allocator),
-    };
-    try default_commands.setDefaultCommands();
-}
-
-pub fn deinit() void {
-    globals.editor.cli.functions.deinit();
-}
 
 pub fn beholdMyFunctionInator(comptime function: anytype) type {
     const fn_info = @typeInfo(@TypeOf(function)).Fn;

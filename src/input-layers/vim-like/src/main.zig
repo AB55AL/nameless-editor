@@ -45,7 +45,8 @@ pub fn characterInput(utf8_seq: []const u8) void {
     if (vim_like.state.mode != .insert) return;
 
     var f = core.focusedBufferAndBW() orelse return;
-    const index = f.buffer.getIndex(f.bw.data.cursor());
+    const cursor = f.bw.data.cursor() orelse return;
+    const index = f.buffer.getIndex(cursor);
 
     f.buffer.insertAt(index, utf8_seq) catch |err| {
         core.notify("Error:", .{}, "{!}", .{err}, 3);

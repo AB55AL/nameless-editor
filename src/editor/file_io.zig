@@ -2,9 +2,6 @@ const std = @import("std");
 const print = std.debug.print;
 const fs = std.fs;
 
-const globals = @import("../globals.zig");
-const internal = globals.internal;
-
 const Buffer = @import("buffer.zig");
 
 pub const Error = error{
@@ -25,14 +22,15 @@ pub fn writeToFile(buffer: *Buffer, force_write: bool) !void {
 }
 
 fn writeToNewFile(buffer: *Buffer) !void {
+    const allocator = buffer.allocator;
     const fp = buffer.metadata.file_path;
     var file_dir = try fs.openDirAbsolute(fs.path.dirname(fp).?, .{});
     defer file_dir.close();
 
     const new_file = try fs.createFileAbsolute(fp, .{});
     defer new_file.close();
-    const content_of_buffer = try buffer.getAllLines(internal.allocator);
-    defer internal.allocator.free(content_of_buffer);
+    const content_of_buffer = try buffer.getAllLines(allocator);
+    defer allocator.free(content_of_buffer);
 
     try new_file.writeAll(content_of_buffer);
     var stat = try file_dir.statFile(buffer.metadata.file_path);
@@ -40,20 +38,21 @@ fn writeToNewFile(buffer: *Buffer) !void {
 }
 
 fn writeAndReplaceFile(buffer: *Buffer, force_write: bool) !void {
+    const allocator = buffer.allocator;
     const new_file_suffix = ".editor-new";
     const original_file_suffix = ".editor-original";
 
-    const new_file_path = try std.mem.concat(internal.allocator, u8, &.{
+    const new_file_path = try std.mem.concat(allocator, u8, &.{
         buffer.metadata.file_path,
         new_file_suffix,
     });
-    defer internal.allocator.free(new_file_path);
+    defer allocator.free(new_file_path);
 
-    const original_tmp_file_path = try std.mem.concat(internal.allocator, u8, &.{
+    const original_tmp_file_path = try std.mem.concat(allocator, u8, &.{
         buffer.metadata.file_path,
         original_file_suffix,
     });
-    defer internal.allocator.free(original_tmp_file_path);
+    defer allocator.free(original_tmp_file_path);
 
     var file_dir = try fs.openDirAbsolute(fs.path.dirname(buffer.metadata.file_path).?, .{});
     defer file_dir.close();
@@ -67,8 +66,8 @@ fn writeAndReplaceFile(buffer: *Buffer, force_write: bool) !void {
     const new_file = try fs.createFileAbsolute(new_file_path, .{});
     defer new_file.close();
 
-    const content_of_buffer = try buffer.getAllLines(internal.allocator);
-    defer internal.allocator.free(content_of_buffer);
+    const content_of_buffer = try buffer.getAllLines(allocator);
+    defer allocator.free(content_of_buffer);
 
     try new_file.writeAll(content_of_buffer);
     try std.os.rename(buffer.metadata.file_path, original_tmp_file_path);

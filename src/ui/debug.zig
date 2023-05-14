@@ -12,8 +12,8 @@ const ts = @cImport(@cInclude("tree_sitter/api.h"));
 const editor_ui = @import("editor_ui.zig");
 const Buffer = core.Buffer;
 const BufferWindow = core.BufferWindow;
-const globals = core.globals;
-const editor = globals.editor;
+
+var gs = &core.globals.globals;
 
 const tmpStringZ = editor_ui.tmpStringZ;
 
@@ -41,7 +41,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
         imgui.tableSetupColumn("Description", .{ .flags = .{ .width_stretch = true } });
         imgui.tableHeadersRow();
 
-        var iter = globals.editor.cli.functions.iterator();
+        var iter = core.gs().cli.functions.iterator();
         while (iter.next()) |kv| {
             imgui.tableNextRow(.{});
             const com = kv.key_ptr.*;
@@ -75,7 +75,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
         imgui.tableSetupColumn("Value", .{ .flags = .{ .width_stretch = true } });
         imgui.tableHeadersRow();
 
-        var iter = editor.registers.data.iterator();
+        var iter = core.gs().registers.data.iterator();
         while (iter.next()) |kv| {
             imgui.tableNextRow(.{});
             const reg = kv.key_ptr.*;
@@ -98,7 +98,7 @@ pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
         pub var show_window_border: bool = true;
         pub var show_child_window_border: bool = false;
     };
-    var windows = core.globals.editor.visiable_buffers_tree.treeToArray(arena) catch return;
+    var windows = core.gs().visiable_buffers_tree.treeToArray(arena) catch return;
 
     const child_height = imgui.getTextLineHeightWithSpacing() * 8;
 
@@ -166,7 +166,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         var big_buf: [10_000]u8 = undefined;
     };
 
-    if (editor.buffers.count() == 0) return;
+    if (core.gs().buffers.count() == 0) return;
 
     { // get the buffers
         var width: f32 = 250;
@@ -175,7 +175,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         } });
         defer imgui.endChild();
 
-        var iter = editor.buffers.iterator();
+        var iter = core.gs().buffers.iterator();
         while (iter.next()) |kv| {
             const b = kv.value_ptr;
             const m = b.metadata;
@@ -201,8 +201,8 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         }
     }
 
-    if (static.selected == null and editor.buffers.size > 1) {
-        var iter = editor.buffers.iterator();
+    if (static.selected == null and core.gs().buffers.size > 1) {
+        var iter = core.gs().buffers.iterator();
         var cli_buffer = core.cliBuffer();
         while (iter.next()) |kv| {
             if (kv.value_ptr != cli_buffer) {
@@ -260,14 +260,15 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             }
 
             var buffer_window = blk: {
-                var array = globals.editor.visiable_buffers_tree.treeToArray(arena) catch break :selection;
+                var array = core.gs().visiable_buffers_tree.treeToArray(arena) catch break :selection;
                 for (array) |bw| {
                     if (bw.data.bhandle.handle == selected_bhandle.handle) break :blk &bw.data;
                 }
                 break :selection;
             };
 
-            const selection = buffer.selection.get(buffer_window.cursor());
+            const cursor = buffer_window.cursor() orelse break :selection;
+            const selection = buffer.selection.get(cursor);
             const start = selection.start;
             const end = selection.end;
             imgui.text("start.row {} start.col {}", .{ start.row, start.col });

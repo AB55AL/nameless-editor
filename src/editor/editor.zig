@@ -8,7 +8,8 @@ const file_io = @import("file_io.zig");
 
 const ts = @cImport(@cInclude("tree_sitter/api.h"));
 
-const globals = @import("../core.zig").globals;
+const globals = &@import("../core.zig").globals;
+const Globals = globals.Globals;
 
 const buffer_ui = @import("buffer_window.zig");
 const BufferWindow = buffer_ui.BufferWindow;
@@ -20,8 +21,7 @@ const ui_api = @import("../ui/ui.zig");
 
 const utils = @import("../utils.zig");
 
-const editor = globals.editor;
-const internal = globals.internal;
+// var gs = globals;
 
 ////////////////////////////////////////////////////////////////////////////////
 // The File is divides into 3 sections.
@@ -66,6 +66,11 @@ pub const BufferHandle = struct { handle: u32 };
 // Section 2: Functions that do all the work
 ////////////////////////////////////////////////////////////////////////////////
 
+/// A pointer to the global variables
+pub fn gs() *Globals {
+    return globals.globals.?;
+}
+
 pub fn generateHandle() BufferHandle {
     const static = struct {
         var handle: u32 = 0;
@@ -76,25 +81,31 @@ pub fn generateHandle() BufferHandle {
     return .{ .handle = h };
 }
 
+pub fn createBW(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
+    const cursor_key = try (getBuffer(bhandle).?).putMarker(.{});
+    var bw = BufferWindow.init(bhandle, first_visiable_row, dir, percent);
+    bw.cursor_key = cursor_key;
+}
+
 /// Returns a handle to a buffer
 /// Creates a Buffer and returns a BufferHandle to it
 pub fn createBuffer(file_path: []const u8) !BufferHandle {
     if (try getBufferFP(file_path)) |handle| return handle;
 
-    try editor.buffers.ensureUnusedCapacity(internal.allocator, 1);
+    try gs().buffers.ensureUnusedCapacity(gs().allocator, 1);
     const handle = generateHandle();
-    var buffer = try createLocalBuffer(file_path, handle);
-    editor.buffers.putAssumeCapacity(handle, buffer);
+    var buffer = try createLocalBuffer(gs().allocator, file_path, handle);
+    gs().buffers.putAssumeCapacity(handle, buffer);
 
-    var buffer_ptr = editor.buffers.getPtr(handle).?;
-    editor.hooks.dispatch(.buffer_created, .{ buffer_ptr, handle });
+    var buffer_ptr = gs().buffers.getPtr(handle).?;
+    gs().hooks.dispatch(.buffer_created, .{ buffer_ptr, handle });
     return handle;
 }
 
 /// Opens a file and returns a Buffer.
-/// Does not add the buffer to the editor.buffers hashmap
+/// Does not add the buffer to the globals.buffers hashmap
 /// Always creates a new buffer
-pub fn createLocalBuffer(file_path: []const u8, bhandle: ?BufferHandle) !Buffer {
+pub fn createLocalBuffer(allocator: std.mem.Allocator, file_path: []const u8, bhandle: ?BufferHandle) !Buffer {
     var buffer: Buffer = undefined;
 
     if (file_path.len > 0) {
@@ -106,29 +117,29 @@ pub fn createLocalBuffer(file_path: []const u8, bhandle: ?BufferHandle) !Buffer 
         const metadata = try file.metadata();
         const perms = metadata.permissions();
         try file.seekTo(0);
-        var buf = try file.readToEndAlloc(internal.allocator, metadata.size());
-        defer internal.allocator.free(buf);
+        var buf = try file.readToEndAlloc(allocator, metadata.size());
+        defer allocator.free(buf);
 
-        buffer = try Buffer.init(internal.allocator, full_file_path, buf, bhandle);
+        buffer = try Buffer.init(allocator, full_file_path, buf, bhandle);
         buffer.metadata.file_last_mod_time = metadata.modified();
         buffer.metadata.read_only = perms.readOnly();
     } else {
-        buffer = try Buffer.init(internal.allocator, "", "", bhandle);
+        buffer = try Buffer.init(allocator, "", "", bhandle);
     }
 
     return buffer;
 }
 
 pub fn getBuffer(self: BufferHandle) ?*Buffer {
-    return editor.buffers.getPtr(self);
+    return gs().buffers.getPtr(self);
 }
 
-/// Given a *file_path* searches the editor.buffers hashmap and returns a BufferHandle
+/// Given a *file_path* searches the globals.buffers hashmap and returns a BufferHandle
 pub fn getBufferFP(file_path: []const u8) !?BufferHandle {
     var out_path_buffer: [fs.MAX_PATH_BYTES]u8 = undefined;
     const full_fp = try file_io.fullFilePath(file_path, &out_path_buffer);
 
-    var iter = editor.buffers.iterator();
+    var iter = gs().buffers.iterator();
     while (iter.next()) |kv| {
         const buffer_fp = kv.value_ptr.metadata.file_path;
         if (std.mem.eql(u8, full_fp, buffer_fp))
@@ -171,26 +182,26 @@ pub fn killBuffer(bhandle: BufferHandle, options: KillOptions) !void {
         return Error.KillingDirtyBuffer;
 
     buffer.deinitNoDestroy();
-    _ = globals.editor.buffers.remove(bhandle);
+    _ = gs().buffers.remove(bhandle);
 }
 
 pub fn closeBW(buffer_window: *BufferWindowNode) void {
-    editor.focused_buffer_window = popPreviousBW();
+    gs().focused_buffer_window = popPreviousBW();
 
     // set the last child's dir so that it can take over the free space left by the parent
     if (buffer_window.lastChild()) |lc|
         lc.data.dir = buffer_window.data.dir;
 
-    editor.visiable_buffers_tree.removePromoteLast(buffer_window);
+    gs().visiable_buffers_tree.removePromoteLast(buffer_window);
 
     // delete all occurrences of the buffer window pointer
-    for (editor.previous_focused_buffer_wins.slice(), 0..) |bw, i| {
+    for (gs().previous_focused_buffer_wins.slice(), 0..) |bw, i| {
         if (bw == buffer_window)
-            _ = editor.previous_focused_buffer_wins.orderedRemove(i);
+            _ = gs().previous_focused_buffer_wins.orderedRemove(i);
     }
 
     buffer_window.data.deinit();
-    internal.allocator.destroy(buffer_window);
+    gs().allocator.destroy(buffer_window);
 }
 
 pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
@@ -199,7 +210,7 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
         return;
     }
 
-    var new_node = try globals.internal.allocator.create(BufferWindowNode);
+    var new_node = try gs().allocator.create(BufferWindowNode);
     new_node.* = .{
         .data = try BufferWindow.init(
             bhandle,
@@ -211,11 +222,11 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
 
     if (focusedBW()) |fbw| {
         fbw.appendChild(new_node);
-    } else if (editor.visiable_buffers_tree.root == null) {
-        editor.visiable_buffers_tree.root = new_node;
+    } else if (gs().visiable_buffers_tree.root == null) {
+        gs().visiable_buffers_tree.root = new_node;
     }
 
-    editor.focused_buffer_window = new_node;
+    gs().focused_buffer_window = new_node;
 }
 
 pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
@@ -224,19 +235,19 @@ pub fn setFocusedBW(buffer_window: *BufferWindowNode) void {
     if (focusedBW()) |fbw|
         pushAsPreviousBW(fbw);
 
-    editor.focused_buffer_window = buffer_window;
+    gs().focused_buffer_window = buffer_window;
 
     if (buffer_window != cliBW()) closeCLI(false, true);
 }
 
 pub fn focusedBW() ?*BufferWindowNode {
-    return globals.editor.focused_buffer_window;
+    return gs().focused_buffer_window;
 }
 
 pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
     if (buffer_win == cliBW()) return;
 
-    var wins = &globals.editor.previous_focused_buffer_wins;
+    var wins = &gs().previous_focused_buffer_wins;
     wins.append(buffer_win) catch {
         _ = wins.orderedRemove(0);
         wins.append(buffer_win) catch unreachable;
@@ -244,7 +255,7 @@ pub fn pushAsPreviousBW(buffer_win: *BufferWindowNode) void {
 }
 
 pub fn popPreviousBW() ?*BufferWindowNode {
-    var wins = &globals.editor.previous_focused_buffer_wins;
+    var wins = &gs().previous_focused_buffer_wins;
 
     while (wins.len != 0) {
         var buffer_win = wins.popOrNull();
@@ -263,26 +274,26 @@ pub fn cliBuffer() *Buffer {
 }
 
 pub fn cliBW() *BufferWindowNode {
-    return &globals.editor.cli.buffer_window;
+    return &gs().cli.buffer_window;
 }
 
 pub fn cliIsOpen() bool {
-    return globals.editor.cli.open;
+    return gs().cli.open;
 }
 pub fn openCLI() void {
-    globals.editor.cli.open = true;
+    gs().cli.open = true;
     if (focusedBW()) |fbw| pushAsPreviousBW(fbw);
-    globals.editor.focused_buffer_window = cliBW();
+    gs().focused_buffer_window = cliBW();
 }
 
 pub fn closeCLI(pop_previous_window: bool, focus_buffers: bool) void {
-    globals.editor.cli.open = false;
+    gs().cli.open = false;
     cliBuffer().clear() catch |err| {
         print("cloudn't clear command_line buffer err={}", .{err});
     };
 
-    if (pop_previous_window) globals.editor.focused_buffer_window = popPreviousBW();
-    if (focus_buffers) globals.ui.focus_buffers = true;
+    if (pop_previous_window) gs().focused_buffer_window = popPreviousBW();
+    if (focus_buffers) gs().focus_buffers = true;
 }
 
 pub fn runCLI() void {
@@ -290,41 +301,28 @@ pub fn runCLI() void {
     var command_str: [4096]u8 = undefined;
     var len = cli_buffer.size();
 
-    const command_line_content = cli_buffer.getAllLines(internal.allocator) catch return;
-    defer internal.allocator.free(command_line_content);
+    const command_line_content = cli_buffer.getAllLines(gs().allocator) catch return;
+    defer gs().allocator.free(command_line_content);
     std.mem.copy(u8, &command_str, command_line_content);
 
     closeCLI(true, true);
-    globals.editor.cli.run(internal.allocator, command_str[0 .. len - 1]) catch |err| {
+    gs().cli.run(gs().allocator, command_str[0 .. len - 1]) catch |err| {
         ui_api.notify("Command Line Error:", .{}, "{!}", .{err}, 3);
     };
 }
 
 pub fn addCommand(command: []const u8, comptime fn_ptr: anytype, description: []const u8) !void {
-    const fn_info = @typeInfo(@TypeOf(fn_ptr)).Fn;
-    if (fn_info.return_type.? != void)
-        @compileError("The command's function return type needs to be void");
-    if (fn_info.is_var_args)
-        @compileError("The command's function cannot be variadic");
-
-    if (command.len == 0) return error.EmptyCommand;
-    if (std.mem.count(u8, command, " ") > 0) return error.CommandContainsSpaces;
-
     const cmd_string = try stringStorageGetOrPut(command);
     const desc_string = try stringStorageGetOrPut(description);
-
-    try globals.editor.cli.functions.put(cmd_string, .{
-        .function = command_line.beholdMyFunctionInator(fn_ptr).funcy,
-        .description = desc_string,
-    });
+    try gs().cli.addCommand(cmd_string, fn_ptr, desc_string);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // String Storage
 
 pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
-    var gop = try editor.string_storage.getOrPut(string);
-    if (!gop.found_existing) gop.key_ptr.* = try utils.newSlice(editor.string_storage.allocator, string);
+    var gop = try gs().string_storage.getOrPut(string);
+    if (!gop.found_existing) gop.key_ptr.* = try utils.newSlice(gs().string_storage.allocator, string);
     return gop.key_ptr.*;
 }
 
@@ -402,11 +400,11 @@ pub const tree_sitter = struct {
 };
 
 pub fn getTS() *TreeSitterData {
-    return &globals.editor.tree_sitter;
+    return &gs().tree_sitter;
 }
 
 pub fn getTSLang(lang: []const u8) ?*ts.TSLanguage {
-    return globals.editor.ts_langs.get(lang);
+    return gs().ts_langs.get(lang);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

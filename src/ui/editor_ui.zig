@@ -12,8 +12,6 @@ const utils = core.utils;
 
 const getBuffer = core.getBuffer;
 
-const globals = core.globals;
-
 const Buffer = core.Buffer;
 const BufferWindow = core.BufferWindow;
 const BufferWindowNode = core.BufferWindowNode;
@@ -50,14 +48,16 @@ pub fn tmpString(comptime fmt: []const u8, args: anytype) []u8 {
 }
 
 pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height: f32) !void {
+    var gs = core.globals.globals.?;
+
     const buffer_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_resize = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = false, .no_collapse = true };
     const cli_win_flags = imgui.WindowFlags{ .no_nav_focus = true, .no_scroll_with_mouse = true, .no_scrollbar = true, .no_title_bar = true, .no_resize = true };
     var buffers_focused = false;
-    if (!core.cliIsOpen()) globals.ui.focused_cursor_rect = null;
+    if (!core.cliIsOpen()) gs.focused_cursor_rect = null;
 
     { // Remove all buffer windows that have invalid buffers
 
-        var wins = try globals.editor.visiable_buffers_tree.treeToArray(arena);
+        var wins = try gs.visiable_buffers_tree.treeToArray(arena);
         var wins_to_close = std.ArrayList(*BufferWindowNode).init(arena);
         for (wins) |win|
             if (getBuffer(win.data.bhandle) == null) try wins_to_close.append(win);
@@ -91,17 +91,17 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
     }
 
     buffers: {
-        if (!globals.ui.show_buffers) break :buffers;
+        if (!gs.show_buffers) break :buffers;
 
-        if (globals.editor.visiable_buffers_tree.root == null)
+        if (gs.visiable_buffers_tree.root == null)
             break :buffers;
 
         var rect = core.Rect{ .w = os_window_width, .h = os_window_height };
-        var windows = try core.BufferWindow.getAndSetWindows(&globals.editor.visiable_buffers_tree, arena, rect);
+        var windows = try core.BufferWindow.getAndSetWindows(&gs.visiable_buffers_tree, arena, rect);
         for (windows) |bw| {
-            if (bw == core.focusedBW() and globals.ui.focus_buffers) {
+            if (bw == core.focusedBW() and gs.focus_buffers) {
                 imgui.setNextWindowFocus();
-                globals.ui.focus_buffers = false;
+                gs.focus_buffers = false;
                 core.closeCLI(false, false);
             }
             imgui.setNextWindowPos(.{ .x = bw.data.rect.x, .y = bw.data.rect.y });
@@ -114,9 +114,9 @@ pub fn buffers(arena: std.mem.Allocator, os_window_width: f32, os_window_height:
         }
     }
 
-    if (!buffers_focused) globals.editor.focused_buffer_window = null;
+    if (!buffers_focused) gs.focused_buffer_window = null;
     if (buffers_focused and core.focusedBW() == null)
-        globals.editor.focused_buffer_window = globals.editor.visiable_buffers_tree.root;
+        gs.focused_buffer_window = gs.visiable_buffers_tree.root;
 }
 
 pub fn bufferWidget(window_name: [:0]const u8, arena: std.mem.Allocator, buffer_window_node: *core.BufferWindowNode, width: f32, height: f32, win_flags: imgui.WindowFlags) !bool {
@@ -166,15 +166,17 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
     defer imgui.endChild();
 
     const cursor = buffer_window.cursor();
-    const on_screen_cursor_row = buffer_window.relativeBufferRowFromAbsolute(cursor.row);
+    const on_screen_cursor_row = if (cursor) |c| buffer_window.relativeBufferRowFromAbsolute(c.row) else null;
 
     switch (buffer_window.options.line_number) {
         .none => {},
         .relative => {
-            var r = on_screen_cursor_row - 1;
-            while (r > 0) : (r -= 1) imgui.text("{}", .{r});
-            imgui.text("{}", .{cursor.row});
-            for (1..buffer_window.lastVisibleRow()) |row| imgui.text("{}", .{row});
+            if (on_screen_cursor_row) |cr| {
+                var r = cr - 1;
+                while (r > 0) : (r -= 1) imgui.text("{}", .{r});
+                imgui.text("{}", .{cursor.?.row});
+                for (1..buffer_window.lastVisibleRow()) |row| imgui.text("{}", .{row});
+            }
         },
         .absolute => {
             for (start_row..end_row + 1) |row|
@@ -186,6 +188,8 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
 }
 
 fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, child_flags: imgui.WindowFlags) !bool {
+    var gs = core.globals.globals.?;
+
     const static = struct {
         pub var buf: [max_visible_bytes]u8 = undefined;
     };
@@ -199,13 +203,13 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
 
     var line_h = imgui.getTextLineHeightWithSpacing();
 
-    const cursor_index = buffer.getIndex(buffer_window.cursor());
-    const cursor = buffer_window.cursor();
+    const buffer_cursor = buffer_window.cursor();
+    const buffer_cursor_index = if (buffer_cursor) |c| buffer.getIndex(c) else null;
 
     _ = imgui.beginChild("bufferText", .{ .border = false, .flags = child_flags });
     defer imgui.endChild();
 
-    var displayer = globals.ui.buffer_displayers.get(buffer.metadata.file_type);
+    var displayer = gs.buffer_displayers.get(buffer.metadata.file_type);
     var display_info: []RowInfo = if (displayer) |dis|
         try dis.info(arena, buffer_window, buffer, 0)
     else
@@ -240,66 +244,74 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         const abs_y = @intToFloat(f32, on_screen_row) * line_h + abs_pos[1] - line_h;
 
         // render selection
-        const selection = buffer.selection.get(cursor);
-        if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
-            row >= selection.start.row and row <= selection.end.row)
-        {
-            const start_col = switch (buffer.selection.kind) {
-                .line => 1,
-                .block => selection.start.col,
-                .regular => if (row > selection.start.row) 1 else selection.start.col,
-            };
-            const end_col = switch (buffer.selection.kind) {
-                .line => Buffer.Point.last_col,
-                .block => selection.end.col,
-                .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
-            };
+        render_selection: {
+            const cursor = buffer_cursor orelse break :render_selection;
+            const selection = buffer.selection.get(cursor);
+            if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
+                row >= selection.start.row and row <= selection.end.row)
+            {
+                const start_col = switch (buffer.selection.kind) {
+                    .line => 1,
+                    .block => selection.start.col,
+                    .regular => if (row > selection.start.row) 1 else selection.start.col,
+                };
+                const end_col = switch (buffer.selection.kind) {
+                    .line => Buffer.Point.last_col,
+                    .block => selection.end.col,
+                    .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
+                };
 
-            const size = textLineSize(buffer, line, row, start_col, end_col);
-            const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 1, start_col)[0];
+                const size = textLineSize(buffer, line, row, start_col, end_col);
+                const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 1, start_col)[0];
 
-            const x = abs_x + x_offset;
-            dl.addRectFilled(.{
-                .pmin = .{ x, abs_y },
-                .pmax = .{ x + size[0], abs_y + line_h },
-                .col = getCursorRect(.{ 0, 0 }, .{ 0, 0 }).col,
-            });
+                const x = abs_x + x_offset;
+                dl.addRectFilled(.{
+                    .pmin = .{ x, abs_y },
+                    .pmax = .{ x + size[0], abs_y + line_h },
+                    .col = getCursorRect(.{ 0, 0 }, .{ 0, 0 }).col,
+                });
+            }
         }
 
         // render cursor
-        if (row == cursor.row and buffer_window_node == core.focusedBW()) {
-            const offset = if (cursor.col == 1)
-                [2]f32{ 0, 0 }
-            else
-                textLineSize(buffer, line, row, 1, cursor.col);
+        render_cursor: {
+            const cursor = buffer_cursor orelse break :render_cursor;
+            const cursor_index = buffer_cursor_index.?;
 
-            const size = blk: {
-                var slice = buffer.codePointSliceAt(cursor_index);
-                if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
-                break :blk imgui.calcTextSize(slice, .{});
-            };
+            if (row == cursor.row and buffer_window_node == core.focusedBW()) {
+                const offset = if (cursor.col == 1)
+                    [2]f32{ 0, 0 }
+                else
+                    textLineSize(buffer, line, row, 1, cursor.col);
 
-            const x = abs_x + offset[0];
-            const min = [2]f32{ x, abs_y };
-            const max = [2]f32{ x + size[0], abs_y + line_h };
+                const size = blk: {
+                    var slice = buffer.codePointSliceAt(cursor_index);
+                    if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
+                    break :blk imgui.calcTextSize(slice, .{});
+                };
 
-            const crect = getCursorRect(min, max);
-            globals.ui.focused_cursor_rect = crect.rect;
+                const x = abs_x + offset[0];
+                const min = [2]f32{ x, abs_y };
+                const max = [2]f32{ x + size[0], abs_y + line_h };
 
-            dl.addRectFilled(.{
-                .pmin = crect.rect.leftTop(),
-                .pmax = crect.rect.rightBottom(),
-                .col = crect.col,
-                .rounding = crect.rounding,
-                .flags = .{
-                    .closed = crect.flags.closed,
-                    .round_corners_top_left = crect.flags.round_corners_top_left,
-                    .round_corners_top_right = crect.flags.round_corners_top_right,
-                    .round_corners_bottom_left = crect.flags.round_corners_bottom_left,
-                    .round_corners_bottom_right = crect.flags.round_corners_bottom_right,
-                    .round_corners_none = crect.flags.round_corners_none,
-                },
-            });
+                const crect = getCursorRect(min, max);
+                gs.focused_cursor_rect = crect.rect;
+
+                dl.addRectFilled(.{
+                    .pmin = crect.rect.leftTop(),
+                    .pmax = crect.rect.rightBottom(),
+                    .col = crect.col,
+                    .rounding = crect.rounding,
+                    .flags = .{
+                        .closed = crect.flags.closed,
+                        .round_corners_top_left = crect.flags.round_corners_top_left,
+                        .round_corners_top_right = crect.flags.round_corners_top_right,
+                        .round_corners_bottom_left = crect.flags.round_corners_bottom_left,
+                        .round_corners_bottom_right = crect.flags.round_corners_bottom_right,
+                        .round_corners_none = crect.flags.round_corners_none,
+                    },
+                });
+            }
         }
     } // for loop
 
@@ -353,13 +365,15 @@ pub fn getCursorRect(min: [2]f32, max: [2]f32) core.BufferWindow.CursorRect {
 }
 
 pub fn notifications() void {
-    if (core.globals.ui.notifications.count() == 0)
+    var gs = core.globals.globals.?;
+
+    if (gs.notifications.count() == 0)
         return;
 
     var width: f32 = 0;
 
     {
-        var iter = core.globals.ui.notifications.data.iterator();
+        var iter = gs.notifications.data.iterator();
         while (iter.next()) |kv| {
             var n = kv.key_ptr.*;
             const title_size = imgui.calcTextSize(n.title, .{});
@@ -392,7 +406,7 @@ pub fn notifications() void {
     });
     defer imgui.end();
 
-    var iter = core.globals.ui.notifications.data.iterator();
+    var iter = gs.notifications.data.iterator();
     while (iter.next()) |kv| {
         var n = kv.key_ptr;
         if (n.remaining_time <= 0) continue;

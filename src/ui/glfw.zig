@@ -3,8 +3,6 @@ const std = @import("std");
 const glfw = @import("glfw");
 const core = @import("core");
 
-const globals = core.globals;
-
 const modToEditorMod = @import("editor_ui.zig").modToEditorMod;
 
 pub fn keyCallback(window: glfw.Window, key: glfw.Key, scancode: i32, action: glfw.Action, mods: glfw.Mods) void {
@@ -13,12 +11,12 @@ pub fn keyCallback(window: glfw.Window, key: glfw.Key, scancode: i32, action: gl
     _ = window;
 
     const k = glfwKeyToEditorKey(key, mods);
-    globals.internal.key_queue.insert(0, k) catch return;
+    core.gs().key_queue.insert(0, k) catch return;
 }
 
 pub fn charCallback(window: glfw.Window, codepoint: u21) void {
     _ = window;
-    globals.internal.char_queue.insert(0, codepoint) catch return;
+    core.gs().char_queue.insert(0, codepoint) catch return;
 }
 
 pub fn glfwKeyToEditorKey(glfw_key: glfw.Key, mods: glfw.Mods) core.input.Key {

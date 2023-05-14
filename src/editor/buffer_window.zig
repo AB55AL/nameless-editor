@@ -100,7 +100,7 @@ pub const BufferWindow = struct {
 
     bhandle: BufferHandle,
     first_visiable_row: u64 = 1,
-    cursor_key: u32,
+    cursor_key: u32 = 0,
     options: Options = .{},
 
     rect: Rect = .{}, // Reset every frame
@@ -120,15 +120,10 @@ pub const BufferWindow = struct {
     }
 
     pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
-        const cursor_key = try (getBuffer(bhandle).?).putMarker(.{});
-
-        // const cursor_key = try (bhandle.getBuffer().?).putMarker(.{});
-
         return .{
             .bhandle = bhandle,
             .dir = dir,
             .percent_of_parent = percent,
-            .cursor_key = cursor_key,
             .first_visiable_row = first_visiable_row,
         };
     }
@@ -138,9 +133,9 @@ pub const BufferWindow = struct {
         buffer.removeMarker(buffer_window.cursor_key);
     }
 
-    pub fn cursor(buffer_window: *BufferWindow) Buffer.Point {
-        var buffer = getBuffer(buffer_window.bhandle).?;
-        return buffer.marks.get(buffer_window.cursor_key).?;
+    pub fn cursor(buffer_window: *BufferWindow) ?Buffer.Point {
+        var buffer = getBuffer(buffer_window.bhandle) orelse return null;
+        return buffer.marks.get(buffer_window.cursor_key);
     }
 
     pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.Point) void {
@@ -269,7 +264,7 @@ pub const BufferWindow = struct {
     }
 
     pub fn cursorFollowWindow(buffer_win: *BufferWindow) void {
-        var cur = buffer_win.cursor();
+        var cur = buffer_win.cursor() orelse return;
 
         if (!utils.inRange(cur.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
             const row = if (cur.row > buffer_win.lastVisibleRow()) buffer_win.lastVisibleRow() else buffer_win.first_visiable_row;
@@ -278,7 +273,7 @@ pub const BufferWindow = struct {
     }
 
     pub fn windowFollowCursor(buffer_win: *BufferWindow) void {
-        const cursor_row = buffer_win.cursor().row;
+        const cursor_row = (buffer_win.cursor() orelse return).row;
         if (cursor_row <= buffer_win.first_visiable_row)
             buffer_win.first_visiable_row = cursor_row
         else if (cursor_row > buffer_win.lastVisibleRow())

@@ -72,7 +72,7 @@ pub fn setVisualMode() void {
     setMode(.visual);
 
     var f = core.focusedBufferAndBW() orelse return;
-    f.buffer.selection.anchor = f.bw.data.cursor();
+    f.buffer.selection.anchor = f.bw.data.cursor() orelse return;
 }
 
 pub fn openCommandLine() void {
@@ -101,7 +101,8 @@ pub fn moveForward() void {
     _ = d;
 
     var f = core.focusedBufferAndBW() orelse return;
-    const index = f.buffer.getIndex(f.bw.data.cursor());
+    const cursor = f.bw.data.cursor() orelse return;
+    const index = f.buffer.getIndex(cursor);
     _ = index;
     // const range = core.motions.forward(f.buffer, index, &d) orelse return;
     // const end = range.endPreviousCP(f.buffer);
@@ -137,28 +138,32 @@ pub fn paste() void {
 pub fn moveRight() void {
     var bw = &(core.focusedBW() orelse return).data;
     var buffer = core.getBuffer(bw.bhandle) orelse return;
-    bw.setCursor(buffer.moveRelativeColumn(bw.cursor(), 1));
+    const cursor = bw.cursor() orelse return;
+    bw.setCursor(buffer.moveRelativeColumn(cursor, 1));
     resetSelection(bw);
 }
 
 pub fn moveLeft() void {
     var bw = &(core.focusedBW() orelse return).data;
     var buffer = core.getBuffer(bw.bhandle) orelse return;
-    bw.setCursor(buffer.moveRelativeColumn(bw.cursor(), -1));
+    const cursor = bw.cursor() orelse return;
+    bw.setCursor(buffer.moveRelativeColumn(cursor, -1));
     resetSelection(bw);
 }
 
 pub fn moveUp() void {
     var bw = &(core.focusedBW() orelse return).data;
     var buffer = core.getBuffer(bw.bhandle) orelse return;
-    bw.setCursor(buffer.moveRelativeRow(bw.cursor(), -1));
+    const cursor = bw.cursor() orelse return;
+    bw.setCursor(buffer.moveRelativeRow(cursor, -1));
     resetSelection(bw);
 }
 
 pub fn moveDown() void {
     var bw = &(core.focusedBW() orelse return).data;
     var buffer = core.getBuffer(bw.bhandle) orelse return;
-    bw.setCursor(buffer.moveRelativeRow(bw.cursor(), 1));
+    const cursor = bw.cursor() orelse return;
+    bw.setCursor(buffer.moveRelativeRow(cursor, 1));
     resetSelection(bw);
 }
 

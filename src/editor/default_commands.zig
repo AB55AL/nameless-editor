@@ -1,39 +1,37 @@
 const std = @import("std");
 const print = @import("std").debug.print;
 
-const globals = @import("../globals.zig");
 const Buffer = @import("buffer.zig");
 const editor = @import("editor.zig");
 const command_line = @import("command_line.zig");
 const file_io = @import("file_io.zig");
-const add = editor.addCommand;
 
-const internal = globals.internal;
+var gs = &(@import("../globals.zig").globals);
 
-pub fn setDefaultCommands() !void {
-    try add("o", open, "Open a buffer on the current window");
-    try add("oe", openEast, "Open a buffer east of the current window");
-    try add("ow", openWest, "Open a buffer west of the current window");
-    try add("on", openNorth, "Open a buffer north of the current window");
-    try add("os", openSouth, "Open a buffer south of the current window");
+pub fn setDefaultCommands(cli: *command_line.CommandLine) !void {
+    try cli.addCommand("o", open, "Open a buffer on the current window");
+    try cli.addCommand("oe", openEast, "Open a buffer east of the current window");
+    try cli.addCommand("ow", openWest, "Open a buffer west of the current window");
+    try cli.addCommand("on", openNorth, "Open a buffer north of the current window");
+    try cli.addCommand("os", openSouth, "Open a buffer south of the current window");
 
-    try add("save", saveFocused, "Save the buffer");
-    try add("saveAs", saveAsFocused, "Save the buffer as");
-    try add("forceSave", forceSaveFocused, "Force the buffer to save");
-    try add("close", closeFocused, "Closes the focused buffer window");
-    try add("sq", saveAndQuitFocused, "Save and kill the focused buffer window");
-    try add("forceSaveAndQuit", forceSaveAndQuitFocused, "Force save and kill the focused buffer window");
+    try cli.addCommand("save", saveFocused, "Save the buffer");
+    try cli.addCommand("saveAs", saveAsFocused, "Save the buffer as");
+    try cli.addCommand("forceSave", forceSaveFocused, "Force the buffer to save");
+    try cli.addCommand("close", closeFocused, "Closes the focused buffer window");
+    try cli.addCommand("sq", saveAndQuitFocused, "Save and kill the focused buffer window");
+    try cli.addCommand("forceSaveAndQuit", forceSaveAndQuitFocused, "Force save and kill the focused buffer window");
 
-    try add("im.demo", imDemo, "Show imgui demo window");
-    try add("ui.ins", bufferInspector, "Show the editor inspector");
+    try cli.addCommand("im.demo", imDemo, "Show imgui demo window");
+    try cli.addCommand("ui.ins", bufferInspector, "Show the editor inspector");
 }
 
 fn imDemo(value: bool) void {
-    globals.ui.imgui_demo = value;
+    editor.gs().imgui_demo = value;
 }
 
 fn bufferInspector(value: bool) void {
-    globals.ui.inspect_editor = value;
+    editor.gs().inspect_editor = value;
 }
 
 fn open(file_path: []const u8) void {
@@ -97,7 +95,7 @@ fn saveAsFocused(file_path: []const u8) void {
             print("err={}\n", .{err});
             return;
         };
-        fp = std.mem.concat(internal.allocator, u8, &.{
+        fp = std.mem.concat(editor.gs().allocator, u8, &.{
             cwd,
             &.{std.fs.path.sep},
             file_path,
@@ -110,7 +108,7 @@ fn saveAsFocused(file_path: []const u8) void {
             return;
         };
 
-        internal.allocator.free(fp);
+        editor.gs().allocator.free(fp);
     }
 
     editor.saveBuffer(bh.bhandle, .{}) catch |err| {
