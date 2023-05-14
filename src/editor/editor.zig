@@ -327,6 +327,76 @@ pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
 ////////////////////////////////////////////////////////////////////////////////
 // Tree Sitter
 
+/// A wrapper around the global TreeSitterData. This wrapper ensures that all key and value string are valid at all times.
+pub const tree_sitter = struct {
+    pub fn putParser(file_type: []const u8, parser: *TreeSitterData.Parser) !void {
+        var self = getTS();
+        const ft = try stringStorageGetOrPut(file_type);
+        try self.parsers.put(self.allocator, ft, parser);
+    }
+
+    pub fn getParser(file_type: []const u8) ?*TreeSitterData.Parser {
+        var self = getTS();
+        return self.parsers.get(file_type);
+    }
+
+    pub fn putQuery(file_type: []const u8, query_name: []const u8, query_data: TreeSitterData.QueryData) !void {
+        var self = getTS();
+        const ft = try stringStorageGetOrPut(file_type);
+        const qn = try stringStorageGetOrPut(query_name);
+        try self.queries.put(self.allocator, ft, qn, query_data);
+    }
+
+    pub fn getQuery(file_type: []const u8, query_name: []const u8) ?TreeSitterData.QueryData {
+        var self = getTS();
+        return self.queries.get(file_type, query_name);
+    }
+
+    pub fn putTree(bhandle: BufferHandle, tree: *TreeSitterData.Tree) !void {
+        var self = getTS();
+        try self.trees.put(self.allocator, bhandle, tree);
+    }
+
+    pub fn getTree(bhandle: BufferHandle) ?*TreeSitterData.Tree {
+        var self = getTS();
+        return self.trees.get(bhandle);
+    }
+
+    pub fn putTheme(file_type: []const u8, theme_name: []const u8, theme: []TreeSitterData.CaptureColor) !void {
+        var self = getTS();
+        const ft = try stringStorageGetOrPut(file_type);
+        const tn = try stringStorageGetOrPut(theme_name);
+
+        var theme_copy = TreeSitterData.ThemeMap{};
+        errdefer theme_copy.deinit(self.allocator);
+        for (theme) |cc| {
+            const ts_capture_name = try stringStorageGetOrPut(cc.name);
+            try theme_copy.put(self.allocator, ts_capture_name, cc.color);
+        }
+        try self.themes.put(self.allocator, ft, tn, theme_copy);
+    }
+
+    pub fn getTheme(file_type: []const u8, theme_name: []const u8) ?*TreeSitterData.ThemeMap {
+        var self = getTS();
+        return self.themes.data.getPtr(.{ file_type, theme_name });
+    }
+
+    pub fn getActiveTheme(file_type: []const u8) ?[]const u8 {
+        var self = getTS();
+        return self.active_themes.get(file_type);
+    }
+
+    pub fn setActiveTheme(file_type: []const u8, theme_name: []const u8) !void {
+        var self = getTS();
+        const theme_exits = self.themes.data.getKey(.{ file_type, theme_name }) != null;
+        if (theme_exits) {
+            const ft = try stringStorageGetOrPut(file_type);
+            const tn = try stringStorageGetOrPut(theme_name);
+            try self.active_themes.put(self.allocator, ft, tn);
+        }
+    }
+};
+
 pub fn getTS() *TreeSitterData {
     return &globals.editor.tree_sitter;
 }

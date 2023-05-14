@@ -18,7 +18,6 @@ pub const TreeSitterData = struct {
 
     pub const ParserMap = std.StringHashMapUnmanaged(*Parser);
     pub const QueriesTable = StringTable(QueryData);
-    pub const StringSet = std.StringHashMapUnmanaged(void);
     pub const TreeMap = std.AutoHashMapUnmanaged(core.BufferHandle, *Tree);
     pub const ThemeMap = std.StringHashMapUnmanaged(u32);
     pub const CaptureColor = struct { name: []const u8, color: u32 };
@@ -26,7 +25,6 @@ pub const TreeSitterData = struct {
     parsers: ParserMap = .{},
     queries: QueriesTable = .{},
     trees: TreeMap = .{},
-    strings: StringSet = .{},
     themes: StringTable(ThemeMap) = .{},
     active_themes: std.StringHashMapUnmanaged([]const u8) = .{},
     allocator: std.mem.Allocator,
@@ -50,68 +48,8 @@ pub const TreeSitterData = struct {
         { var iter = self.themes.data.valueIterator(); while (iter.next()) |theme| theme.deinit(self.allocator); }
         self.themes.data.deinit(self.allocator);
 
-        { var iter = self.strings.keyIterator(); while (iter.next()) |string| self.allocator.free(string.*); }
-        self.strings.deinit(self.allocator);
-
         self.active_themes.deinit(self.allocator);
         // zig fmt: on
-    }
-
-    pub fn putParser(self: *TreeSitterData, file_type: []const u8, parser: *Parser) !void {
-        const ft = try self.getAndPutString(file_type);
-        try self.parsers.put(self.allocator, ft, parser);
-    }
-
-    pub fn getParser(self: *TreeSitterData, file_type: []const u8) ?*Parser {
-        return self.parsers.get(file_type);
-    }
-
-    pub fn putQuery(self: *TreeSitterData, file_type: []const u8, query_name: []const u8, query_data: QueryData) !void {
-        const ft = try self.getAndPutString(file_type);
-        const qn = try self.getAndPutString(query_name);
-        try self.queries.put(self.allocator, ft, qn, query_data);
-    }
-
-    pub fn getQuery(self: *TreeSitterData, file_type: []const u8, query_name: []const u8) ?QueryData {
-        return self.queries.get(file_type, query_name);
-    }
-
-    pub fn putTree(self: *TreeSitterData, bhandle: core.BufferHandle, tree: *Tree) !void {
-        try self.trees.put(self.allocator, bhandle, tree);
-    }
-
-    pub fn getTree(self: *TreeSitterData, bhandle: core.BufferHandle) ?*Tree {
-        return self.trees.get(bhandle);
-    }
-
-    pub fn putTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8, theme: []CaptureColor) !void {
-        const ft = try self.getAndPutString(file_type);
-        const tn = try self.getAndPutString(theme_name);
-
-        var theme_copy = ThemeMap{};
-        errdefer theme_copy.deinit(self.allocator);
-        for (theme) |cc| {
-            const ts_capture_name = try self.getAndPutString(cc.name);
-            try theme_copy.put(self.allocator, ts_capture_name, cc.color);
-        }
-        try self.themes.put(self.allocator, ft, tn, theme_copy);
-    }
-
-    pub fn getTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8) ?*ThemeMap {
-        return self.themes.data.getPtr(.{ file_type, theme_name });
-    }
-
-    pub fn getActiveTheme(self: *TreeSitterData, file_type: []const u8) ?[]const u8 {
-        return self.active_themes.get(file_type);
-    }
-
-    pub fn setActiveTheme(self: *TreeSitterData, file_type: []const u8, theme_name: []const u8) !void {
-        const theme_exits = self.themes.data.getKey(.{ file_type, theme_name }) != null;
-        if (theme_exits) {
-            const ft = try self.getAndPutString(file_type);
-            const tn = try self.getAndPutString(theme_name);
-            try self.active_themes.put(self.allocator, ft, tn);
-        }
     }
 
     pub fn createTree(self: *TreeSitterData, bhandle: core.BufferHandle, parser: *Parser) !?*Tree {
@@ -129,8 +67,8 @@ pub const TreeSitterData = struct {
     pub fn updateTree(ptr: *anyopaque, buffer: *core.Buffer, bhandle: ?core.BufferHandle, change: core.Buffer.Change) void {
         var self = @ptrCast(*TreeSitterData, @alignCast(@alignOf(*TreeSitterData), ptr));
         const handle = bhandle orelse return;
-        var tree = self.getTree(handle) orelse return;
-        var parser = self.getParser(buffer.metadata.file_type) orelse return;
+        var tree = self.trees.get(handle) orelse return;
+        var parser = self.parsers.get(buffer.metadata.file_type) orelse return;
 
         var input = ts.TSInput{
             .encoding = ts.TSInputEncodingUTF8,
@@ -152,12 +90,6 @@ pub const TreeSitterData = struct {
     pub fn hookUpToEditorHooks(self: *TreeSitterData, hooks: *core.hooks.EditorHooks) void {
         _ = hooks.createAndAttach(.after_insert, self, updateTree) catch return;
         _ = hooks.createAndAttach(.after_delete, self, updateTree) catch return;
-    }
-
-    fn getAndPutString(self: *TreeSitterData, string: []const u8) ![]const u8 {
-        var gop = try self.strings.getOrPut(self.allocator, string);
-        if (!gop.found_existing) gop.key_ptr.* = try core.utils.newSlice(self.allocator, string);
-        return gop.key_ptr.*;
     }
 
     pub fn read(payload: ?*anyopaque, index: u32, pos: ts.TSPoint, bytes_read: [*c]u32) callconv(.C) [*c]const u8 {
@@ -216,8 +148,8 @@ pub const TreeSitterData = struct {
             var rows_info = RowInfoSet.init(arena);
 
             // TODO: Create query and tree instead of returning an empty slice
-            var tree = tree_sitter.getTree(buffer_window.bhandle);
-            var query_data = tree_sitter.getQuery(buffer.metadata.file_type, "highlight") orelse return &.{};
+            var tree = tree_sitter.trees.get(buffer_window.bhandle);
+            var query_data = tree_sitter.queries.get(buffer.metadata.file_type, "highlight") orelse return &.{};
 
             var root = ts.ts_tree_root_node(tree);
             if (ts.ts_node_is_null(root)) return &.{};
@@ -244,8 +176,8 @@ pub const TreeSitterData = struct {
                     const slice = ts.ts_query_capture_name_for_id(query_data.query, cap.index, &len);
                     const name = slice[0..len];
 
-                    const active_theme = tree_sitter.getActiveTheme(buffer.metadata.file_type) orelse "";
-                    const theme = tree_sitter.getTheme(buffer.metadata.file_type, active_theme);
+                    const active_theme = tree_sitter.active_themes.get(buffer.metadata.file_type) orelse "";
+                    const theme = tree_sitter.themes.get(buffer.metadata.file_type, active_theme);
                     const color = if (theme) |th| th.get(name) orelse 0xFFFFFFFF else 0xFFFFFFFF;
 
                     var range = bufferRange(si, ei);
