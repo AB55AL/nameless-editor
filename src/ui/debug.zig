@@ -5,6 +5,9 @@ const imgui = @import("imgui");
 const core = @import("core");
 
 const math = @import("math.zig");
+const utils = core.utils;
+
+const ts = @cImport(@cInclude("tree_sitter/api.h"));
 
 const editor_ui = @import("editor_ui.zig");
 const Buffer = core.Buffer;
@@ -198,6 +201,19 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         }
     }
 
+    if (static.selected == null and editor.buffers.size > 1) {
+        var iter = editor.buffers.iterator();
+        var cli_buffer = core.cliBuffer();
+        while (iter.next()) |kv| {
+            if (kv.value_ptr != cli_buffer) {
+                static.selected = kv.key_ptr.*;
+                break;
+            }
+        }
+    } else if (static.selected == null) {
+        static.selected = core.BufferHandle{ .handle = 0 }; // cli bhandle
+    }
+
     imgui.sameLine(.{});
 
     const selected_bhandle = static.selected orelse return;
@@ -215,6 +231,13 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
 
     _ = imgui.beginTabBar("buffer fields", .{});
     defer imgui.endTabBar();
+
+    {
+        if (imgui.beginTabItem("Tree Sitter", .{})) {
+            defer imgui.endTabItem();
+            treeSitter(arena, buffer, selected_bhandle);
+        }
+    }
 
     { // metadata
         if (imgui.beginTabItem("metadata", .{})) {
@@ -289,5 +312,115 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
         }
 
         break :search;
+    }
+}
+
+pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.BufferHandle) void {
+    const static = struct {
+        var start_row: i32 = 0;
+        var start_col: i32 = 0;
+        var end_row: i32 = 1;
+        var end_col: i32 = 0;
+
+        var buf: [1000:0]u8 = .{0} ** 1000;
+        var global_query_name: [1000:0]u8 = .{0} ** 1000;
+    };
+
+    _ = imgui.sliderInt("Start row", .{ .v = &static.start_row, .min = 0, .max = @intCast(i32, buffer.lineCount() -| 1) });
+    _ = imgui.sliderInt("Start col", .{ .v = &static.start_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.start_col + 1))) });
+    _ = imgui.sliderInt("End row", .{ .v = &static.end_row, .min = 0, .max = @intCast(i32, buffer.lineCount()) });
+    _ = imgui.sliderInt("End col", .{ .v = &static.end_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.end_row + 1))) });
+
+    _ = imgui.inputText("Query", .{ .buf = &static.buf });
+    _ = imgui.inputText("Global Query Name", .{ .buf = &static.global_query_name });
+
+    var ts_zig = core.getTSLang("zig") orelse return;
+    const tree = core.tree_sitter.getTree(bhandle) orelse return;
+
+    var root = ts.ts_tree_root_node(tree);
+    if (!ts.ts_node_is_null(root)) {
+        const start = ts.TSPoint{ .row = @intCast(u32, static.start_row), .column = @intCast(u32, static.start_col) };
+        const end = ts.TSPoint{ .row = @intCast(u32, static.end_row + 2), .column = @intCast(u32, static.end_col) };
+
+        const static_buf_len = std.mem.len(@as([*c]u8, &static.buf));
+        const static_query_name_len = std.mem.len(@as([*c]u8, &static.global_query_name));
+        var global_query_data = core.tree_sitter.getQuery(buffer.metadata.file_type, static.global_query_name[0..static_query_name_len]);
+        var query_data: core.TreeSitterData.QueryData = if (global_query_data != null and static_buf_len == 0) global_query_data.? else blk: {
+            var error_offset: u32 = 0;
+            var error_type: u32 = 0;
+            var query = ts.ts_query_new(ts_zig, &static.buf, @truncate(u32, static_buf_len), &error_offset, &error_type);
+
+            break :blk .{
+                .query = query,
+                .error_offset = error_offset,
+                .error_type = error_type,
+            };
+        };
+
+        imgui.text("{s}", .{ts.ts_node_string(root)});
+
+        if (query_data.error_type == ts.TSQueryErrorNone) {
+            var qc = ts.ts_query_cursor_new();
+            ts.ts_query_cursor_set_point_range(qc, start, end);
+
+            var query = query_data.query;
+            ts.ts_query_cursor_exec(qc, query, root);
+
+            imgui.beginTable("Captures", .{ .column = 4, .flags = .{ .row_bg = true } });
+            defer imgui.endTable();
+
+            imgui.tableSetupColumn("Index", .{ .flags = .{ .width_stretch = true } });
+            imgui.tableSetupColumn("Name", .{ .flags = .{ .width_stretch = true } });
+            imgui.tableSetupColumn("String", .{ .flags = .{ .width_stretch = true } });
+            imgui.tableSetupColumn("Point Range", .{ .flags = .{ .width_stretch = true } });
+            imgui.tableHeadersRow();
+
+            var match: ts.TSQueryMatch = undefined;
+            while (ts.ts_query_cursor_next_match(qc, &match)) {
+                imgui.tableNextRow(.{});
+
+                if (match.capture_count > 0) {
+                    var captures = match.captures[0..match.capture_count];
+                    for (captures) |cap| {
+                        var sp = ts.ts_node_start_point(cap.node);
+                        var ep = ts.ts_node_end_point(cap.node);
+                        var si = ts.ts_node_start_byte(cap.node);
+                        var ei = ts.ts_node_end_byte(cap.node);
+                        var line = buffer.getLine(arena, buffer.rowOfIndex(si).row) catch return;
+
+                        si -= @intCast(u32, buffer.indexOfFirstByteAtRow(buffer.rowOfIndex(si).row));
+                        ei -= @intCast(u32, buffer.indexOfFirstByteAtRow(buffer.rowOfIndex(si).row));
+
+                        si = utils.bound(si, 0, @intCast(u32, line.len));
+                        ei = utils.bound(ei, 0, @intCast(u32, line.len));
+                        var string = line[si..ei];
+
+                        var len: u32 = 0;
+                        const name = ts.ts_query_capture_name_for_id(query, cap.index, &len);
+
+                        _ = imgui.tableSetColumnIndex(0);
+                        imgui.text("{}", .{cap.index});
+                        _ = imgui.tableSetColumnIndex(1);
+                        imgui.text("{s}", .{name[0..len]});
+                        _ = imgui.tableSetColumnIndex(2);
+                        imgui.text("{s}", .{string});
+                        _ = imgui.tableSetColumnIndex(3);
+                        imgui.text("index {} -> {}\ns {},{}\ne {},{}", .{ si, ei, sp.row, sp.column, ep.row, ep.column });
+                    }
+                }
+            }
+        } else {
+            const error_string = switch (query_data.error_type) {
+                0 => "TSQueryErrorNone",
+                1 => "TSQueryErrorSyntax",
+                2 => "TSQueryErrorNodeType",
+                3 => "TSQueryErrorField",
+                4 => "TSQueryErrorCapture",
+                5 => "TSQueryErrorStructure",
+                6 => "TSQueryErrorLanguage",
+                else => unreachable,
+            };
+            imgui.text("{s}\tOffset: {}", .{ error_string, query_data.error_offset });
+        }
     }
 }
