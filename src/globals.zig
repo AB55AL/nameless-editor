@@ -20,12 +20,10 @@ const EditorHooks = @import("editor/hooks.zig").EditorHooks;
 const ui_api = @import("ui/ui.zig");
 const TreeSitterData = @import("editor/tree_sitter.zig").TreeSitterData;
 
+const StringSet = std.StringHashMap(void);
 const UserUISet = std.AutoHashMapUnmanaged(ui_api.UserUI, void);
-
 const BufferDisplayerMap = std.StringHashMapUnmanaged(ui_api.BufferDisplayer);
-
 const BufferMap = std.AutoHashMapUnmanaged(editor_api.BufferHandle, Buffer);
-
 const Key = @import("editor/input.zig").Key;
 
 pub const editor = struct {
@@ -44,6 +42,9 @@ pub const editor = struct {
 
     pub var tree_sitter: TreeSitterData = undefined;
     pub var ts_langs: std.StringHashMap(*ts.TSLanguage) = undefined;
+
+    /// A set of heap allocated string who's lifetime matches the editor's lifetime.
+    pub var string_storage: StringSet = undefined;
 };
 
 pub const ui = struct {
@@ -72,6 +73,7 @@ pub const internal = struct {
 };
 
 pub fn initGlobals(allocator: std.mem.Allocator) !void {
+    editor.string_storage = StringSet.init(allocator);
     ui.notifications = notify.Notifications.init();
     internal.allocator = allocator;
     editor.registers = Registers.init(allocator);
@@ -83,8 +85,8 @@ pub fn initGlobals(allocator: std.mem.Allocator) !void {
 }
 
 pub fn deinitGlobals() void {
-    var iter = editor.buffers.valueIterator();
-    while (iter.next()) |buffer| buffer.deinitNoDestroy();
+    // zig fmt: off
+    { var iter = editor.buffers.valueIterator(); while (iter.next()) |buffer| buffer.deinitNoDestroy(); }
     editor.buffers.deinit(internal.allocator);
 
     ui.buffer_displayers.deinit(internal.allocator);
@@ -100,4 +102,10 @@ pub fn deinitGlobals() void {
 
     editor.tree_sitter.deinit();
     editor.ts_langs.deinit();
+
+
+    { var iter = editor.string_storage.keyIterator(); while (iter.next()) |string| editor.string_storage.allocator.free(string.*); }
+    editor.string_storage.deinit();
+
+    // zig fmt: on
 }

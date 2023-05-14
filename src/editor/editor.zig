@@ -17,6 +17,8 @@ const BufferWindowNode = buffer_ui.BufferWindowNode;
 
 const ui_api = @import("../ui/ui.zig");
 
+const utils = @import("../utils.zig");
+
 const editor = globals.editor;
 const internal = globals.internal;
 
@@ -311,6 +313,15 @@ pub fn addCommand(comptime command: []const u8, comptime fn_ptr: anytype, compti
         .function = command_line.beholdMyFunctionInator(fn_ptr).funcy,
         .description = description,
     });
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// String Storage
+
+pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
+    var gop = try editor.string_storage.getOrPut(string);
+    if (!gop.found_existing) gop.key_ptr.* = try utils.newSlice(editor.string_storage.allocator, string);
+    return gop.key_ptr.*;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
