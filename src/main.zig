@@ -29,9 +29,6 @@ pub fn main() !void {
     try input_layer.init();
     defer input_layer.deinit();
 
-    if (options.user_config_loaded) try user.init();
-    defer if (options.user_config_loaded) user.deinit();
-
     _ = glfw.init(.{});
     var window = glfw.Window.create(800, 800, "test", null, null, .{}).?;
     defer window.destroy();
@@ -43,11 +40,11 @@ pub fn main() !void {
     imgui.init(allocator);
     defer imgui.deinit();
 
-    _ = imgui.io.addFontFromFileWithConfig("assets/Fira Code Light Nerd Font Complete Mono.otf", 22, null, null);
-    // _ = imgui.io.addFontFromFileWithConfig("assets/Amiri-Regular.ttf", 30, null, &[_]u16{ 0x20, 0xFFFF, 0 });
-
     imgui.backend.init(window.handle, true, "#version 330");
     defer imgui.backend.deinit();
+
+    if (options.user_config_loaded) try user.init();
+    defer if (options.user_config_loaded) user.deinit();
 
     var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
