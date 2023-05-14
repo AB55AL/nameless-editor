@@ -84,6 +84,8 @@ pub fn createBuffer(file_path: []const u8) !BufferHandle {
     var buffer = try createLocalBuffer(file_path, handle);
     editor.buffers.putAssumeCapacity(handle, buffer);
 
+    var buffer_ptr = editor.buffers.getPtr(handle).?;
+    editor.hooks.dispatch(.buffer_created, .{ buffer_ptr, handle });
     return handle;
 }
 
