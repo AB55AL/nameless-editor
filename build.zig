@@ -9,6 +9,11 @@ const zgui = @import("libs/imgui/build.zig");
 const glfw = @import("libs/mach-glfw/build.zig");
 const GitRepoStep = @import("GitRepoStep.zig");
 
+pub const standard_input_layer_root_path = thisDir() ++ "/src/input-layers/standard-input-layer/src/main.zig";
+pub const vim_like_input_layer_root_path = thisDir() ++ "/src/input-layers/vim-like/src/context.zig";
+
+pub const defualt_ts_repos = [_]TSParserRepo{ tree_sitter_zig, tree_sitter_c };
+
 pub const TSParserRepo = struct {
     url: []const u8,
     lang_name: []const u8,
@@ -43,16 +48,14 @@ pub fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Modu
     return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" }, .dependencies = deps });
 }
 
-pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Module, ts_parsers: []const TSParserRepo) void {
+pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module: ?*Module, ts_parsers: []const TSParserRepo) void {
     const target = bob.standardTargetOptions(.{});
     const optimize = bob.standardOptimizeOption(.{});
 
-    var mecha_module = bob.createModule(.{ .source_file = .{ .path = "libs/mecha/mecha.zig" } });
+    var mecha_module = bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/libs/mecha/mecha.zig" } });
     var glfw_module = glfw.module(bob);
-
-    var core_module = coreModule(bob, &.{
-        .{ .name = "mecha", .module = mecha_module },
-    });
+    var core_module = coreModule(bob, &.{.{ .name = "mecha", .module = mecha_module }});
+    var input_layer_module = bob.createModule(.{ .source_file = .{ .path = input_layer_root_path } });
 
     var imgui = zgui.package(bob, target, optimize, .{ .options = .{ .backend = .glfw_opengl3 } });
 
@@ -70,14 +73,14 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
     exe.addModule("core", core_module);
     exe.addModule("glfw", glfw_module);
     exe.addModule("input_layer", input_layer_module);
+    if (user_module) |um| {
+        um.dependencies.putNoClobber("core", core_module) catch unreachable;
+        um.dependencies.putNoClobber("imgui", imgui.zgui) catch unreachable;
+        exe.addModule("user", um);
+    }
 
     var options = bob.addOptions();
     exe.addOptions("options", options);
-
-    if (user_module) |um| {
-        um.dependencies.putNoClobber("core", core_module) catch unreachable;
-        exe.addModule("user", um);
-    }
 
     exe.linkSystemLibrary("tree-sitter");
     for (ts_parsers) |parser_repo| {
@@ -96,8 +99,7 @@ pub fn buildEditor(bob: *Builder, input_layer_module: *Module, user_module: ?*Mo
 
     generateTSLanguageFile(bob, ts_parsers) catch unreachable;
 
-    const user_config_loaded = if (user_module != null) true else false;
-    options.addOption(bool, "user_config_loaded", user_config_loaded);
+    options.addOption(bool, "user_config_loaded", user_module != null);
 
     imgui.link(exe);
     glfw.link(bob, exe, .{}) catch unreachable;
@@ -170,13 +172,5 @@ fn generateTSLanguageFile(bob: *Builder, ts_parsers: []const TSParserRepo) !void
 }
 
 pub fn build(bob: *Builder) void {
-    // const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/standard-input-layer/src/main.zig";
-    const standard_input_layer_root_path = comptime thisDir() ++ "/src/input-layers/vim-like/src/context.zig";
-    var module = bob.createModule(.{
-        .source_file = .{ .path = standard_input_layer_root_path },
-    });
-
-    const defualt_ts_repos = [_]TSParserRepo{ tree_sitter_zig, tree_sitter_c };
-
-    buildEditor(bob, module, null, &defualt_ts_repos);
+    buildEditor(bob, vim_like_input_layer_root_path, null, &defualt_ts_repos);
 }
