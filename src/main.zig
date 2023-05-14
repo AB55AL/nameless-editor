@@ -18,18 +18,16 @@ const imgui = @import("imgui");
 const options = @import("options");
 const user = @import("user");
 
+var gs: Globals = undefined;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var gs = try allocator.create(Globals);
-    defer allocator.destroy(gs);
-    gs.* = try Globals.init(allocator);
+    gs = try Globals.init(allocator);
     defer gs.deinit();
-    core.globals.globals = gs;
-
-    // var gs = core.gs.*.?;
+    core.globals.globals = &gs;
 
     try input_layer.init();
     defer input_layer.deinit();
