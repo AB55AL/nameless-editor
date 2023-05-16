@@ -37,6 +37,7 @@ const utils = @import("../utils.zig");
 pub const KeyQueue = std.BoundedArray(input.Key, 1024);
 pub const CharQueue = std.BoundedArray(u21, 1024);
 
+pub const CommandLine = command_line.CommandLine;
 pub const Buffer = @import("buffer.zig");
 pub const input = @import("input.zig");
 pub const common_input_functions = @import("common_input_functions.zig");
@@ -85,6 +86,7 @@ pub fn createBW(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percen
     const cursor_key = try (getBuffer(bhandle).?).putMarker(.{});
     var bw = BufferWindow.init(bhandle, first_visiable_row, dir, percent);
     bw.cursor_key = cursor_key;
+    return bw;
 }
 
 /// Returns a handle to a buffer
@@ -212,12 +214,7 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
 
     var new_node = try gs().allocator.create(BufferWindowNode);
     new_node.* = .{
-        .data = try BufferWindow.init(
-            bhandle,
-            options.first_visiable_row,
-            options.dir orelse .north,
-            options.percent,
-        ),
+        .data = try createBW(bhandle, options.first_visiable_row, options.dir orelse .north, options.percent),
     };
 
     if (focusedBW()) |fbw| {
