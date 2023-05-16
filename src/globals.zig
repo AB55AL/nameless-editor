@@ -35,7 +35,6 @@ pub const Globals = struct {
     ////////////////////////////////////////////////////////////////////////////
     // editor
 
-    reload_editor: bool = false,
     registers: Registers,
     /// A hashmap of all the buffers in the editor
     buffers: BufferMap = .{},
