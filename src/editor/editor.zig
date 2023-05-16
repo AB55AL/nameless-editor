@@ -369,13 +369,22 @@ pub const tree_sitter = struct {
         const ft = try stringStorageGetOrPut(file_type);
         const tn = try stringStorageGetOrPut(theme_name);
 
+        // make sure all name strings are in the string storage
+        for (theme) |cc| _ = try stringStorageGetOrPut(cc.name);
+        try self.themes.data.ensureUnusedCapacity(self.allocator, 1);
+
         var theme_copy = TreeSitterData.ThemeMap{};
-        errdefer theme_copy.deinit(self.allocator);
+        try theme_copy.ensureTotalCapacity(self.allocator, @intCast(u32, theme.len));
+
         for (theme) |cc| {
-            const ts_capture_name = try stringStorageGetOrPut(cc.name);
-            try theme_copy.put(self.allocator, ts_capture_name, cc.color);
+            const ts_capture_name = stringStorageGetOrPut(cc.name) catch unreachable;
+            theme_copy.putAssumeCapacity(ts_capture_name, cc.color);
         }
-        try self.themes.put(self.allocator, ft, tn, theme_copy);
+        var gop = self.themes.data.getOrPutAssumeCapacity(.{ ft, tn });
+        if (gop.found_existing) {
+            gop.value_ptr.clearAndFree(self.allocator);
+        }
+        gop.value_ptr.* = theme_copy;
     }
 
     pub fn getTheme(file_type: []const u8, theme_name: []const u8) ?*TreeSitterData.ThemeMap {
