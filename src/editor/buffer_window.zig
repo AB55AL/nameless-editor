@@ -119,7 +119,7 @@ pub const BufferWindow = struct {
         return tree_array;
     }
 
-    pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
+    pub fn init(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) BufferWindow {
         return .{
             .bhandle = bhandle,
             .dir = dir,

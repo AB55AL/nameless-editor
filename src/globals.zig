@@ -21,7 +21,7 @@ const ui_api = @import("ui/ui.zig");
 const TreeSitterData = @import("editor/tree_sitter.zig").TreeSitterData;
 const BufferNodeCycle = std.BoundedArray(*BufferWindowNode, 50);
 
-const default_commands = @import("editor/default_commands.zig");
+pub const default_commands = @import("editor/default_commands.zig");
 
 const StringSet = std.StringHashMap(void);
 const UserUISet = std.AutoHashMapUnmanaged(ui_api.UserUI, void);
@@ -35,6 +35,7 @@ pub const Globals = struct {
     ////////////////////////////////////////////////////////////////////////////
     // editor
 
+    reload_editor: bool = false,
     registers: Registers,
     /// A hashmap of all the buffers in the editor
     buffers: BufferMap = .{},
@@ -73,17 +74,12 @@ pub const Globals = struct {
     char_queue: editor_api.CharQueue,
 
     pub fn init(allocator: std.mem.Allocator) !Globals {
-        // cli init
-        const cli_bhandle = editor_api.generateHandle();
-        var cli = try command_line.CommandLine.init(allocator, cli_bhandle);
-        try default_commands.setDefaultCommands(&cli);
-
         var gs = Globals{
             .string_storage = StringSet.init(allocator),
             .notifications = notify.Notifications.init(),
             .allocator = allocator,
             .registers = Registers.init(allocator),
-            .cli = cli,
+            .cli = undefined,
             .key_queue = editor_api.KeyQueue.init(0) catch unreachable,
             .char_queue = editor_api.CharQueue.init(0) catch unreachable,
             .previous_focused_buffer_wins = BufferNodeCycle.init(0) catch unreachable,
@@ -92,10 +88,27 @@ pub const Globals = struct {
             .ts_langs = try ts_languages.init(allocator),
         };
 
-        // continue cli init
-        try gs.buffers.put(allocator, cli_bhandle, try editor_api.createLocalBuffer(allocator, "", cli_bhandle));
+        // the CLI needs to put it's data in gs.buffers so initialize it later
+        try cliInit(&gs);
 
         return gs;
+    }
+
+    fn cliInit(gs: *Globals) !void {
+        const cli_bhandle = editor_api.generateHandle();
+
+        var cli = editor_api.CommandLine.init(gs.allocator, cli_bhandle);
+        try default_commands.setDefaultCommands(&cli);
+
+        var cli_buffer = try editor_api.createLocalBuffer(gs.allocator, "", cli_bhandle);
+        try gs.buffers.put(gs.allocator, cli_bhandle, cli_buffer);
+
+        const cursor_key = try (gs.buffers.getPtr(cli_bhandle).?).putMarker(.{});
+        var bw = editor_api.BufferWindow.init(cli_bhandle, 1, .north, 0);
+        bw.cursor_key = cursor_key;
+        cli.buffer_window.data = bw;
+
+        gs.cli = cli;
     }
 
     pub fn deinit(g: *Globals) void {

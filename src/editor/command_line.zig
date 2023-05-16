@@ -64,8 +64,8 @@ pub const CommandLine = struct {
     functions: std.StringHashMap(CommandType),
     open: bool = false,
 
-    pub fn init(allocator: std.mem.Allocator, cli_bhandle: editor.BufferHandle) !CommandLine {
-        const bw = try editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
+    pub fn init(allocator: std.mem.Allocator, cli_bhandle: editor.BufferHandle) CommandLine {
+        const bw = editor.BufferWindow.init(cli_bhandle, 1, .north, 0);
 
         var cli = CommandLine{
             .bhandle = cli_bhandle,
