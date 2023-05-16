@@ -133,28 +133,28 @@ pub const BufferWindow = struct {
         buffer.removeMarker(buffer_window.cursor_key);
     }
 
-    pub fn cursor(buffer_window: *BufferWindow) ?Buffer.Point {
+    pub fn cursor(buffer_window: *BufferWindow) ?Buffer.Index {
         var buffer = getBuffer(buffer_window.bhandle) orelse return null;
         return buffer.marks.get(buffer_window.cursor_key);
     }
 
-    pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.Point) void {
+    pub fn setCursor(buffer_window: *BufferWindow, new_cursor: Buffer.Index) void {
         var buffer = getBuffer(buffer_window.bhandle).?;
         var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
         c.* = new_cursor;
     }
 
-    pub fn setCursorCol(buffer_window: *BufferWindow, col: u64) void {
-        var buffer = getBuffer(buffer_window.bhandle).?;
-        var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
-        c.col = col;
-    }
+    // pub fn setCursorCol(buffer_window: *BufferWindow, col: u64) void {
+    //     var buffer = getBuffer(buffer_window.bhandle).?;
+    //     var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
+    //     c.col = col;
+    // }
 
-    pub fn setCursorRow(buffer_window: *BufferWindow, row: u64) void {
-        var buffer = getBuffer(buffer_window.bhandle).?;
-        var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
-        c.row = row;
-    }
+    // pub fn setCursorRow(buffer_window: *BufferWindow, row: u64) void {
+    //     var buffer = getBuffer(buffer_window.bhandle).?;
+    //     var c = buffer.marks.getPtr(buffer_window.cursor_key).?;
+    //     c.row = row;
+    // }
 
     pub fn lastVisibleRow(buffer_window: *BufferWindow) u64 {
         var res = buffer_window.first_visiable_row + buffer_window.visible_lines -| 1;
@@ -265,15 +265,19 @@ pub const BufferWindow = struct {
 
     pub fn cursorFollowWindow(buffer_win: *BufferWindow) void {
         var cur = buffer_win.cursor() orelse return;
+        var buffer = getBuffer(buffer_win.bhandle) orelse return;
+        const cursor_row = buffer.rowOfIndex(cur).row;
 
-        if (!utils.inRange(cur.row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
-            const row = if (cur.row > buffer_win.lastVisibleRow()) buffer_win.lastVisibleRow() else buffer_win.first_visiable_row;
-            buffer_win.setCursor(.{ .row = row, .col = cur.col });
+        if (!utils.inRange(cursor_row, buffer_win.first_visiable_row, buffer_win.lastVisibleRow())) {
+            const row = if (cursor_row > buffer_win.lastVisibleRow()) buffer_win.lastVisibleRow() else buffer_win.first_visiable_row;
+            // FIXME: The cursor should be set to the correct col as well
+            buffer_win.setCursor(buffer.indexOfFirstByteAtRow(row));
         }
     }
 
     pub fn windowFollowCursor(buffer_win: *BufferWindow) void {
-        const cursor_row = (buffer_win.cursor() orelse return).row;
+        var buffer = getBuffer(buffer_win.bhandle) orelse return;
+        const cursor_row = buffer.rowOfIndex(buffer_win.cursor() orelse return).row;
         if (cursor_row <= buffer_win.first_visiable_row)
             buffer_win.first_visiable_row = cursor_row
         else if (cursor_row > buffer_win.lastVisibleRow())

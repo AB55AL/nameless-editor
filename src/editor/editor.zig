@@ -83,7 +83,7 @@ pub fn generateHandle() BufferHandle {
 }
 
 pub fn createBW(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
-    const cursor_key = try (getBuffer(bhandle).?).putMarker(.{});
+    const cursor_key = try (getBuffer(bhandle).?).putMarker(0);
     var bw = BufferWindow.init(bhandle, first_visiable_row, dir, percent);
     bw.cursor_key = cursor_key;
     return bw;

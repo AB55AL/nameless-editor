@@ -27,22 +27,20 @@ pub fn deleteBackward() void {
     var f = editor.focusedBufferAndBW() orelse return;
     const cursor = f.bw.data.cursor() orelse return;
 
-    const index = f.buffer.getIndex(cursor);
     const old_size = f.buffer.size();
 
-    f.buffer.deleteBefore(index) catch |err| {
+    f.buffer.deleteBefore(cursor) catch |err| {
         print("input_layer.deleteBackward()\n\t{}\n", .{err});
     };
 
     const deleted_bytes = old_size - f.buffer.size();
-    f.bw.data.setCursor(f.buffer.getPoint(index - deleted_bytes));
+    f.bw.data.setCursor(cursor - deleted_bytes);
 }
 
 pub fn deleteForward() void {
     var f = editor.focusedBufferAndBW() orelse return;
     const cursor = f.bw.data.cursor() orelse return;
-    const index = f.buffer.getIndex(cursor);
-    f.buffer.deleteAfterCursor(index) catch |err| {
+    f.buffer.deleteAfterCursor(cursor) catch |err| {
         print("input_layer.deleteForward()\n\t{}\n", .{err});
     };
 }

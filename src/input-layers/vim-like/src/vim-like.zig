@@ -72,7 +72,7 @@ pub fn setVisualMode() void {
     setMode(.visual);
 
     var f = core.focusedBufferAndBW() orelse return;
-    f.buffer.selection.anchor = f.bw.data.cursor() orelse return;
+    f.buffer.selection.anchor = f.buffer.getPoint(f.bw.data.cursor() orelse return);
 }
 
 pub fn openCommandLine() void {
@@ -102,8 +102,7 @@ pub fn moveForward() void {
 
     var f = core.focusedBufferAndBW() orelse return;
     const cursor = f.bw.data.cursor() orelse return;
-    const index = f.buffer.getIndex(cursor);
-    _ = index;
+    _ = cursor;
     // const range = core.motions.forward(f.buffer, index, &d) orelse return;
     // const end = range.endPreviousCP(f.buffer);
 

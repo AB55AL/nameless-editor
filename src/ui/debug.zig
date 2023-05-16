@@ -59,7 +59,7 @@ pub fn inspectEditor(arena: std.mem.Allocator) void {
                     cli_buffer.clear() catch break :open_cli;
                     cli_buffer.insertAt(0, " ") catch break :open_cli;
                     cli_buffer.insertAt(0, com) catch break :open_cli;
-                    cli.setCursorCol(Buffer.Point.last_col);
+                    cli.setCursor(cli_buffer.size());
                 }
             }
         }
@@ -268,7 +268,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             };
 
             const cursor = buffer_window.cursor() orelse break :selection;
-            const selection = buffer.selection.get(cursor);
+            const selection = buffer.selection.get(buffer.getPoint(cursor));
             const start = selection.start;
             const end = selection.end;
             imgui.text("start.row {} start.col {}", .{ start.row, start.col });

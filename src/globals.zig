@@ -102,7 +102,7 @@ pub const Globals = struct {
         var cli_buffer = try editor_api.createLocalBuffer(gs.allocator, "", cli_bhandle);
         try gs.buffers.put(gs.allocator, cli_bhandle, cli_buffer);
 
-        const cursor_key = try (gs.buffers.getPtr(cli_bhandle).?).putMarker(.{});
+        const cursor_key = try (gs.buffers.getPtr(cli_bhandle).?).putMarker(0);
         var bw = editor_api.BufferWindow.init(cli_bhandle, 1, .north, 0);
         bw.cursor_key = cursor_key;
         cli.buffer_window.data = bw;

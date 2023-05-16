@@ -46,14 +46,13 @@ pub fn characterInput(utf8_seq: []const u8) void {
 
     var f = core.focusedBufferAndBW() orelse return;
     const cursor = f.bw.data.cursor() orelse return;
-    const index = f.buffer.getIndex(cursor);
 
-    f.buffer.insertAt(index, utf8_seq) catch |err| {
+    f.buffer.insertAt(cursor, utf8_seq) catch |err| {
         core.notify("Error:", .{}, "{!}", .{err}, 3);
         return;
     };
 
-    f.bw.data.setCursor(f.buffer.getPoint(index + utf8_seq.len));
+    f.bw.data.setCursor(cursor + utf8_seq.len);
 
     const end = log_file.getEndPos() catch return;
     const insert = "insert:";

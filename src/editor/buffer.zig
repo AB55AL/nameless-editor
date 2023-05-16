@@ -58,6 +58,8 @@ pub const PointRange = struct {
     end: Point,
 };
 
+pub const Index = u64;
+
 pub const Point = struct {
     pub const last_col = std.math.maxInt(u64);
 
@@ -100,20 +102,6 @@ pub const Point = struct {
 
     pub fn setCol(point: Point, col: u64) Point {
         return .{ .row = point.row, .col = std.math.max(1, col) };
-    }
-
-    pub fn updatePointInsert(to_update: Point, change_row: u64, line_count_before: u64, line_count_after: u64) Point {
-        if (change_row > to_update.row) return to_update; // no need to update
-        const diff = line_count_after - line_count_before;
-        // (to_update.row + diff) can never be exceed buffer.lineCount();
-        return .{ .row = to_update.row + diff, .col = to_update.col };
-    }
-
-    pub fn updatePointDelete(to_update: Point, change_row: u64, line_count_before: u64, line_count_after: u64) Point {
-        if (change_row > to_update.row) return to_update; // no need to update
-        const diff = line_count_before - line_count_after;
-        // (to_update.row - diff) can never be 0
-        return .{ .row = to_update.row - diff, .col = to_update.col };
     }
 };
 
@@ -178,8 +166,8 @@ allocator: std.mem.Allocator,
 history: HistoryTree = HistoryTree{},
 history_node: ?*HistoryTree.Node = null,
 selection: Selection = .{},
-/// Point values stored here will be updated on every change of the buffer
-marks: std.AutoArrayHashMapUnmanaged(u32, Point) = .{},
+/// Indices values stored here will be updated on every change of the buffer
+marks: std.AutoArrayHashMapUnmanaged(u32, Index) = .{},
 bhandle: ?BufferHandle,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8, bhandle: ?BufferHandle) !Buffer {
@@ -231,11 +219,9 @@ pub fn deinitAndDestroy(buffer: *Buffer) void {
     buffer.allocator.destroy(buffer);
 }
 
+// TODO: CHECK THE INDEX TYPE
 pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
-
-    const old_line_count = buffer.lineCount();
-    const change_point = buffer.getPoint(index);
 
     try buffer.validateInsertionPoint(index);
     try buffer.lines.insert(buffer.allocator, index, string);
@@ -243,10 +229,10 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     try buffer.insureLastByteIsNewline();
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointInsert(kv.value_ptr.*, change_point.row, old_line_count, buffer.lineCount());
+    while (iter.next()) |kv| kv.value_ptr.* = updateIndexInsert(kv.value_ptr.*, index, string.len);
 
     if (globals.globals != null) {
-        const change = Change{ .start_index = index, .start_point = change_point, .delete_len = 0, .inserted_len = string.len };
+        const change = Change{ .start_index = index, .start_point = .{}, .delete_len = 0, .inserted_len = string.len };
         core.gs().hooks.dispatch(.after_insert, .{ buffer, buffer.bhandle, change });
     }
 }
@@ -255,12 +241,9 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
 pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
 
-    const change_point = buffer.getPoint(start);
-
-    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
-
     const s = min(start, end);
     const e = max(start, end);
+    const deletion_len = e - s;
 
     try buffer.validateRange(s, e);
     try buffer.lines.delete(buffer.allocator, s, e -| 1);
@@ -268,22 +251,17 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     buffer.metadata.setDirty();
     try buffer.insureLastByteIsNewline();
 
-    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
-
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_point.row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = updateIndexDelete(kv.value_ptr.*, start, deletion_len);
 
     if (globals.globals != null) {
-        const change = Change{ .start_index = start, .start_point = change_point, .delete_len = end - start, .inserted_len = 0 };
+        const change = Change{ .start_index = start, .start_point = .{}, .delete_len = deletion_len, .inserted_len = 0 };
         core.gs().hooks.dispatch(.after_delete, .{ buffer, buffer.bhandle, change });
     }
 }
 
 pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     if (buffer.metadata.read_only) return error.ModifyingReadOnlyBuffer;
-
-    const change_row: u64 = 1;
-    const before = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
 
     var root = PieceTable.PieceNode.deinitTree(buffer.lines.tree.root, buffer.allocator);
     if (root) |r| buffer.allocator.destroy(r);
@@ -293,10 +271,8 @@ pub fn replaceAllWith(buffer: *Buffer, string: []const u8) !void {
     try buffer.insureLastByteIsNewline();
     buffer.metadata.setDirty();
 
-    const after = Size{ .size = buffer.size(), .line_count = buffer.lineCount() };
-
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = Point.updatePointDelete(kv.value_ptr.*, change_row, before.line_count, after.line_count);
+    while (iter.next()) |kv| kv.value_ptr.* = 0;
 }
 
 pub fn clear(buffer: *Buffer) !void {
@@ -310,18 +286,18 @@ pub fn clear(buffer: *Buffer) !void {
     buffer.metadata.setDirty();
 
     var iter = buffer.marks.iterator();
-    while (iter.next()) |kv| kv.value_ptr.* = .{};
+    while (iter.next()) |kv| kv.value_ptr.* = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Convenience insertion and deletion functions
 ////////////////////////////////////////////////////////////////////////////////
-pub fn insertAtRC(buffer: *Buffer, rc: Point, string: []const u8) !void {
+pub fn insertAtPoint(buffer: *Buffer, rc: Point, string: []const u8) !void {
     const index = buffer.getIndex(rc);
     try buffer.insertAt(index, string);
 }
 
-pub fn deleteBefore(buffer: *Buffer, index: u64) !void {
+pub fn deleteBefore(buffer: *Buffer, index: Index) !void {
     if (index == 0) return;
 
     var i = index - 1;
@@ -334,7 +310,7 @@ pub fn deleteBefore(buffer: *Buffer, index: u64) !void {
     try buffer.deleteRange(i, index);
 }
 
-pub fn deleteAfterCursor(buffer: *Buffer, index: u64) !void {
+pub fn deleteAfterCursor(buffer: *Buffer, index: Index) !void {
     var byte = buffer.lines.byteAt(index);
     var len = try unicode.utf8ByteSequenceLength(byte);
     try buffer.deleteRange(index, index + len);
@@ -367,7 +343,7 @@ pub fn deleteRangeRC(buffer: *Buffer, start_row: u32, start_col: u32, end_row: u
 // pub fn replaceRange(buffer: *Buffer, string: []const u8, start_row: i32, start_col: i32, end_row: i32, end_col: i32) !void {
 // }
 
-pub fn validateInsertionPoint(buffer: *Buffer, index: u64) !void {
+pub fn validateInsertionPoint(buffer: *Buffer, index: Index) !void {
     const i = std.math.min(index, buffer.size() -| 1);
 
     if (i == 0 or
@@ -851,37 +827,43 @@ pub fn lineCount(buffer: *Buffer) u64 {
 // Cursor
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn moveRelativeColumn(buffer: *Buffer, p: Point, col_offset: i64) Point {
-    if (col_offset == 0) return p;
+// TODO: Faster move code
+pub fn moveRelativeColumn(buffer: *Buffer, index: Index, col_offset: i64) Index {
+    if (col_offset == 0) return index;
 
     const abs_offset = std.math.absCast(col_offset);
-    if (col_offset > 0) {
-        const row_size = buffer.countCodePointsAtRow(p.row);
-        return .{ .row = p.row, .col = min(row_size, p.col +| abs_offset) };
-    } else {
-        return .{ .row = p.row, .col = max(1, p.col -| abs_offset) };
-    }
+    const point = buffer.getPoint(index);
+
+    const col = blk: {
+        if (col_offset > 0) {
+            const row_size = buffer.countCodePointsAtRow(point.row);
+            break :blk min(row_size, point.col +| abs_offset);
+        } else {
+            break :blk max(1, point.col -| abs_offset);
+        }
+    };
+
+    return buffer.getIndex(point.setCol(col));
 }
 
-pub fn moveRelativeRow(buffer: *Buffer, rc: Point, row_offset: i64) Point {
-    if (row_offset == 0) return rc;
+// TODO: Faster move code
+pub fn moveRelativeRow(buffer: *Buffer, index: Index, row_offset: i64) Index {
+    if (row_offset == 0) return index;
 
+    const point = buffer.getPoint(index);
+    const roi = buffer.rowOfIndex(index);
     const abs_offset = std.math.absCast(row_offset);
-    var row = if (row_offset > 0) rc.row +| abs_offset else rc.row -| abs_offset;
-    row = min(buffer.lineCount(), max(1, row));
+    var row = if (row_offset > 0) roi.row +| abs_offset else roi.row -| abs_offset;
+    row = utils.bound(row, 1, buffer.lineCount());
 
-    const row_size = buffer.countCodePointsAtRow(row);
-    return .{
-        .row = row,
-        .col = min(rc.col, row_size),
-    };
+    return buffer.getIndex(.{ .row = row, .col = point.col });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // History
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn pushHistory(buffer: *Buffer, cursor_index: u64, move_to_new_node: bool) !void {
+pub fn pushHistory(buffer: *Buffer, cursor_index: Index, move_to_new_node: bool) !void {
     var new_node = try buffer.allocator.create(HistoryTree.Node);
     errdefer buffer.allocator.destroy(new_node);
     const slice = try buffer.lines.tree.treeToPieceInfoArray(buffer.allocator);
@@ -902,7 +884,7 @@ pub fn pushHistory(buffer: *Buffer, cursor_index: u64, move_to_new_node: bool) !
     buffer.metadata.history_dirty = false;
 }
 
-pub fn undo(buffer: *Buffer, cursor_index: u64) !u64 {
+pub fn undo(buffer: *Buffer, cursor_index: Index) !u64 {
     if (buffer.history_node == null) return cursor_index;
 
     if (buffer.metadata.history_dirty)
@@ -919,7 +901,7 @@ pub fn undo(buffer: *Buffer, cursor_index: u64) !u64 {
     return node.data.cursor_index;
 }
 
-pub fn redo(buffer: *Buffer, index: u64) !?u64 {
+pub fn redo(buffer: *Buffer, index: Index) !?Index {
     if (buffer.history_node == null) return null;
     var node = buffer.history_node.?.getChild(index) orelse return null;
 
@@ -935,7 +917,7 @@ pub fn redo(buffer: *Buffer, index: u64) !?u64 {
 ////////////////////////////////////////////////////////////////////////////////
 // Markers
 ////////////////////////////////////////////////////////////////////////////////
-pub fn putMarker(buffer: *Buffer, mark: Point) !u32 {
+pub fn putMarker(buffer: *Buffer, mark: Index) !u32 {
     while (true) {
         const key = std.crypto.random.int(u32);
         if (buffer.marks.getKey(key) == null) {
@@ -947,6 +929,16 @@ pub fn putMarker(buffer: *Buffer, mark: Point) !u32 {
 
 pub fn removeMarker(buffer: *Buffer, key: u32) void {
     _ = buffer.marks.swapRemove(key);
+}
+
+fn updateIndexInsert(to_update: Index, change_index: Index, insertion_len: u64) Index {
+    if (change_index > to_update) return to_update; // no need to update
+    return to_update +| insertion_len;
+}
+
+fn updateIndexDelete(to_update: Index, change_index: Index, deletion_len: u64) Index {
+    if (change_index > to_update) return to_update; // no need to update
+    return to_update -| deletion_len;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

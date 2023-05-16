@@ -165,23 +165,25 @@ fn displayLineNumber(buffer_window_node: *BufferWindowNode, child_flags: imgui.W
     _ = imgui.beginChild("displayLineNumber", .{ .w = w, .flags = child_flags });
     defer imgui.endChild();
 
-    const cursor = buffer_window.cursor();
-    const on_screen_cursor_row = if (cursor) |c| buffer_window.relativeBufferRowFromAbsolute(c.row) else null;
+    blk: {
+        const buffer = getBuffer(buffer_window.bhandle) orelse break :blk;
+        const cursor = buffer_window.cursor() orelse break :blk;
+        const cursor_row = buffer.rowOfIndex(cursor).row;
+        const on_screen_cursor_row = buffer_window.relativeBufferRowFromAbsolute(cursor_row);
 
-    switch (buffer_window.options.line_number) {
-        .none => {},
-        .relative => {
-            if (on_screen_cursor_row) |cr| {
-                var r = cr - 1;
+        switch (buffer_window.options.line_number) {
+            .none => {},
+            .relative => {
+                var r = on_screen_cursor_row - 1;
                 while (r > 0) : (r -= 1) imgui.text("{}", .{r});
-                imgui.text("{}", .{cursor.?.row});
+                imgui.text("{}", .{cursor_row});
                 for (1..buffer_window.lastVisibleRow()) |row| imgui.text("{}", .{row});
-            }
-        },
-        .absolute => {
-            for (start_row..end_row + 1) |row|
-                imgui.text("{}", .{row});
-        },
+            },
+            .absolute => {
+                for (start_row..end_row + 1) |row|
+                    imgui.text("{}", .{row});
+            },
+        }
     }
 
     return imgui.isWindowFocused(.{});
@@ -204,7 +206,6 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
     var line_h = imgui.getTextLineHeightWithSpacing();
 
     const buffer_cursor = buffer_window.cursor();
-    const buffer_cursor_index = if (buffer_cursor) |c| buffer.getIndex(c) else null;
 
     _ = imgui.beginChild("bufferText", .{ .border = false, .flags = child_flags });
     defer imgui.endChild();
@@ -246,7 +247,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         // render selection
         render_selection: {
             const cursor = buffer_cursor orelse break :render_selection;
-            const selection = buffer.selection.get(cursor);
+            const selection = buffer.selection.get(buffer.getPoint(cursor));
             if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
                 row >= selection.start.row and row <= selection.end.row)
             {
@@ -261,8 +262,11 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
                     .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
                 };
 
-                const size = textLineSize(buffer, line, row, start_col, end_col);
-                const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 1, start_col)[0];
+                const start_index = buffer.getColIndex(.{ .row = row, .col = start_col });
+                const end_index = buffer.getColIndex(.{ .row = row, .col = end_col });
+
+                const size = textLineSize(buffer, line, row, start_index, end_index);
+                const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 0, start_index)[0];
 
                 const x = abs_x + x_offset;
                 dl.addRectFilled(.{
@@ -276,16 +280,15 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         // render cursor
         render_cursor: {
             const cursor = buffer_cursor orelse break :render_cursor;
-            const cursor_index = buffer_cursor_index.?;
 
-            if (row == cursor.row and buffer_window_node == core.focusedBW()) {
-                const offset = if (cursor.col == 1)
+            if (row == buffer.rowOfIndex(cursor).row and buffer_window_node == core.focusedBW()) {
+                const offset = if (cursor == buffer.indexOfFirstByteAtRow(row))
                     [2]f32{ 0, 0 }
                 else
-                    textLineSize(buffer, line, row, 1, cursor.col);
+                    textLineSize(buffer, line, row, 0, cursor - buffer.indexOfFirstByteAtRow(row));
 
                 const size = blk: {
-                    var slice = buffer.codePointSliceAt(cursor_index);
+                    var slice = buffer.codePointSliceAt(cursor);
                     if (slice[0] == '\n') slice = "m"; // newline char doesn't have a size so give it one
                     break :blk imgui.calcTextSize(slice, .{});
                 };
@@ -333,10 +336,11 @@ pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
     return array_buf[0..i];
 }
 
-pub fn textLineSize(buffer: *Buffer, line: []const u8, row: u64, col_start: u64, col_end: u64) [2]f32 {
-    const line_start = buffer.indexOfFirstByteAtRow(row);
-    const start = buffer.getIndex(.{ .row = row, .col = col_start }) - line_start;
-    const end = buffer.getIndex(.{ .row = row, .col = col_end }) - line_start;
+pub fn textLineSize(buffer: *Buffer, line: []const u8, row: u64, index_start: u64, index_end: u64) [2]f32 {
+    _ = row;
+    _ = buffer;
+    const start = index_start;
+    const end = index_end;
 
     const s = imgui.calcTextSize(line[start..end], .{});
     var size: [2]f32 = .{ 0, 0 };
