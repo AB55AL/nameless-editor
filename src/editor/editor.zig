@@ -67,9 +67,24 @@ pub const BufferHandle = struct { handle: u32 };
 // Section 2: Functions that do all the work
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+// Globlas getters
+
 /// A pointer to the global variables
 pub fn gs() *Globals {
     return globals.globals.?;
+}
+
+pub fn getHooks() *hooks.EditorHooks {
+    return &gs().hooks;
+}
+
+pub fn getTS() *TreeSitterData {
+    return &gs().tree_sitter;
+}
+
+pub fn getTSLang(lang: []const u8) ?*ts.TSLanguage {
+    return gs().ts_langs.get(lang);
 }
 
 pub fn generateHandle() BufferHandle {
@@ -405,14 +420,6 @@ pub const tree_sitter = struct {
         }
     }
 };
-
-pub fn getTS() *TreeSitterData {
-    return &gs().tree_sitter;
-}
-
-pub fn getTSLang(lang: []const u8) ?*ts.TSLanguage {
-    return gs().ts_langs.get(lang);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Registers
