@@ -414,6 +414,17 @@ pub fn getTSLang(lang: []const u8) ?*ts.TSLanguage {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Registers
+pub fn getFromReg(register: []const u8) ?[]const u8 {
+    return gs().registers.getFrom(register);
+}
+
+pub fn copyToReg(register: []const u8, content: []const u8) !void {
+    const reg = try stringStorageGetOrPut(register);
+    try gs().registers.copyTo(reg, content);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Section 3: Convenience functions that wrap functions in Section 2
 ////////////////////////////////////////////////////////////////////////////////
 pub fn focusedBuffer() ?*Buffer {

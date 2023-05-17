@@ -13,28 +13,20 @@ pub fn init(allocator: std.mem.Allocator) Registers {
 
 pub fn deinit(self: *Registers) void {
     var iter = self.data.iterator();
-    while (iter.next()) |kv| {
-        self.allocator.free(kv.key_ptr.*);
+    // The registers takes no ownership of the key string
+    while (iter.next()) |kv|
         self.allocator.free(kv.value_ptr.*);
-    }
 
     self.data.deinit(self.allocator);
 }
 
 pub fn copyTo(self: *Registers, register: []const u8, content: []const u8) !void {
-    var value = self.data.get(register);
+    const new_content = try self.allocator.dupe(u8, content);
+    errdefer self.allocator.free(new_content);
+    var gop = try self.data.getOrPut(self.allocator, register);
 
-    // Remove the old key/value to avoid problems with pointers
-    if (value) |v| {
-        var key = self.data.getKey(register).?;
-        _ = self.data.orderedRemove(register);
-        self.allocator.free(v);
-        self.allocator.free(key);
-    }
-
-    var reg = try utils.newSlice(self.allocator, register);
-    var string = try utils.newSlice(self.allocator, content);
-    try self.data.put(self.allocator, reg, string);
+    if (gop.found_existing) self.allocator.free(gop.value_ptr.*);
+    gop.value_ptr.* = new_content;
 }
 
 pub fn getFrom(self: *Registers, register: []const u8) ?[]const u8 {
