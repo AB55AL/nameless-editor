@@ -40,12 +40,12 @@ const generated_dir = thisDir() ++ "/generated";
 const ts_parsers_dir = generated_dir ++ "/tree-sitter-parsers";
 const src_path = thisDir() ++ "/src";
 
-fn thisDir() []const u8 {
-    return std.fs.path.dirname(@src().file) orelse ".";
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }
 
 fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Module {
-    return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" }, .dependencies = deps });
+    return bob.createModule(.{ .source_file = .{ .path = thisDir() ++ "/src/core.zig" }, .dependencies = deps });
 }
 
 var modules: std.StringArrayHashMap(*Module) = undefined;
@@ -67,7 +67,7 @@ pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module
     modules = std.StringArrayHashMap(*Module).init(bob.allocator);
 
     var imgui = zgui.package(bob, target, optimize, .{ .options = .{ .backend = .glfw_opengl3 } });
-    modules.put("mecha", bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/libs/mecha/mecha.zig" } })) catch unreachable;
+    modules.put("mecha", bob.createModule(.{ .source_file = .{ .path = thisDir() ++ "/libs/mecha/mecha.zig" } })) catch unreachable;
     modules.put("glfw", glfw.module(bob)) catch unreachable;
     modules.put("core", coreModule(bob, &.{.{ .name = "mecha", .module = modules.get("mecha").? }})) catch unreachable;
     modules.put("input_layer", bob.createModule(.{ .source_file = .{ .path = input_layer_root_path } })) catch unreachable;
@@ -77,7 +77,7 @@ pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module
 
     const exe = bob.addExecutable(.{
         .name = "main",
-        .root_source_file = .{ .path = comptime thisDir() ++ "/src/main.zig" },
+        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
         .optimize = optimize,
     });
     exe.linkLibC();
@@ -129,10 +129,10 @@ pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module
 
     const tests = bob.addTest(.{
         .name = "buffer test",
-        .root_source_file = .{ .path = comptime thisDir() ++ "/tests/buffer.zig" },
+        .root_source_file = .{ .path = thisDir() ++ "/tests/buffer.zig" },
         .optimize = optimize,
     });
-    tests.main_pkg_path = comptime thisDir();
+    tests.main_pkg_path = thisDir();
 
     const test_step = bob.step("test", "Run tests");
     test_step.dependOn(&tests.step);
