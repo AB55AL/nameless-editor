@@ -32,9 +32,6 @@ pub fn notify(comptime title_fmt: []const u8, title_values: anytype, comptime me
     editor_api.gs().notifications.add(title_fmt, title_values, message_fmt, message_values, time) catch |err| std.debug.print("{!}\n", .{err});
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// BufferDisplayer
-
 pub fn putBufferDisplayer(file_type: []const u8, interface: BufferDisplayer) !void {
     const ft = try editor_api.stringStorageGetOrPut(file_type);
     try editor_api.gs().buffer_displayers.put(editor_api.gs().allocator, ft, interface);

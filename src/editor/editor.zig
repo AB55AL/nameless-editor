@@ -21,18 +21,8 @@ const ui_api = @import("../ui/ui.zig");
 
 const utils = @import("../utils.zig");
 
-// var gs = globals;
-
 ////////////////////////////////////////////////////////////////////////////////
-// The File is divides into 3 sections.
-// Section 1: Error and Struct definitions
-// Section 2: Functions that do all the work
-// Section 3: Convenience functions that wrap functions in Section 2
-////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////
-// Section 1: Error and Struct definitions
-////////////////////////////////////////////////////////////////////////////////
+// Section: Error and Struct definitions
 
 pub const KeyQueue = std.BoundedArray(input.Key, 1024);
 pub const CharQueue = std.BoundedArray(u21, 1024);
@@ -64,11 +54,7 @@ pub const KillOptions = struct { force_kill: bool = false };
 pub const BufferHandle = struct { handle: u32 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Section 2: Functions that do all the work
-////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////
-// Globlas getters
+// Section: Globlas getters
 
 /// A pointer to the global variables
 pub fn gs() *Globals {
@@ -96,6 +82,9 @@ pub fn generateHandle() BufferHandle {
     static.handle += 1;
     return .{ .handle = h };
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Section: Buffer and BufferWindow related functions
 
 pub fn createBW(bhandle: BufferHandle, first_visiable_row: u64, dir: Dir, percent: f32) !BufferWindow {
     const cursor_key = try (getBuffer(bhandle).?).putMarker(0);
@@ -278,8 +267,26 @@ pub fn popPreviousBW() ?*BufferWindowNode {
     return null;
 }
 
+pub fn focusedBuffer() ?*Buffer {
+    return getBuffer(focusedBufferHandle() orelse return null);
+}
+
+pub fn focusedBufferAndHandle() ?struct { bhandle: BufferHandle, buffer: *Buffer } {
+    var bhandle = focusedBufferHandle() orelse return null;
+    return .{ .bhandle = bhandle, .buffer = getBuffer(bhandle) orelse return null };
+}
+
+pub fn focusedBufferAndBW() ?struct { buffer: *Buffer, bw: *BufferWindowNode } {
+    var bw = focusedBW() orelse return null;
+    return .{ .bw = bw, .buffer = getBuffer(bw.data.bhandle) orelse return null };
+}
+
+pub fn focusedBufferHandle() ?BufferHandle {
+    return (focusedBW() orelse return null).data.bhandle;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
-// CLI functions
+// Section: CLI functions
 
 pub fn cliBuffer() *Buffer {
     return getBuffer(cliBW().data.bhandle).?;
@@ -330,7 +337,7 @@ pub fn addCommand(command: []const u8, comptime fn_ptr: anytype, description: []
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// String Storage
+// Section: String Storage
 
 pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
     const allocator = gs().string_storage.allocator;
@@ -340,7 +347,7 @@ pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Tree Sitter
+// Section: Tree Sitter
 
 /// A wrapper around the global TreeSitterData. This wrapper ensures that all key and value string are valid at all times.
 pub const tree_sitter = struct {
@@ -422,7 +429,7 @@ pub const tree_sitter = struct {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Registers
+// Section: Registers
 pub fn getFromReg(register: []const u8) ?[]const u8 {
     return gs().registers.getFrom(register);
 }
@@ -430,25 +437,4 @@ pub fn getFromReg(register: []const u8) ?[]const u8 {
 pub fn copyToReg(register: []const u8, content: []const u8) !void {
     const reg = try stringStorageGetOrPut(register);
     try gs().registers.copyTo(reg, content);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Section 3: Convenience functions that wrap functions in Section 2
-////////////////////////////////////////////////////////////////////////////////
-pub fn focusedBuffer() ?*Buffer {
-    return getBuffer(focusedBufferHandle() orelse return null);
-}
-
-pub fn focusedBufferAndHandle() ?struct { bhandle: BufferHandle, buffer: *Buffer } {
-    var bhandle = focusedBufferHandle() orelse return null;
-    return .{ .bhandle = bhandle, .buffer = getBuffer(bhandle) orelse return null };
-}
-
-pub fn focusedBufferAndBW() ?struct { buffer: *Buffer, bw: *BufferWindowNode } {
-    var bw = focusedBW() orelse return null;
-    return .{ .bw = bw, .buffer = getBuffer(bw.data.bhandle) orelse return null };
-}
-
-pub fn focusedBufferHandle() ?BufferHandle {
-    return (focusedBW() orelse return null).data.bhandle;
 }
