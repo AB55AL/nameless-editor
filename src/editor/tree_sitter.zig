@@ -136,10 +136,10 @@ pub const TreeSitterData = struct {
         tree_sitter: *TreeSitterData,
 
         pub fn interface(self: *Self) core.BufferDisplayer {
-            return .{ .ptr = @ptrCast(*anyopaque, @alignCast(1, self)), .vtable = &.{ .info = info } };
+            return .{ .ptr = @ptrCast(*anyopaque, @alignCast(1, self)), .get_fn = get };
         }
 
-        pub fn info(ptr: *anyopaque, arena: std.mem.Allocator, buffer_window: *core.BufferWindow, buffer: *core.Buffer, window_height: f32) std.mem.Allocator.Error![]core.BufferDisplayer.RowInfo {
+        pub fn get(ptr: *anyopaque, arena: std.mem.Allocator, buffer_window: *core.BufferWindow, buffer: *core.Buffer, window_height: f32) std.mem.Allocator.Error![]core.BufferDisplayer.RowInfo {
             var self = @ptrCast(*Self, @alignCast(@alignOf(*Self), ptr));
             _ = window_height;
 

@@ -212,7 +212,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
 
     var displayer = gs.buffer_displayers.get(buffer.metadata.file_type);
     var display_info: []RowInfo = if (displayer) |dis|
-        try dis.info(arena, buffer_window, buffer, 0)
+        try dis.get(arena, buffer_window, buffer, 0)
     else
         &.{};
 

@@ -6,26 +6,14 @@ const BufferWindow = editor_api.BufferWindow;
 
 pub const BufferDisplayer = @This();
 
+pub const GetType = fn (ptr: *anyopaque, allocator: std.mem.Allocator, buffer_window: *BufferWindow, buffer: *Buffer, window_height: f32) std.mem.Allocator.Error![]RowInfo;
+
 ptr: *anyopaque,
-vtable: *const VTable,
+get_fn: *const GetType,
 
-// pub fn init(self: BufferDisplayer, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
-// try self.vtable.init(allocator);
-// }
-
-pub fn info(self: BufferDisplayer, allocator: std.mem.Allocator, buffer_window: *BufferWindow, buffer: *Buffer, window_height: f32) std.mem.Allocator.Error![]RowInfo {
-    return self.vtable.info(self.ptr, allocator, buffer_window, buffer, window_height);
+pub fn get(self: BufferDisplayer, allocator: std.mem.Allocator, buffer_window: *BufferWindow, buffer: *Buffer, window_height: f32) std.mem.Allocator.Error![]RowInfo {
+    return self.get_fn(self.ptr, allocator, buffer_window, buffer, window_height);
 }
-
-// pub fn deinit(self: BufferDisplayer, allocator: std.mem.Allocator) void {
-//     self.vtable.deinit(allocator);
-// }
-
-const VTable = struct {
-    // init: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) std.mem.Allocator.Error!void,
-    info: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator, buffer_window: *BufferWindow, buffer: *Buffer, window_height: f32) std.mem.Allocator.Error![]RowInfo,
-    // deinit: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) void,
-};
 
 pub const ColorRange = struct {
     pub fn lessThan(comptime context: type, a: BufferDisplayer.ColorRange, b: BufferDisplayer.ColorRange) bool {
