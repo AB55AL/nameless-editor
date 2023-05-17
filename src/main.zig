@@ -49,8 +49,6 @@ pub fn main() !void {
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
 
-    _ = try core.openBufferFP("src/main.zig", .{});
-
     var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
         defer {
