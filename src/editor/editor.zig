@@ -214,7 +214,7 @@ pub fn newFocusedBW(bhandle: BufferHandle, options: BufferWindowOptions) !void {
 
     var new_node = try gs().allocator.create(BufferWindowNode);
     new_node.* = .{
-        .data = try createBW(bhandle, options.first_visiable_row, options.dir orelse .north, options.percent),
+        .data = try createBW(bhandle, options.first_visiable_row, options.dir orelse .up, options.percent),
     };
 
     if (focusedBW()) |fbw| {

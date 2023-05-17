@@ -42,25 +42,25 @@ fn open(file_path: []const u8) void {
 }
 fn openEast(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = editor.openBufferFP(file_path, .{ .dir = .east }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .right }) catch |err| {
         print("openRight command: err={}\n", .{err});
     };
 }
 fn openWest(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = editor.openBufferFP(file_path, .{ .dir = .west }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .left }) catch |err| {
         print("openLeft command: err={}\n", .{err});
     };
 }
 fn openNorth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = editor.openBufferFP(file_path, .{ .dir = .north }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .up }) catch |err| {
         print("openAbove command: err={}\n", .{err});
     };
 }
 fn openSouth(file_path: []const u8) void {
     if (file_path.len == 0) return;
-    _ = editor.openBufferFP(file_path, .{ .dir = .south }) catch |err| {
+    _ = editor.openBufferFP(file_path, .{ .dir = .down }) catch |err| {
         print("openBelow command: err={}\n", .{err});
     };
 }

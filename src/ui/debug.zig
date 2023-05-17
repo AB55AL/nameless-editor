@@ -120,12 +120,12 @@ pub fn inspectBufferWindows(arena: std.mem.Allocator) void {
 
         // zig fmt: off
         imgui.text("Dir:", .{}); imgui.sameLine(.{});
-        const north = imgui.radioButton(tmpStringZ("North##{}",.{i}), .{ .active = bw.dir == .north }); imgui.sameLine(.{});
-        const east = imgui.radioButton(tmpStringZ("East##{}",.{i}), .{ .active = bw.dir == .east }); imgui.sameLine(.{});
-        const south = imgui.radioButton(tmpStringZ("South##{}",.{i}), .{ .active = bw.dir == .south }); imgui.sameLine(.{});
-        const west = imgui.radioButton(tmpStringZ("West##{}",.{i}), .{ .active = bw.dir == .west });
+        const up = imgui.radioButton(tmpStringZ("Up##{}",.{i}), .{ .active = bw.dir == .up }); imgui.sameLine(.{});
+        const right = imgui.radioButton(tmpStringZ("Right##{}",.{i}), .{ .active = bw.dir == .right }); imgui.sameLine(.{});
+        const down = imgui.radioButton(tmpStringZ("Down##{}",.{i}), .{ .active = bw.dir == .down }); imgui.sameLine(.{});
+        const left = imgui.radioButton(tmpStringZ("Left##{}",.{i}), .{ .active = bw.dir == .left });
 
-        if (north) bw.dir = .north else if (east) bw.dir = .east else if (south) bw.dir = .south else if (west) bw.dir = .west;
+        if (up) bw.dir = .up else if (right) bw.dir = .right else if (down) bw.dir = .down else if (left) bw.dir = .left;
         // zig fmt: on
 
         imgui.text("Lines from {} to {}", .{ bw.first_visiable_row, bw.lastVisibleRow() });

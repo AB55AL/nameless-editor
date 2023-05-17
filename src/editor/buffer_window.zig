@@ -88,15 +88,10 @@ pub const BufferWindow = struct {
         thickness: f32 = 1.0,
     };
 
-    pub const Dir = enum {
-        north,
-        east,
-        south,
-        west,
-    };
+    pub const Dir = enum { up, right, down, left };
 
     percent_of_parent: f32 = 1,
-    dir: Dir = .north,
+    dir: Dir = .up,
 
     bhandle: BufferHandle,
     first_visiable_row: u64 = 1,
@@ -171,12 +166,12 @@ pub const BufferWindow = struct {
         var child = buffer_window.first_child;
         while (child) |c| {
             var child_size: Size = switch (c.data.dir) {
-                .north, .south => Size{ .w = rect.w, .h = rect.h * c.data.percent_of_parent },
-                .east, .west => Size{ .w = rect.w * c.data.percent_of_parent, .h = rect.h },
+                .up, .down => Size{ .w = rect.w, .h = rect.h * c.data.percent_of_parent },
+                .right, .left => Size{ .w = rect.w * c.data.percent_of_parent, .h = rect.h },
             };
 
             switch (c.data.dir) {
-                .north => {
+                .up => {
                     c.data.rect = .{
                         .x = rect.x,
                         .y = rect.y,
@@ -187,7 +182,7 @@ pub const BufferWindow = struct {
                     rect.y += child_size.h;
                     rect.h -= child_size.h;
                 },
-                .east => {
+                .right => {
                     rect.w -= child_size.w;
                     c.data.rect = .{
                         .x = rect.x + rect.w,
@@ -196,7 +191,7 @@ pub const BufferWindow = struct {
                         .h = child_size.h,
                     };
                 },
-                .south => {
+                .down => {
                     rect.h -= child_size.h;
                     c.data.rect = .{
                         .x = rect.x,
@@ -205,7 +200,7 @@ pub const BufferWindow = struct {
                         .h = child_size.h,
                     };
                 },
-                .west => {
+                .left => {
                     c.data.rect = .{
                         .x = rect.x,
                         .y = rect.y,
