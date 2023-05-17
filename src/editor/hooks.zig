@@ -38,8 +38,9 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
         const StructField = std.builtin.Type.StructField;
         var fields: []const StructField = &[_]StructField{};
 
-        for (std.meta.fields(KindEnum), 0..) |field, index| {
-            const IType = interfaces[index].type;
+        var ints: Interfaces = undefined;
+        for (std.meta.fields(KindEnum)) |field| {
+            const IType = @TypeOf(@field(ints, field.name));
             const Data = ArrayListUnmanaged(IType);
             fields = fields ++ &[_]StructField{.{
                 .name = field.name,
@@ -162,7 +163,7 @@ pub const EditorInterfaces = struct {
     };
 };
 const Kind = enum {
-    buffer_created,
     after_insert,
+    buffer_created,
     after_delete,
 };
