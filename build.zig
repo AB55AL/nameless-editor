@@ -48,19 +48,32 @@ fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Module {
     return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" }, .dependencies = deps });
 }
 
+var modules: std.StringArrayHashMap(*Module) = undefined;
+
+fn dependencyPut(module: *Module, modules_names: []const []const u8) void {
+    for (modules_names) |name|
+        module.dependencies.put(name, modules.get(name).?) catch unreachable;
+}
+
+fn addModule(cs: *Builder.Step.Compile, modules_names: []const []const u8) void {
+    for (modules_names) |name|
+        cs.addModule(name, modules.get(name).?);
+}
+
 pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module: ?*Module, plugins_modules: ?[]const *Module, ts_parsers: []const TSParserRepo) void {
     const target = bob.standardTargetOptions(.{});
     const optimize = bob.standardOptimizeOption(.{});
 
-    var mecha_module = bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/libs/mecha/mecha.zig" } });
-    var glfw_module = glfw.module(bob);
-    var core_module = coreModule(bob, &.{.{ .name = "mecha", .module = mecha_module }});
-    var input_layer_module = bob.createModule(.{ .source_file = .{ .path = input_layer_root_path } });
+    modules = std.StringArrayHashMap(*Module).init(bob.allocator);
 
     var imgui = zgui.package(bob, target, optimize, .{ .options = .{ .backend = .glfw_opengl3 } });
+    modules.put("mecha", bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/libs/mecha/mecha.zig" } })) catch unreachable;
+    modules.put("glfw", glfw.module(bob)) catch unreachable;
+    modules.put("core", coreModule(bob, &.{.{ .name = "mecha", .module = modules.get("mecha").? }})) catch unreachable;
+    modules.put("input_layer", bob.createModule(.{ .source_file = .{ .path = input_layer_root_path } })) catch unreachable;
+    modules.put("imgui", imgui.zgui) catch unreachable;
 
-    input_layer_module.dependencies.putNoClobber("core", core_module) catch unreachable;
-    input_layer_module.dependencies.putNoClobber("imgui", imgui.zgui) catch unreachable;
+    dependencyPut(modules.get("input_layer").?, &.{ "core", "imgui" });
 
     const exe = bob.addExecutable(.{
         .name = "main",
@@ -69,20 +82,15 @@ pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module
     });
     exe.linkLibC();
 
-    exe.addModule("mecha", mecha_module);
-    exe.addModule("core", core_module);
-    exe.addModule("glfw", glfw_module);
-    exe.addModule("input_layer", input_layer_module);
+    addModule(exe, &.{ "mecha", "core", "glfw", "input_layer" });
+
     if (user_module) |um| {
-        um.dependencies.putNoClobber("core", core_module) catch unreachable;
-        um.dependencies.putNoClobber("imgui", imgui.zgui) catch unreachable;
+        dependencyPut(um, &.{ "core", "imgui" });
         exe.addModule("user", um);
 
         if (plugins_modules != null) {
-            for (plugins_modules.?) |mod| {
-                mod.dependencies.put("core", core_module) catch unreachable;
-                mod.dependencies.put("imgui", imgui.zgui) catch unreachable;
-            }
+            for (plugins_modules.?) |mod|
+                dependencyPut(mod, &.{ "core", "imgui" });
         }
     }
 
