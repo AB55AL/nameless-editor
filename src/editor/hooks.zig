@@ -29,6 +29,9 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
     for (interfaces) |i| {
         if (!@hasDecl(i.type, "call"))
             @compileError("All interface must have a call function but '" ++ i.name ++ "' does not");
+
+        if (!@hasField(i.type, "call_fn"))
+            @compileError("All interface must have a call_fn member but '" ++ i.name ++ "' does not");
     }
 
     const GeneratedSets = blk: {
@@ -108,7 +111,7 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
         pub fn createInterface(comptime kind: KindEnum, ptr: anytype, call: anytype) interfaceType(kind) {
             return interfaceType(kind){
                 .ptr = @ptrCast(*anyopaque, @alignCast(1, ptr)),
-                .vtable = &.{ .call = call },
+                .call_fn = call,
             };
         }
 
@@ -144,23 +147,17 @@ pub const EditorInterfaces = struct {
 
     const Change = struct {
         ptr: *anyopaque,
-        vtable: *const VTable,
-        const VTable = struct {
-            call: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void,
-        };
+        call_fn: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void,
         pub fn call(self: Change, buffer: *Buffer, bhandle: ?BufferHandle, change: Buffer.Change) void {
-            self.vtable.call(self.ptr, buffer, bhandle, change);
+            self.call_fn(self.ptr, buffer, bhandle, change);
         }
     };
 
     const BufferCreated = struct {
         ptr: *anyopaque,
-        vtable: *const VTable,
-        const VTable = struct {
-            call: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: BufferHandle) void,
-        };
+        call_fn: *const fn (ptr: *anyopaque, buffer: *Buffer, bhandle: BufferHandle) void,
         pub fn call(self: BufferCreated, buffer: *Buffer, bhandle: BufferHandle) void {
-            self.vtable.call(self.ptr, buffer, bhandle);
+            self.call_fn(self.ptr, buffer, bhandle);
         }
     };
 };
