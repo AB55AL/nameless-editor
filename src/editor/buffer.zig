@@ -61,8 +61,6 @@ pub const PointRange = struct {
 pub const Index = u64;
 
 pub const Point = struct {
-    pub const last_col = std.math.maxInt(u64);
-
     row: u64 = 1,
     col: u64 = 1,
 
@@ -145,7 +143,7 @@ pub const Selection = struct {
 
         return switch (selection.kind) {
             .regular, .block => .{ .start = start, .end = end },
-            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row, .col = Point.last_col } },
+            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row + 1, .col = 1 } },
         };
     }
 
@@ -496,31 +494,25 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
     assert(col > 0);
     var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
-    if (rc.col == Point.last_col) {
-        return buffer.indexOfLastByteAtRow(row);
-    } else {
-        var i: u64 = 0;
-        var char_count: u64 = 0;
-        // const end = buffer.indexOfLastByteAtRow(row);
-        // _ = end;
+    var i: u64 = 0;
+    var char_count: u64 = 0;
 
-        var iter = BufferIterator.initLines(buffer, row, row);
-        outer: while (iter.next()) |string| {
-            var j: u64 = 0;
-            while (j < string.len) {
-                var byte = string[j];
-                var len = unicode.utf8ByteSequenceLength(byte) catch 1;
-                char_count += 1;
+    var iter = BufferIterator.initLines(buffer, row, row);
+    outer: while (iter.next()) |string| {
+        var j: u64 = 0;
+        while (j < string.len) {
+            var byte = string[j];
+            var len = unicode.utf8ByteSequenceLength(byte) catch 1;
+            char_count += 1;
 
-                if (char_count == rc.col) break :outer;
+            if (char_count == rc.col) break :outer;
 
-                j += len;
-                i += len;
-            }
+            j += len;
+            i += len;
         }
-
-        return index + i;
     }
+
+    return index + i;
 }
 
 pub fn indexOfFirstByteAtRow(buffer: *Buffer, arg_row: u64) u64 {
@@ -616,9 +608,7 @@ pub fn pointRangeToRange(buffer: *Buffer, range: PointRange) Range {
     const end = range.start.max(range.end);
 
     const start_index = buffer.getIndex(start);
-    var end_index = buffer.getIndex(end);
-    // offset end_index so that it includes the whole utf8 sequence
-    end_index += buffer.codePointSliceAt(end_index).len;
+    const end_index = buffer.getIndex(end);
 
     return .{ .start = start_index, .end = end_index };
 }

@@ -251,22 +251,21 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
             if (buffer.selection.selected() and buffer_window_node == core.focusedBW() and
                 row >= selection.start.row and row <= selection.end.row)
             {
-                const start_col = switch (buffer.selection.kind) {
-                    .line => 1,
-                    .block => selection.start.col,
-                    .regular => if (row > selection.start.row) 1 else selection.start.col,
+                const relative_line_end = buffer.indexOfLastByteAtRow(row) - buffer.indexOfFirstByteAtRow(row) + 1;
+                // indices are relative to the begging of the line
+                const start_index = switch (buffer.selection.kind) {
+                    .line => 0,
+                    .block => buffer.getColIndex(selection.start),
+                    .regular => if (row > selection.start.row) 0 else buffer.getColIndex(selection.start),
                 };
-                const end_col = switch (buffer.selection.kind) {
-                    .line => Buffer.Point.last_col,
-                    .block => selection.end.col,
-                    .regular => if (row < selection.end.row) Buffer.Point.last_col else selection.end.col,
+                const end_index = switch (buffer.selection.kind) {
+                    .line => relative_line_end,
+                    .block => buffer.getColIndex(selection.end),
+                    .regular => if (row < selection.end.row) relative_line_end else buffer.getColIndex(selection.end),
                 };
-
-                const start_index = buffer.getColIndex(.{ .row = row, .col = start_col });
-                const end_index = buffer.getColIndex(.{ .row = row, .col = end_col });
 
                 const size = textLineSize(buffer, line, row, start_index, end_index);
-                const x_offset = if (start_col == 1) 0 else textLineSize(buffer, line, row, 0, start_index)[0];
+                const x_offset = if (start_index == 0) 0 else textLineSize(buffer, line, row, 0, start_index)[0];
 
                 const x = abs_x + x_offset;
                 dl.addRectFilled(.{
