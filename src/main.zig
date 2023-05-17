@@ -29,9 +29,6 @@ pub fn main() !void {
     defer gs.deinit();
     core.globals.globals = &gs;
 
-    try input_layer.init();
-    defer input_layer.deinit();
-
     _ = glfw.init(.{});
     defer glfw.terminate();
     var window = glfw.Window.create(800, 800, "Thabit", null, null, .{}).?;
@@ -46,6 +43,9 @@ pub fn main() !void {
 
     imgui.backend.init(window.handle, true, "#version 330");
     defer imgui.backend.deinit();
+
+    try input_layer.init();
+    defer input_layer.deinit();
 
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
