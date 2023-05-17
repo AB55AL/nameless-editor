@@ -44,11 +44,11 @@ fn thisDir() []const u8 {
     return std.fs.path.dirname(@src().file) orelse ".";
 }
 
-pub fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Module {
+fn coreModule(bob: *Builder, deps: []const std.build.ModuleDependency) *Module {
     return bob.createModule(.{ .source_file = .{ .path = comptime thisDir() ++ "/src/core.zig" }, .dependencies = deps });
 }
 
-pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module: ?*Module, ts_parsers: []const TSParserRepo) void {
+pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module: ?*Module, plugins_modules: ?[]const *Module, ts_parsers: []const TSParserRepo) void {
     const target = bob.standardTargetOptions(.{});
     const optimize = bob.standardOptimizeOption(.{});
 
@@ -77,6 +77,13 @@ pub fn buildEditor(bob: *Builder, input_layer_root_path: []const u8, user_module
         um.dependencies.putNoClobber("core", core_module) catch unreachable;
         um.dependencies.putNoClobber("imgui", imgui.zgui) catch unreachable;
         exe.addModule("user", um);
+
+        if (plugins_modules != null) {
+            for (plugins_modules.?) |mod| {
+                mod.dependencies.put("core", core_module) catch unreachable;
+                mod.dependencies.put("imgui", imgui.zgui) catch unreachable;
+            }
+        }
     }
 
     var options = bob.addOptions();
@@ -172,5 +179,5 @@ fn generateTSLanguageFile(bob: *Builder, ts_parsers: []const TSParserRepo) !void
 }
 
 pub fn build(bob: *Builder) void {
-    buildEditor(bob, vim_like_input_layer_root_path, null, &defualt_ts_repos);
+    buildEditor(bob, vim_like_input_layer_root_path, null, null, &defualt_ts_repos);
 }
