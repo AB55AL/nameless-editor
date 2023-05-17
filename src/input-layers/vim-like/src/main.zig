@@ -29,7 +29,7 @@ pub var arena_allocator: std.mem.Allocator = undefined;
 pub var log_file: fs.File = undefined;
 
 pub fn keyInput(key: Key) void {
-    var file_type = if (core.focusedBuffer()) |fb| fb.metadata.file_type else "";
+    var file_type = if (core.focusedBuffer()) |fb| fb.metadata.buffer_type else "";
     vim_like.state.keys.append(key) catch {
         vim_like.state.keys.len = 0;
         return;

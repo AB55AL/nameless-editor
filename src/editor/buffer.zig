@@ -107,7 +107,7 @@ pub const Point = struct {
 
 pub const MetaData = struct {
     file_path: []u8,
-    file_type: []u8,
+    buffer_type: []u8,
     file_last_mod_time: i128,
     dirty: bool = false,
     history_dirty: bool = false,
@@ -174,12 +174,12 @@ pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8
     var fp = try allocator.dupe(u8, file_path);
 
     const index = std.mem.lastIndexOf(u8, fp, ".");
-    const file_type = if (index) |i| fp[i + 1 ..] else "";
-    var ft = try allocator.dupe(u8, file_type);
+    const buffer_type = if (index) |i| fp[i + 1 ..] else "";
+    var bt = try allocator.dupe(u8, buffer_type);
 
     var metadata = MetaData{
         .file_path = fp,
-        .file_type = ft,
+        .buffer_type = bt,
         .file_last_mod_time = 0,
         .dirty = false,
         .history_dirty = false,
@@ -203,7 +203,7 @@ pub fn deinitNoDestroy(buffer: *Buffer) void {
     buffer.lines.deinit(buffer.allocator);
     buffer.marks.deinit(buffer.allocator);
     buffer.allocator.free(buffer.metadata.file_path);
-    buffer.allocator.free(buffer.metadata.file_type);
+    buffer.allocator.free(buffer.metadata.buffer_type);
 
     buffer.history.deinitTree(buffer.allocator, struct {
         fn f(allocator: std.mem.Allocator, node_data: *HistoryInfo) void {
@@ -944,11 +944,11 @@ fn updateIndexDelete(to_update: Index, change_index: Index, deletion_len: u64) I
 ////////////////////////////////////////////////////////////////////////////////
 // Metadata setters
 ////////////////////////////////////////////////////////////////////////////////
-pub fn setFileType(buffer: *Buffer, new_ft: []const u8) !void {
-    var file_type = try buffer.allocator.alloc(u8, new_ft.len);
-    std.mem.copy(u8, file_type, new_ft);
-    buffer.allocator.free(buffer.metadata.file_type);
-    buffer.metadata.file_type = file_type;
+pub fn setBufferType(buffer: *Buffer, new_bt: []const u8) !void {
+    var buffer_type = try buffer.allocator.alloc(u8, new_bt.len);
+    std.mem.copy(u8, buffer_type, new_bt);
+    buffer.allocator.free(buffer.metadata.buffer_type);
+    buffer.metadata.buffer_type = buffer_type;
 }
 
 pub fn setFilePath(buffer: *Buffer, new_fp: []const u8) !void {

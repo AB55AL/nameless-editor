@@ -68,7 +68,7 @@ pub const TreeSitterData = struct {
         var self = @ptrCast(*TreeSitterData, @alignCast(@alignOf(*TreeSitterData), ptr));
         const handle = bhandle orelse return;
         var tree = self.trees.get(handle) orelse return;
-        var parser = self.parsers.get(buffer.metadata.file_type) orelse return;
+        var parser = self.parsers.get(buffer.metadata.buffer_type) orelse return;
 
         var input = ts.TSInput{
             .encoding = ts.TSInputEncodingUTF8,
@@ -149,7 +149,7 @@ pub const TreeSitterData = struct {
 
             // TODO: Create query and tree instead of returning an empty slice
             var tree = tree_sitter.trees.get(buffer_window.bhandle);
-            var query_data = tree_sitter.queries.get(buffer.metadata.file_type, "highlight") orelse return &.{};
+            var query_data = tree_sitter.queries.get(buffer.metadata.buffer_type, "highlight") orelse return &.{};
 
             var root = ts.ts_tree_root_node(tree);
             if (ts.ts_node_is_null(root)) return &.{};
@@ -176,8 +176,8 @@ pub const TreeSitterData = struct {
                     const slice = ts.ts_query_capture_name_for_id(query_data.query, cap.index, &len);
                     const name = slice[0..len];
 
-                    const active_theme = tree_sitter.active_themes.get(buffer.metadata.file_type) orelse "";
-                    const theme = tree_sitter.themes.get(buffer.metadata.file_type, active_theme);
+                    const active_theme = tree_sitter.active_themes.get(buffer.metadata.buffer_type) orelse "";
+                    const theme = tree_sitter.themes.get(buffer.metadata.buffer_type, active_theme);
                     const color = if (theme) |th| th.get(name) orelse 0xFFFFFFFF else 0xFFFFFFFF;
 
                     var range = bufferRange(si, ei);

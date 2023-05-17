@@ -210,7 +210,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
     _ = imgui.beginChild("bufferText", .{ .border = false, .flags = child_flags });
     defer imgui.endChild();
 
-    var displayer = gs.buffer_displayers.get(buffer.metadata.file_type);
+    var displayer = gs.buffer_displayers.get(buffer.metadata.buffer_type);
     var display_info: []RowInfo = if (displayer) |dis|
         try dis.get(arena, buffer_window, buffer, 0)
     else

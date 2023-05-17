@@ -244,7 +244,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             defer imgui.endTabItem();
             imgui.text("Handle: {}", .{selected_bhandle.handle});
             imgui.text("File path: {s}", .{buffer.metadata.file_path});
-            imgui.text("File type: {s}", .{buffer.metadata.file_type});
+            imgui.text("Buffer type: {s}", .{buffer.metadata.buffer_type});
             imgui.text("Dirty: {}", .{buffer.metadata.dirty});
             imgui.text("Dirty history: {}", .{buffer.metadata.history_dirty});
             imgui.text("Last mod time: {}", .{buffer.metadata.file_last_mod_time});
@@ -345,7 +345,7 @@ pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.Buffe
 
         const static_buf_len = std.mem.len(@as([*c]u8, &static.buf));
         const static_query_name_len = std.mem.len(@as([*c]u8, &static.global_query_name));
-        var global_query_data = core.tree_sitter.getQuery(buffer.metadata.file_type, static.global_query_name[0..static_query_name_len]);
+        var global_query_data = core.tree_sitter.getQuery(buffer.metadata.buffer_type, static.global_query_name[0..static_query_name_len]);
         var query_data: core.TreeSitterData.QueryData = if (global_query_data != null and static_buf_len == 0) global_query_data.? else blk: {
             var error_offset: u32 = 0;
             var error_type: u32 = 0;
