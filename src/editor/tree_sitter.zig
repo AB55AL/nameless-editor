@@ -155,6 +155,7 @@ pub const TreeSitterData = struct {
             if (ts.ts_node_is_null(root)) return &.{};
 
             var qc = ts.ts_query_cursor_new();
+            defer ts.ts_query_cursor_delete(qc);
             const start_byte = @intCast(u32, buffer.indexOfFirstByteAtRow(buffer_window.first_visiable_row));
             const end_byte = @intCast(u32, buffer.size());
             ts.ts_query_cursor_set_byte_range(qc, start_byte, end_byte);

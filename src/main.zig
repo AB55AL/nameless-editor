@@ -33,6 +33,7 @@ pub fn main() !void {
     defer input_layer.deinit();
 
     _ = glfw.init(.{});
+    defer glfw.terminate();
     var window = glfw.Window.create(800, 800, "Thabit", null, null, .{}).?;
     defer window.destroy();
 

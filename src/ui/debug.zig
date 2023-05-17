@@ -358,10 +358,19 @@ pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.Buffe
             };
         };
 
-        imgui.text("{s}", .{ts.ts_node_string(root)});
+        defer if (query_data.query != null and global_query_data == null)
+            ts.ts_query_delete(query_data.query);
+
+        {
+            const string = ts.ts_node_string(root);
+            imgui.text("{s}", .{string});
+            std.heap.c_allocator.destroy(string);
+        }
 
         if (query_data.error_type == ts.TSQueryErrorNone) {
             var qc = ts.ts_query_cursor_new();
+            defer ts.ts_query_cursor_delete(qc);
+
             ts.ts_query_cursor_set_point_range(qc, start, end);
 
             var query = query_data.query;
