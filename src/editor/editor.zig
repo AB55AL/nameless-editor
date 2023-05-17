@@ -318,8 +318,9 @@ pub fn addCommand(command: []const u8, comptime fn_ptr: anytype, description: []
 // String Storage
 
 pub fn stringStorageGetOrPut(string: []const u8) ![]const u8 {
+    const allocator = gs().string_storage.allocator;
     var gop = try gs().string_storage.getOrPut(string);
-    if (!gop.found_existing) gop.key_ptr.* = try utils.newSlice(gs().string_storage.allocator, string);
+    if (!gop.found_existing) gop.key_ptr.* = try allocator.dupe(u8, string);
     return gop.key_ptr.*;
 }
 

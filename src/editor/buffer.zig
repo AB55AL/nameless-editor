@@ -171,11 +171,11 @@ marks: std.AutoArrayHashMapUnmanaged(u32, Index) = .{},
 bhandle: ?BufferHandle,
 
 pub fn init(allocator: std.mem.Allocator, file_path: []const u8, buf: []const u8, bhandle: ?BufferHandle) !Buffer {
-    var fp = try utils.newSlice(allocator, file_path);
+    var fp = try allocator.dupe(u8, file_path);
 
     const index = std.mem.lastIndexOf(u8, fp, ".");
     const file_type = if (index) |i| fp[i + 1 ..] else "";
-    var ft = try utils.newSlice(allocator, file_type);
+    var ft = try allocator.dupe(u8, file_type);
 
     var metadata = MetaData{
         .file_path = fp,
