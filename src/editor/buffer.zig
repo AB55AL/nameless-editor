@@ -229,7 +229,7 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
     var iter = buffer.marks.iterator();
     while (iter.next()) |kv| kv.value_ptr.* = updateIndexInsert(kv.value_ptr.*, index, string.len);
 
-    if (globals.globals != null) {
+    if (!builtin.is_test) {
         const change = Change{ .start_index = index, .start_point = .{}, .delete_len = 0, .inserted_len = string.len };
         core.gs().hooks.dispatch("after_insert", .{ buffer, buffer.bhandle, change });
     }
@@ -252,7 +252,7 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
     var iter = buffer.marks.iterator();
     while (iter.next()) |kv| kv.value_ptr.* = updateIndexDelete(kv.value_ptr.*, start, deletion_len);
 
-    if (globals.globals != null) {
+    if (!builtin.is_test) {
         const change = Change{ .start_index = start, .start_point = .{}, .delete_len = deletion_len, .inserted_len = 0 };
         core.gs().hooks.dispatch("after_delete", .{ buffer, buffer.bhandle, change });
     }
