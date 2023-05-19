@@ -167,11 +167,9 @@ pub const TreeSitterData = struct {
 
                 var captures = match.captures[0..match.capture_count];
                 for (captures) |cap| {
-                    var sp = ts.ts_node_start_point(cap.node);
-                    var ep = ts.ts_node_end_point(cap.node);
-                    _ = ep;
                     var si = ts.ts_node_start_byte(cap.node);
                     var ei = ts.ts_node_end_byte(cap.node);
+                    const start_row = buffer.rowOfIndex(si).row;
 
                     var len: u32 = 0;
                     const slice = ts.ts_query_capture_name_for_id(query_data.query, cap.index, &len);
@@ -182,7 +180,7 @@ pub const TreeSitterData = struct {
                     const color = if (theme) |th| th.get(name) orelse 0xFFFFFFFF else 0xFFFFFFFF;
 
                     var range = bufferRange(si, ei);
-                    var range_set = try getOrCreateRangeSet(&rows_info, sp.row + 1); // offset to be 1-based
+                    var range_set = try getOrCreateRangeSet(&rows_info, start_row);
                     const exists = range_set.get(range);
                     if (exists == null and !partiallyOverlaps(range, range_set)) {
                         var v = core.BufferDisplayer.ColorRange{ .start = buffer.offsetIndexToLine(si), .end = buffer.offsetIndexToLine(ei), .color = color };
