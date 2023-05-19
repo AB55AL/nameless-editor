@@ -231,7 +231,7 @@ pub fn insertAt(buffer: *Buffer, index: u64, string: []const u8) !void {
 
     if (globals.globals != null) {
         const change = Change{ .start_index = index, .start_point = .{}, .delete_len = 0, .inserted_len = string.len };
-        core.gs().hooks.dispatch(.after_insert, .{ buffer, buffer.bhandle, change });
+        core.gs().hooks.dispatch("after_insert", .{ buffer, buffer.bhandle, change });
     }
 }
 
@@ -254,7 +254,7 @@ pub fn deleteRange(buffer: *Buffer, start: u64, end: u64) !void {
 
     if (globals.globals != null) {
         const change = Change{ .start_index = start, .start_point = .{}, .delete_len = deletion_len, .inserted_len = 0 };
-        core.gs().hooks.dispatch(.after_delete, .{ buffer, buffer.bhandle, change });
+        core.gs().hooks.dispatch("after_delete", .{ buffer, buffer.bhandle, change });
     }
 }
 

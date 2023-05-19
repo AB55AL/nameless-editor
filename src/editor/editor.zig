@@ -104,7 +104,7 @@ pub fn createBuffer(file_path: []const u8) !BufferHandle {
     gs().buffers.putAssumeCapacity(handle, buffer);
 
     var buffer_ptr = gs().buffers.getPtr(handle).?;
-    gs().hooks.dispatch(.buffer_created, .{ buffer_ptr, handle });
+    gs().hooks.dispatch("buffer_created", .{ buffer_ptr, handle });
     return handle;
 }
 

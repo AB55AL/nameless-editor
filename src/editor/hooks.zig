@@ -6,20 +6,8 @@ const Buffer = @import("buffer.zig");
 const untils = @import("../utils.zig");
 const BufferHandle = @import("../core.zig").BufferHandle;
 
-pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
+pub fn GenerateHooks(comptime Interfaces: type) type {
     const interfaces = std.meta.fields(Interfaces);
-    const enums = std.meta.fields(KindEnum);
-
-    if (interfaces.len != enums.len) @compileError("Interfaces And Enums must be of the same length");
-
-    outer_loop: for (enums) |e| {
-        for (interfaces) |i| {
-            if (std.mem.eql(u8, e.name, i.name))
-                continue :outer_loop;
-        }
-
-        @compileError("enum '" ++ e.name ++ "' Doesn't exist in " ++ @typeName(Interfaces));
-    }
 
     for (interfaces) |i| {
         if (@typeInfo(i.type) != .Struct) @compileError("Interfaces must be a Struct");
@@ -38,9 +26,8 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
         const StructField = std.builtin.Type.StructField;
         var fields: []const StructField = &[_]StructField{};
 
-        var ints: Interfaces = undefined;
-        for (std.meta.fields(KindEnum)) |field| {
-            const IType = @TypeOf(@field(ints, field.name));
+        for (std.meta.fields(Interfaces)) |field| {
+            const IType = field.type;
             const Data = ArrayListUnmanaged(IType);
             fields = fields ++ &[_]StructField{.{
                 .name = field.name,
@@ -74,54 +61,42 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
                 @field(self.sets, field.name).deinit(self.allocator);
         }
 
-        pub fn attach(self: *Self, comptime kind: KindEnum, interface: anytype) !void {
+        pub fn attach(self: *Self, comptime kind: []const u8, interface: anytype) !void {
+            comptime verifyKind(kind);
             if (self.exists(kind, interface)) return;
-            try @field(self.sets, fieldName(kind)).append(self.allocator, interface); // an error here means the *caller* has provided the wrong interface type
+            try @field(self.sets, kind).append(self.allocator, interface); // an error here means the *caller* has provided the wrong interface type
         }
 
-        pub fn detach(self: *Self, comptime kind: KindEnum, function: anytype) void {
-            _ = @field(self.sets, fieldName(kind)).swapRemove(function);
+        pub fn detach(self: *Self, comptime kind: []const u8, function: anytype) void {
+            comptime verifyKind(kind);
+            _ = @field(self.sets, kind).swapRemove(function);
         }
 
-        pub fn dispatch(self: *Self, comptime kind: KindEnum, args: anytype) void {
-            for ((@field(self.sets, fieldName(kind))).items) |interface|
+        pub fn dispatch(self: *Self, comptime kind: []const u8, args: anytype) void {
+            comptime verifyKind(kind);
+            for ((@field(self.sets, kind)).items) |interface|
                 @call(.never_inline, @field(interface, "call"), args); // an error here means the *caller* has provided the wrong function args
         }
 
-        pub fn createAndAttach(self: *Self, comptime kind: KindEnum, ptr: anytype, call: anytype) !interfaceType(kind) {
+        pub fn createAndAttach(self: *Self, comptime kind: []const u8, ptr: anytype, call: anytype) !void {
+            comptime verifyKind(kind);
             var int = createInterface(kind, ptr, call);
             try self.attach(kind, int);
-            return int;
         }
 
-        fn exists(self: *Self, comptime kind: KindEnum, interface: anytype) bool {
-            for ((@field(self.sets, fieldName(kind))).items) |inter|
-                if (std.meta.eql(inter, interface)) return true;
-
-            return false;
-        }
-
-        fn fieldName(comptime kind: KindEnum) []const u8 {
-            const fields = std.meta.fields(KindEnum);
-            inline for (fields) |field|
-                if (field.value == @enumToInt(kind)) return field.name;
-
-            unreachable;
-        }
-
-        pub fn createInterface(comptime kind: KindEnum, ptr: anytype, call: anytype) interfaceType(kind) {
+        pub fn createInterface(comptime kind: []const u8, ptr: anytype, call: anytype) interfaceType(kind) {
+            comptime verifyKind(kind);
             return interfaceType(kind){
                 .ptr = @ptrCast(*anyopaque, @alignCast(1, ptr)),
                 .call_fn = call,
             };
         }
 
-        pub fn interfaceType(comptime kind: KindEnum) type {
-            const kind_name = fieldName(kind);
-
+        pub fn interfaceType(comptime kind: []const u8) type {
+            comptime verifyKind(kind);
             const fields = std.meta.fields(GeneratedSets);
             inline for (fields) |field| {
-                if (std.mem.eql(u8, field.name, kind_name)) {
+                if (std.mem.eql(u8, field.name, kind)) {
                     //
                     const ArrayList = @typeInfo(field.type).Struct;
                     for (ArrayList.fields) |af| {
@@ -137,11 +112,23 @@ pub fn GenerateHooks(comptime KindEnum: type, comptime Interfaces: type) type {
 
             unreachable;
         }
+
+        fn exists(self: *Self, comptime kind: []const u8, interface: anytype) bool {
+            for ((@field(self.sets, kind)).items) |inter|
+                if (std.meta.eql(inter, interface)) return true;
+
+            return false;
+        }
+
+        fn verifyKind(comptime kind: []const u8) void {
+            if (!@hasField(GeneratedSets, kind))
+                @compileError("Hook kind '" ++ kind ++ "' does not exist");
+        }
     };
 }
 
-pub const EditorHooks = GenerateHooks(Kind, EditorInterfaces);
-pub const EditorInterfaces = struct {
+pub const EditorHooks = GenerateHooks(EditorHooksInterfaces);
+pub const EditorHooksInterfaces = struct {
     buffer_created: BufferCreated,
     after_insert: Change,
     after_delete: Change,
@@ -161,9 +148,4 @@ pub const EditorInterfaces = struct {
             self.call_fn(self.ptr, buffer, bhandle);
         }
     };
-};
-const Kind = enum {
-    after_insert,
-    buffer_created,
-    after_delete,
 };

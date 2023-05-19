@@ -88,8 +88,8 @@ pub const TreeSitterData = struct {
     }
 
     pub fn hookUpToEditorHooks(self: *TreeSitterData, hooks: *core.hooks.EditorHooks) void {
-        _ = hooks.createAndAttach(.after_insert, self, updateTree) catch return;
-        _ = hooks.createAndAttach(.after_delete, self, updateTree) catch return;
+        hooks.createAndAttach("after_insert", self, updateTree) catch return;
+        hooks.createAndAttach("after_delete", self, updateTree) catch return;
     }
 
     pub fn read(payload: ?*anyopaque, index: u32, pos: ts.TSPoint, bytes_read: [*c]u32) callconv(.C) [*c]const u8 {
