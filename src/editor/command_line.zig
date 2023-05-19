@@ -65,7 +65,7 @@ pub const CommandLine = struct {
     open: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, cli_bhandle: editor.BufferHandle) CommandLine {
-        const bw = editor.BufferWindow.init(cli_bhandle, 1, .up, 0);
+        const bw = editor.BufferWindow.init(cli_bhandle, 0, .up, 0);
 
         var cli = CommandLine{
             .bhandle = cli_bhandle,

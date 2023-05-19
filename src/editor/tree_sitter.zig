@@ -108,7 +108,7 @@ pub const TreeSitterData = struct {
     }
 
     pub fn toTSPoint(point: core.Buffer.Point) ts.TSPoint {
-        return .{ .row = @truncate(u32, point.row - 1), .column = @truncate(u32, point.col - 1) };
+        return .{ .row = @truncate(u32, point.row), .column = @truncate(u32, point.col) };
     }
 
     pub fn toTSInputEdit(buffer: *core.Buffer, change: core.Buffer.Change) ts.TSInputEdit {

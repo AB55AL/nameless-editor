@@ -50,6 +50,9 @@ pub fn main() !void {
     if (options.user_config_loaded) try user.init();
     defer if (options.user_config_loaded) user.deinit();
 
+    // var bhandle = try core.openBufferFP("src/main.zig", .{ .dir = .right });
+    // _ = bhandle;
+
     var timer = try std.time.Timer.start();
     while (!window.shouldClose()) {
         defer {

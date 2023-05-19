@@ -301,7 +301,7 @@ pub fn inspectBuffers(arena: std.mem.Allocator) void {
             _ = imgui.inputText("Search", .{ .buf = &static.buf });
             const len = std.mem.len(@as([*:0]u8, &static.buf));
 
-            var indices = buffer.search(arena, static.buf[0..len], 1, buffer.lineCount()) catch break :search;
+            var indices = buffer.search(arena, static.buf[0..len], 0, buffer.lineCount() -| 1) catch break :search;
 
             if (indices != null) {
                 for (indices.?) |index| {
@@ -320,7 +320,7 @@ pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.Buffe
     const static = struct {
         var start_row: i32 = 0;
         var start_col: i32 = 0;
-        var end_row: i32 = 1;
+        var end_row: i32 = 0;
         var end_col: i32 = 0;
 
         var buf: [1000:0]u8 = .{0} ** 1000;
@@ -328,9 +328,9 @@ pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.Buffe
     };
 
     _ = imgui.sliderInt("Start row", .{ .v = &static.start_row, .min = 0, .max = @intCast(i32, buffer.lineCount() -| 1) });
-    _ = imgui.sliderInt("Start col", .{ .v = &static.start_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.start_col + 1))) });
-    _ = imgui.sliderInt("End row", .{ .v = &static.end_row, .min = 0, .max = @intCast(i32, buffer.lineCount()) });
-    _ = imgui.sliderInt("End col", .{ .v = &static.end_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.end_row + 1))) });
+    _ = imgui.sliderInt("Start col", .{ .v = &static.start_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.start_row))) });
+    _ = imgui.sliderInt("End row", .{ .v = &static.end_row, .min = 0, .max = @intCast(i32, buffer.lineCount() -| 1) });
+    _ = imgui.sliderInt("End col", .{ .v = &static.end_col, .min = 0, .max = @intCast(i32, buffer.countCodePointsAtRow(@intCast(u32, static.end_row))) });
 
     _ = imgui.inputText("Query", .{ .buf = &static.buf });
     _ = imgui.inputText("Global Query Name", .{ .buf = &static.global_query_name });
@@ -341,7 +341,7 @@ pub fn treeSitter(arena: std.mem.Allocator, buffer: *Buffer, bhandle: core.Buffe
     var root = ts.ts_tree_root_node(tree);
     if (!ts.ts_node_is_null(root)) {
         const start = ts.TSPoint{ .row = @intCast(u32, static.start_row), .column = @intCast(u32, static.start_col) };
-        const end = ts.TSPoint{ .row = @intCast(u32, static.end_row + 2), .column = @intCast(u32, static.end_col) };
+        const end = ts.TSPoint{ .row = @intCast(u32, static.end_row + 1), .column = @intCast(u32, static.end_col) };
 
         const static_buf_len = std.mem.len(@as([*c]u8, &static.buf));
         const static_query_name_len = std.mem.len(@as([*c]u8, &static.global_query_name));

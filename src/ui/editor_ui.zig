@@ -217,7 +217,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         &.{};
 
     const abs_pos = imgui.getCursorScreenPos();
-    for (start_row..end_row + 1, 1..) |row, on_screen_row| {
+    for (start_row..end_row + 1, 0..) |row, on_screen_row| {
         // render text
         const line = getVisibleLine(buffer, &static.buf, row);
 
@@ -242,7 +242,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
         }
 
         const abs_x = abs_pos[0];
-        const abs_y = @intToFloat(f32, on_screen_row) * line_h + abs_pos[1] - line_h;
+        const abs_y = (@intToFloat(f32, on_screen_row) * line_h) + abs_pos[1];
 
         // render selection
         render_selection: {
@@ -264,8 +264,8 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
                     .regular => if (row < selection.end.row) relative_line_end else buffer.getColIndex(selection.end),
                 };
 
-                const size = textLineSize(buffer, line, row, start_index, end_index);
-                const x_offset = if (start_index == 0) 0 else textLineSize(buffer, line, row, 0, start_index)[0];
+                const size = textLineSize(line, start_index, end_index);
+                const x_offset = if (start_index == 0) 0 else textLineSize(line, 0, start_index)[0];
 
                 const x = abs_x + x_offset;
                 dl.addRectFilled(.{
@@ -284,7 +284,7 @@ fn bufferText(buffer_window_node: *BufferWindowNode, arena: std.mem.Allocator, c
                 const offset = if (cursor == buffer.indexOfFirstByteAtRow(row))
                     [2]f32{ 0, 0 }
                 else
-                    textLineSize(buffer, line, row, 0, cursor - buffer.indexOfFirstByteAtRow(row));
+                    textLineSize(line, 0, cursor - buffer.indexOfFirstByteAtRow(row));
 
                 const size = blk: {
                     var slice = buffer.codePointSliceAt(cursor);
@@ -335,9 +335,7 @@ pub fn getVisibleLine(buffer: *Buffer, array_buf: []u8, row: u64) []u8 {
     return array_buf[0..i];
 }
 
-pub fn textLineSize(buffer: *Buffer, line: []const u8, row: u64, index_start: u64, index_end: u64) [2]f32 {
-    _ = row;
-    _ = buffer;
+pub fn textLineSize(line: []const u8, index_start: u64, index_end: u64) [2]f32 {
     const start = index_start;
     const end = index_end;
 

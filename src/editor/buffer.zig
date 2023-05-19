@@ -61,8 +61,8 @@ pub const PointRange = struct {
 pub const Index = u64;
 
 pub const Point = struct {
-    row: u64 = 1,
-    col: u64 = 1,
+    row: u64 = 0,
+    col: u64 = 0,
 
     pub fn min(a: Point, b: Point) Point {
         if (a.row == b.row) {
@@ -87,19 +87,19 @@ pub const Point = struct {
     }
 
     pub fn subRow(point: Point, offset: u64) Point {
-        return .{ .row = std.math.max(1, point.row - offset), .col = point.col };
+        return .{ .row = point.row -| offset, .col = point.col };
     }
 
     pub fn subCol(point: Point, offset: u64) Point {
-        return .{ .row = point.row, .col = std.math.max(1, point.col - offset) };
+        return .{ .row = point.row, .col = point.col -| offset };
     }
 
     pub fn setRow(point: Point, row: u64) Point {
-        return .{ .row = std.math.max(1, row), .col = point.col };
+        return .{ .row = row, .col = point.col };
     }
 
     pub fn setCol(point: Point, col: u64) Point {
-        return .{ .row = point.row, .col = std.math.max(1, col) };
+        return .{ .row = point.row, .col = col };
     }
 };
 
@@ -124,14 +124,15 @@ pub const HistoryInfo = struct {
 
 pub const Selection = struct {
     const Kind = enum { regular, block, line };
-    anchor: Point = .{ .row = 0, .col = 0 }, // 0,0 means no selection
+    anchor: ?Point = null, // 0,0 means no selection
     kind: Kind = .regular,
 
     pub fn get(selection: Selection, cursor: Point) PointRange {
-        var start = selection.anchor.min(cursor);
-        var end = selection.anchor.max(cursor);
-        start.col = max(start.col, 1);
-        end.col = max(end.col, 1);
+        const anchor = selection.anchor orelse return .{ .start = .{}, .end = .{} };
+        var start = anchor.min(cursor);
+        var end = anchor.max(cursor);
+        start.col = start.col;
+        end.col = end.col;
 
         if (selection.kind == .block and end.col < start.col) {
             const temp = start.col;
@@ -143,16 +144,16 @@ pub const Selection = struct {
 
         return switch (selection.kind) {
             .regular, .block => .{ .start = start, .end = end },
-            .line => .{ .start = .{ .row = start.row, .col = 1 }, .end = .{ .row = end.row + 1, .col = 1 } },
+            .line => .{ .start = .{ .row = start.row, .col = 0 }, .end = .{ .row = end.row + 1, .col = 0 } },
         };
     }
 
     pub fn selected(selection: Selection) bool {
-        return !std.meta.eql(selection.anchor, .{ .row = 0, .col = 0 });
+        return selection.anchor != null;
     }
 
     pub fn reset(selection: *Selection) void {
-        selection.anchor = .{ .row = 0, .col = 0 };
+        selection.anchor = null;
     }
 };
 
@@ -316,7 +317,7 @@ pub fn deleteAfterCursor(buffer: *Buffer, index: Index) !void {
 
 pub fn deleteRows(buffer: *Buffer, start_row: u64, end_row: u64) !void {
     assert(start_row <= end_row);
-    assert(end_row <= buffer.lineCount());
+    assert(end_row < buffer.lineCount());
 
     const start_index = buffer.indexOfFirstByteAtRow(start_row);
     const end_index = buffer.indexOfLastByteAtRow(end_row) + 1;
@@ -449,7 +450,6 @@ pub fn search(buffer: *Buffer, allocator: std.mem.Allocator, string: []const u8,
 
 pub fn getLinesBuf(buffer: *Buffer, buf: []u8, first_line: u64, last_line: u64) []u8 {
     utils.assert(last_line >= first_line, "");
-    utils.assert(first_line > 0, "");
     utils.assert(last_line <= buffer.lineCount(), "");
     utils.assert(buf.len >= buffer.lineRangeSize(first_line, last_line), "");
 
@@ -483,15 +483,11 @@ pub fn getLines(buffer: *Buffer, allocator: std.mem.Allocator, first_line: u64, 
 /// Caller owns memory.
 pub fn getAllLines(buffer: *Buffer, allocator: std.mem.Allocator) ![]u8 {
     var lines = try allocator.alloc(u8, buffer.size());
-    return buffer.getLinesBuf(lines, 1, buffer.lineCount());
+    return buffer.getLinesBuf(lines, 0, buffer.lineCount());
 }
 
 pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
-    const row = std.math.min(buffer.lineCount(), rc.row);
-    const col = rc.col;
-    assert(row <= buffer.lineCount());
-    assert(row > 0);
-    assert(col > 0);
+    const row = std.math.min(buffer.lineCount() -| 1, rc.row);
     var index: u64 = buffer.indexOfFirstByteAtRow(row);
 
     var i: u64 = 0;
@@ -501,11 +497,10 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
     outer: while (iter.next()) |string| {
         var j: u64 = 0;
         while (j < string.len) {
+            if (char_count == rc.col) break :outer;
             var byte = string[j];
             var len = unicode.utf8ByteSequenceLength(byte) catch 1;
             char_count += 1;
-
-            if (char_count == rc.col) break :outer;
 
             j += len;
             i += len;
@@ -516,16 +511,12 @@ pub fn getIndex(buffer: *Buffer, rc: Point) u64 {
 }
 
 pub fn indexOfFirstByteAtRow(buffer: *Buffer, arg_row: u64) u64 {
-    const row = utils.bound(arg_row, 1, buffer.lineCount());
+    const row = min(arg_row, buffer.lineCount() -| 1);
 
-    // in the findNodeWithLine() call we subtract 2 from row because
-    // rows in the buffer are 1-based but in buffer.lines they're 0-based so
-    // we subtract 1 and because we use 0 as the index for row 1 because that's
-    // the first byte of the first row we need to subtract another 1.
-    return if (row == 1)
+    return if (row == 0)
         0
     else
-        buffer.lines.tree.findNodeWithLine(&buffer.lines, row - 2).newline_index + 1;
+        buffer.lines.tree.findNodeWithLine(&buffer.lines, row - 1).newline_index + 1;
 }
 
 pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
@@ -534,8 +525,8 @@ pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
         .index = buffer.indexOfFirstByteAtRow(buffer.lineCount()),
     };
 
-    var lower_bound: u64 = 1;
-    var upper_bound: u64 = buffer.lineCount();
+    var lower_bound: u64 = 0;
+    var upper_bound: u64 = buffer.lineCount() -| 1;
     var row = (upper_bound + lower_bound) / 2;
 
     var start: u64 = 0;
@@ -559,8 +550,8 @@ pub fn rowOfIndex(buffer: *Buffer, index: u64) struct { row: u64, index: u64 } {
 }
 
 pub fn indexOfLastByteAtRow(buffer: *Buffer, row: u64) u64 {
-    utils.assert(row <= buffer.lineCount(), "row cannot be greater than the total rows in the buffer");
-    return buffer.lines.tree.findNodeWithLine(&buffer.lines, row -| 1).newline_index;
+    const r = min(row, buffer.lineCount() -| 1);
+    return buffer.lines.tree.findNodeWithLine(&buffer.lines, r).newline_index;
 }
 
 pub fn getLineLength(buffer: *Buffer, row: u64) u64 {
@@ -568,18 +559,16 @@ pub fn getLineLength(buffer: *Buffer, row: u64) u64 {
 }
 
 pub fn getLinesLength(buffer: *Buffer, first_row: u64, last_row: u64) u64 {
-    utils.assert(first_row <= last_row, "first_row must me <= last_row");
     var i = buffer.indexOfFirstByteAtRow(first_row);
     var j = buffer.indexOfFirstByteAtRow(last_row + 1);
-
-    return j - i;
+    return utils.diff(i, j);
 }
 
 pub fn getPoint(buffer: *Buffer, index_: u64) Point {
     const index = min(index_, buffer.size());
     const roi = buffer.rowOfIndex(index);
 
-    var col: u64 = 1;
+    var col: u64 = 0;
     var i: u64 = roi.index;
     while (i < index) {
         const byte = buffer.lines.byteAt(i);
@@ -679,7 +668,7 @@ pub const LineIterator = struct {
 
     pub fn initLines(buffer: *Buffer, first_line: u64, last_line: u64) LineIterator {
         utils.assert(first_line <= last_line, "first_line must be <= last_line");
-        utils.assert(last_line <= buffer.lineCount(), "last_line cannot be greater than the total rows in the buffer");
+        utils.assert(last_line < buffer.lineCount(), "last_line cannot be greater than the total rows in the buffer");
 
         const start = buffer.indexOfFirstByteAtRow(first_line);
         const end = buffer.indexOfLastByteAtRow(last_line) + 1;
@@ -728,7 +717,7 @@ pub const BufferIterator = struct {
 
     pub fn initLines(buffer: *Buffer, first_line: u64, last_line: u64) BufferIterator {
         utils.assert(first_line <= last_line, "first_line must be <= last_line");
-        utils.assert(last_line <= buffer.lineCount(), "last_line cannot be greater than the total rows in the buffer");
+        utils.assert(last_line < buffer.lineCount(), "last_line cannot be greater than the total rows in the buffer");
 
         const start = buffer.indexOfFirstByteAtRow(first_line);
         const end = buffer.indexOfLastByteAtRow(last_line) + 1;
@@ -827,9 +816,9 @@ pub fn moveRelativeColumn(buffer: *Buffer, index: Index, col_offset: i64) Index 
     const col = blk: {
         if (col_offset > 0) {
             const row_size = buffer.countCodePointsAtRow(point.row);
-            break :blk min(row_size, point.col +| abs_offset);
+            break :blk min(row_size -| 1, point.col +| abs_offset);
         } else {
-            break :blk max(1, point.col -| abs_offset);
+            break :blk point.col -| abs_offset;
         }
     };
 
@@ -844,7 +833,7 @@ pub fn moveRelativeRow(buffer: *Buffer, index: Index, row_offset: i64) Index {
     const roi = buffer.rowOfIndex(index);
     const abs_offset = std.math.absCast(row_offset);
     var row = if (row_offset > 0) roi.row +| abs_offset else roi.row -| abs_offset;
-    row = utils.bound(row, 1, buffer.lineCount());
+    row = min(row, buffer.lineCount() -| 1);
 
     return buffer.getIndex(.{ .row = row, .col = point.col });
 }
