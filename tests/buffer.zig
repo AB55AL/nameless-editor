@@ -130,8 +130,8 @@ fn randomUTF8String(size: u64, allocator: std.mem.Allocator) []const u8 {
 }
 
 fn randomVaildIndex(buffer: *Buffer) u64 {
-    var row = random.intRangeAtMost(u64, 1, buffer.lineCount());
-    var col = random.intRangeAtMost(u64, 1, buffer.countCodePointsAtRow(row));
+    var row = random.intRangeAtMost(u64, 0, buffer.lineCount() -| 1);
+    var col = random.intRangeAtMost(u64, 0, buffer.countCodePointsAtRow(row) -| 1);
     var index = buffer.getIndex(.{ .row = row, .col = col });
     return index;
 }
@@ -338,7 +338,7 @@ test "deleteRange()" {
     std.debug.assert(buffer.lines.tree.root.?.parent == null);
     std.debug.assert(buffer.lines.tree.root.?.source == .original);
 
-    try buffer.deleteRangeRC(2, 2, 3, 22);
+    try buffer.deleteRangeRC(1, 1, 2, 21);
 
     const buffer_slice = try buffer.getAllLines(test_allocator);
     defer test_allocator.free(buffer_slice);
@@ -387,23 +387,23 @@ test "deleteRows()" {
     var buffer = try Buffer.init(test_allocator, "", original_text, null);
     defer buffer.deinitNoDestroy();
 
-    try buffer.deleteRows(1, 5);
+    try buffer.deleteRows(0, 4);
     try bufferEql(begin_to_end, &buffer);
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(1, 3);
+    try buffer.deleteRows(0, 2);
     try bufferEql(begin_to_mid, &buffer);
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(2, 4);
+    try buffer.deleteRows(1, 3);
     try bufferEql(mid_to_mid, &buffer);
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(2, 5);
+    try buffer.deleteRows(1, 4);
     try bufferEql(mid_to_end, &buffer);
 
     try buffer.replaceAllWith(original_text);
-    try buffer.deleteRows(1, 1);
+    try buffer.deleteRows(0, 0);
     try bufferEql(same_line, &buffer);
 }
 
