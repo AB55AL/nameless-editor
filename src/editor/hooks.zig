@@ -75,7 +75,7 @@ pub fn GenerateHooks(comptime Interfaces: type) type {
         pub fn dispatch(self: *Self, comptime kind: []const u8, args: anytype) void {
             comptime verifyKind(kind);
             for ((@field(self.sets, kind)).items) |interface|
-                @call(.never_inline, @field(interface, "call"), args); // an error here means the *caller* has provided the wrong function args
+                @call(.auto, interfaceType(kind).call, .{interface} ++ args); // an error here means the *caller* has provided the wrong function args
         }
 
         pub fn createAndAttach(self: *Self, comptime kind: []const u8, ptr: anytype, call: anytype) !void {
